@@ -1,0 +1,159 @@
+import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import { useState } from 'react';
+import * as Clipboard from 'expo-clipboard';
+
+import { COLORS } from '@/lib/constants';
+import type { Invite } from '@/lib/types';
+
+interface InviteCodeCardProps {
+  invite: Invite | null;
+  isLoading?: boolean;
+  onDelete?: () => void;
+}
+
+/**
+ * InviteCodeCard - 초대 코드 표시 카드
+ *
+ * 기능:
+ * - 초대 코드 표시 (큰 글씨)
+ * - 만료일 표시
+ * - 클립보드 복사
+ * - 삭제 기능
+ */
+export function InviteCodeCard({ invite, isLoading, onDelete }: InviteCodeCardProps) {
+  const [copied, setCopied] = useState(false);
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+        <Text style={styles.loadingText}>로딩 중...</Text>
+      </View>
+    );
+  }
+
+  if (!invite) {
+    return null;
+  }
+
+  const handleCopy = async () => {
+    await Clipboard.setStringAsync(invite.code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const formatExpiryDate = (expiresAt: string) => {
+    const date = new Date(expiresAt);
+    const now = new Date();
+    const diffMs = date.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays <= 0) {
+      return '만료됨';
+    } else if (diffDays === 1) {
+      return '내일 만료';
+    } else {
+      return `${diffDays}일 후 만료`;
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.label}>초대 코드</Text>
+
+      <Pressable onPress={handleCopy} style={styles.codeContainer}>
+        <Text style={styles.code}>{invite.code}</Text>
+        <Text style={styles.copyHint}>
+          {copied ? '복사됨!' : '탭하여 복사'}
+        </Text>
+      </Pressable>
+
+      <View style={styles.infoRow}>
+        <Text style={styles.expiryText}>
+          {formatExpiryDate(invite.expires_at)}
+        </Text>
+      </View>
+
+      <Text style={styles.hint}>
+        학생에게 이 코드를 공유하세요.{'\n'}
+        학생이 앱에서 코드를 입력하면 연결됩니다.
+      </Text>
+
+      {onDelete && (
+        <Pressable style={styles.deleteButton} onPress={onDelete}>
+          <Text style={styles.deleteButtonText}>코드 삭제</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    backgroundColor: COLORS.WHITE,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: COLORS.BLACK,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  loadingText: {
+    marginTop: 12,
+    color: COLORS.TEXT_SECONDARY,
+    fontSize: 14,
+  },
+  label: {
+    fontSize: 14,
+    color: COLORS.TEXT_SECONDARY,
+    marginBottom: 8,
+  },
+  codeContainer: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    backgroundColor: COLORS.PRIMARY_LIGHT,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  code: {
+    fontSize: 40,
+    fontFamily: 'Pretendard-Bold',
+    letterSpacing: 6,
+    color: COLORS.PRIMARY,
+  },
+  copyHint: {
+    marginTop: 8,
+    fontSize: 12,
+    color: COLORS.PRIMARY_DARK,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  expiryText: {
+    fontSize: 14,
+    color: COLORS.WARNING,
+    fontFamily: 'Pretendard-Medium',
+  },
+  hint: {
+    fontSize: 14,
+    color: COLORS.TEXT_SECONDARY,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  deleteButton: {
+    marginTop: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  deleteButtonText: {
+    fontSize: 14,
+    color: COLORS.ERROR,
+  },
+});
+
+export default InviteCodeCard;
