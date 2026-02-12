@@ -7,13 +7,14 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '@/lib/constants';
 import { getPracticeResult, PracticeResult } from '@/services/practices';
 import { getUserMessage } from '@/lib/errors';
+import { diffScript } from '@/lib/diff';
 
 export default function PracticeDetailScreen() {
   const { practiceId } = useLocalSearchParams<{ practiceId: string }>();
@@ -88,6 +89,12 @@ export default function PracticeDetailScreen() {
   }
 
   const feedback = result.feedback;
+
+  const scriptDiff = useMemo(
+    () => diffScript(result.script_content, result.transcription || ''),
+    [result.script_content, result.transcription],
+  );
+
   const formatDuration = (sec: number | null) => {
     if (!sec) return '-';
     const m = Math.floor(sec / 60);
@@ -151,12 +158,17 @@ export default function PracticeDetailScreen() {
         </View>
       </View>
 
-      {/* 원본 스크립트 */}
+      {/* 원본 스크립트 (빠뜨린 단어 빨간색 하이라이트) */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>원본 스크립트</Text>
         <View style={[styles.contentBox, { backgroundColor: COLORS.GRAY_100 }]}>
           <Text style={[styles.contentText, { color: COLORS.TEXT_SECONDARY }]}>
-            {result.script_content}
+            {scriptDiff.map((item, i) => (
+              <Text key={i} style={!item.matched ? styles.missedWord : undefined}>
+                {item.word}
+                {i < scriptDiff.length - 1 ? ' ' : ''}
+              </Text>
+            ))}
           </Text>
         </View>
       </View>
@@ -350,6 +362,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: COLORS.TEXT_PRIMARY,
     lineHeight: 22,
+  },
+  missedWord: {
+    color: COLORS.ERROR,
+    backgroundColor: COLORS.ERROR + '15',
   },
   feedbackBox: {
     backgroundColor: COLORS.WARNING + '15',

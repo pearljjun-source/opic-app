@@ -7,12 +7,13 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '@/lib/constants';
 import { getPracticeResult, PracticeResult } from '@/services/practices';
 import { getUserMessage } from '@/lib/errors';
+import { diffScript } from '@/lib/diff';
 
 export default function ResultScreen() {
   const { id, practiceId } = useLocalSearchParams<{ id: string; practiceId: string }>();
@@ -68,6 +69,11 @@ export default function ResultScreen() {
 
   const feedback = result.feedback;
 
+  const scriptDiff = useMemo(
+    () => diffScript(result.script_content, result.transcription || ''),
+    [result.script_content, result.transcription],
+  );
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* 점수 섹션 */}
@@ -102,11 +108,18 @@ export default function ResultScreen() {
         </View>
       </View>
 
-      {/* 원본 스크립트 */}
+      {/* 원본 스크립트 (빠뜨린 단어 빨간색 하이라이트) */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>원본 스크립트</Text>
         <View style={styles.scriptBox}>
-          <Text style={styles.scriptText}>{result.script_content}</Text>
+          <Text style={styles.scriptText}>
+            {scriptDiff.map((item, i) => (
+              <Text key={i} style={!item.matched ? styles.missedWord : undefined}>
+                {item.word}
+                {i < scriptDiff.length - 1 ? ' ' : ''}
+              </Text>
+            ))}
+          </Text>
         </View>
       </View>
 
@@ -327,6 +340,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: COLORS.TEXT_SECONDARY,
     lineHeight: 22,
+  },
+  missedWord: {
+    color: COLORS.ERROR,
+    backgroundColor: COLORS.ERROR + '15',
   },
   feedbackBox: {
     backgroundColor: COLORS.WARNING + '15',

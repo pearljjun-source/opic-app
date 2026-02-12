@@ -292,6 +292,7 @@ export default function ShadowingScreen() {
       <ScrollView
         ref={scrollViewRef}
         style={styles.scriptSection}
+        contentContainerStyle={styles.scriptContentContainer}
         showsVerticalScrollIndicator={false}
         onContentSizeChange={(_, h) => {
           contentHeightRef.current = h;
@@ -455,7 +456,10 @@ const styles = StyleSheet.create({
     margin: 12,
     marginBottom: 8,
     borderRadius: 16,
+  },
+  scriptContentContainer: {
     padding: 16,
+    paddingBottom: 80,
   },
   scriptHeader: {
     flexDirection: 'row',
