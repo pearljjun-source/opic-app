@@ -1,7 +1,19 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Image, View } from 'react-native';
 
 import { COLORS } from '@/lib/constants';
+
+function HeaderLogo() {
+  return (
+    <View style={{ paddingLeft: 16 }}>
+      <Image
+        source={require('@/assets/images/speaky-icon.png')}
+        style={{ width: 32, height: 32, borderRadius: 16 }}
+      />
+    </View>
+  );
+}
 
 export default function StudentTabsLayout() {
   return (
@@ -27,6 +39,7 @@ export default function StudentTabsLayout() {
           fontSize: 20,
           color: COLORS.TEXT_PRIMARY,
         },
+        headerLeft: () => <HeaderLogo />,
       }}
     >
       <Tabs.Screen

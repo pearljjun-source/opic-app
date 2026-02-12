@@ -5,7 +5,15 @@ export default function ClassLayout() {
   const insets = useSafeAreaInsets();
 
   return (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { paddingBottom: insets.bottom } }}>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: {
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+        },
+      }}
+    >
       <Stack.Screen name="create" />
       <Stack.Screen name="[classId]/index" />
       <Stack.Screen name="[classId]/add-members" />
