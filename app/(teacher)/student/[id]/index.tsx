@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -114,6 +115,7 @@ export default function StudentDetailScreen() {
   }, [id]);
 
   // Initial load
+  const isFirstMount = useRef(true);
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
@@ -123,6 +125,19 @@ export default function StudentDetailScreen() {
 
     loadData();
   }, [fetchStudentDetail, fetchTopics, fetchScripts, fetchPractices]);
+
+  // 화면 포커스 시 데이터 재조회 (토픽 배정 등 자식 화면에서 돌아올 때)
+  useFocusEffect(
+    useCallback(() => {
+      if (isFirstMount.current) {
+        isFirstMount.current = false;
+        return;
+      }
+      fetchTopics();
+      fetchScripts();
+      fetchPractices();
+    }, [fetchTopics, fetchScripts, fetchPractices]),
+  );
 
   // Refresh handler
   const handleRefresh = useCallback(async () => {
