@@ -24,6 +24,11 @@ export default function PracticeDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
+  const scriptDiff = useMemo(
+    () => result ? diffScript(result.script_content, result.transcription || '') : [],
+    [result],
+  );
+
   useEffect(() => {
     const load = async () => {
       if (!practiceId) {
@@ -89,11 +94,6 @@ export default function PracticeDetailScreen() {
   }
 
   const feedback = result.feedback;
-
-  const scriptDiff = useMemo(
-    () => diffScript(result.script_content, result.transcription || ''),
-    [result.script_content, result.transcription],
-  );
 
   const formatDuration = (sec: number | null) => {
     if (!sec) return '-';

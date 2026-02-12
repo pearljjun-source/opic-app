@@ -22,6 +22,11 @@ export default function ResultScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const scriptDiff = useMemo(
+    () => result ? diffScript(result.script_content, result.transcription || '') : [],
+    [result],
+  );
+
   useEffect(() => {
     const loadResult = async () => {
       if (!practiceId) {
@@ -68,11 +73,6 @@ export default function ResultScreen() {
   }
 
   const feedback = result.feedback;
-
-  const scriptDiff = useMemo(
-    () => diffScript(result.script_content, result.transcription || ''),
-    [result.script_content, result.transcription],
-  );
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>

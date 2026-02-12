@@ -8,8 +8,9 @@ function HeaderLogo() {
   return (
     <View style={{ paddingLeft: 16 }}>
       <Image
-        source={require('@/assets/images/speaky-icon.png')}
-        style={{ width: 32, height: 32, borderRadius: 16 }}
+        source={require('@/assets/images/speaky-text-logo.png')}
+        style={{ width: 86, height: 28 }}
+        resizeMode="contain"
       />
     </View>
   );
@@ -39,6 +40,7 @@ export default function StudentTabsLayout() {
           fontSize: 20,
           color: COLORS.TEXT_PRIMARY,
         },
+        headerTitle: '',
         headerLeft: () => <HeaderLogo />,
       }}
     >
