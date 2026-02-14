@@ -103,6 +103,37 @@ export const ImageUploadSchema = v.object({
 export type ImageUploadInput = v.InferOutput<typeof ImageUploadSchema>;
 
 // ============================================================================
+// 학원 관리 (Admin)
+// ============================================================================
+
+/** 학원 원장 초대 생성 */
+export const OwnerInviteCreateSchema = v.object({
+  orgName: v.pipe(
+    v.string(),
+    v.trim(),
+    v.minLength(1, '학원 이름을 입력해주세요'),
+    v.maxLength(100, '학원 이름은 100자 이내여야 합니다'),
+  ),
+  expiresInDays: v.optional(
+    v.pipe(
+      v.number(),
+      v.integer('정수만 입력 가능합니다'),
+      v.minValue(1, '최소 1일 이상이어야 합니다'),
+      v.maxValue(90, '최대 90일까지 설정할 수 있습니다'),
+    ),
+  ),
+});
+
+export type OwnerInviteCreateInput = v.InferOutput<typeof OwnerInviteCreateSchema>;
+
+/** 학원 원장 초대 삭제 */
+export const OwnerInviteDeleteSchema = v.object({
+  inviteId: v.pipe(v.string(), v.uuid('유효하지 않은 초대 ID입니다')),
+});
+
+export type OwnerInviteDeleteInput = v.InferOutput<typeof OwnerInviteDeleteSchema>;
+
+// ============================================================================
 // 유틸리티
 // ============================================================================
 

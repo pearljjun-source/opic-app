@@ -61,6 +61,15 @@ export default function AdminTabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="academies"
+        options={{
+          title: '학원',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? 'business' : 'business-outline'} size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="landing"
         options={{
           title: 'Landing',

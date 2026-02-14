@@ -620,7 +620,7 @@ BEGIN
     p_user_id,
     jsonb_build_object('role', v_old_role),
     jsonb_build_object('role', p_new_role),
-    encode(digest(v_content, 'sha256'), 'hex'),
+    encode(extensions.digest(v_content, 'sha256'), 'hex'),
     v_prev_hash
   );
 
@@ -688,7 +688,7 @@ BEGIN
   v_content := 'landing_update|' || v_section_id::text || '|' || COALESCE(v_prev_hash, 'genesis');
 
   INSERT INTO public.admin_audit_log (admin_id, action, resource_type, resource_id, old_value, new_value, content_hash, previous_hash)
-  VALUES (v_caller_id, 'landing_update', 'landing_section', v_section_id, v_old_values, p_updates, encode(digest(v_content, 'sha256'), 'hex'), v_prev_hash);
+  VALUES (v_caller_id, 'landing_update', 'landing_section', v_section_id, v_old_values, p_updates, encode(extensions.digest(v_content, 'sha256'), 'hex'), v_prev_hash);
 
   RETURN jsonb_build_object('success', true, 'section_id', v_section_id);
 END;
@@ -778,7 +778,7 @@ BEGIN
     'landing_item',
     v_item_id,
     p_item,
-    encode(digest(v_content, 'sha256'), 'hex'),
+    encode(extensions.digest(v_content, 'sha256'), 'hex'),
     v_prev_hash
   );
 
@@ -830,7 +830,7 @@ BEGIN
   v_content := 'landing_item_delete|' || p_item_id::text || '|' || COALESCE(v_prev_hash, 'genesis');
 
   INSERT INTO public.admin_audit_log (admin_id, action, resource_type, resource_id, content_hash, previous_hash)
-  VALUES (v_caller_id, 'landing_item_delete', 'landing_item', p_item_id, encode(digest(v_content, 'sha256'), 'hex'), v_prev_hash);
+  VALUES (v_caller_id, 'landing_item_delete', 'landing_item', p_item_id, encode(extensions.digest(v_content, 'sha256'), 'hex'), v_prev_hash);
 
   RETURN jsonb_build_object('success', true);
 END;
@@ -880,7 +880,7 @@ BEGIN
   v_content := 'landing_reorder|' || p_items::text || '|' || COALESCE(v_prev_hash, 'genesis');
 
   INSERT INTO public.admin_audit_log (admin_id, action, resource_type, new_value, content_hash, previous_hash)
-  VALUES (v_caller_id, 'landing_reorder', 'landing_item', p_items, encode(digest(v_content, 'sha256'), 'hex'), v_prev_hash);
+  VALUES (v_caller_id, 'landing_reorder', 'landing_item', p_items, encode(extensions.digest(v_content, 'sha256'), 'hex'), v_prev_hash);
 
   RETURN jsonb_build_object('success', true);
 END;
@@ -1015,7 +1015,7 @@ BEGIN
   v_content := 'plan_update|' || p_plan_id::text || '|' || COALESCE(v_prev_hash, 'genesis');
 
   INSERT INTO public.admin_audit_log (admin_id, action, resource_type, resource_id, old_value, new_value, content_hash, previous_hash)
-  VALUES (v_caller_id, 'plan_update', 'plan', p_plan_id, v_old_values, p_updates, encode(digest(v_content, 'sha256'), 'hex'), v_prev_hash);
+  VALUES (v_caller_id, 'plan_update', 'plan', p_plan_id, v_old_values, p_updates, encode(extensions.digest(v_content, 'sha256'), 'hex'), v_prev_hash);
 
   RETURN jsonb_build_object('success', true, 'plan_id', p_plan_id);
 END;

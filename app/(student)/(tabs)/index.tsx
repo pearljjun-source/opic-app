@@ -108,8 +108,8 @@ export default function StudentDashboard() {
       <View style={styles.container}>
         <EmptyState
           icon="people-outline"
-          title="강사와 연결되지 않았습니다"
-          description="강사에게 받은 초대 코드를 입력하여 연결하세요"
+          title="아직 학원에 소속되지 않았습니다"
+          description="초대 코드를 입력하여 시작하세요"
           actionLabel="초대 코드 입력"
           onAction={() => router.push('/(student)/connect')}
         />

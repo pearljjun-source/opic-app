@@ -38,7 +38,7 @@ export type QuestionType = Database['public']['Enums']['question_type'];
 export type ApiType = Database['public']['Enums']['api_type'];
 
 /** 알림 유형 */
-export type NotificationType = 'practice_completed' | 'teacher_feedback' | 'new_script' | 'student_connected';
+export type NotificationType = 'practice_completed' | 'teacher_feedback' | 'new_script' | 'student_connected' | 'owner_invite_redeemed' | 'teacher_connected';
 
 /** 난이도 레벨 */
 export type DifficultyLevel = 1 | 2 | 3 | 4 | 5 | 6;
@@ -468,6 +468,33 @@ export interface AdminAuditLog {
   content_hash: string;
   previous_hash: string | null;
   created_at: string;
+}
+
+/** 학원 원장 초대 아이템 (admin_list_owner_invites RPC) */
+export interface AdminOwnerInviteItem {
+  id: string;
+  code: string;
+  status: 'pending' | 'used' | 'expired';
+  organization_name: string;
+  expires_at: string;
+  created_at: string;
+  used_by: string | null;
+  used_at: string | null;
+  used_by_name: string | null;
+  used_by_email: string | null;
+  organization_id: string | null;
+}
+
+/** 학원 목록 아이템 (admin_list_organizations RPC) */
+export interface AdminOrganizationItem {
+  id: string;
+  name: string;
+  created_at: string;
+  owner_name: string;
+  owner_email: string;
+  member_count: number;
+  teacher_count: number;
+  student_count: number;
 }
 
 // ============================================================================

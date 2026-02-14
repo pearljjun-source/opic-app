@@ -24,7 +24,7 @@ export default function StudentLayout() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen
         name="connect"
-        options={{ ...headerOptions, title: '강사 연결', contentStyle: safeContentStyle }}
+        options={{ ...headerOptions, title: '초대 코드 입력', contentStyle: safeContentStyle }}
       />
       <Stack.Screen
         name="topics"

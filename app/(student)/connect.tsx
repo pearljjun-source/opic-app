@@ -31,7 +31,11 @@ export default function ConnectScreen() {
       }
       // 조직 멤버십 갱신 → useAuth 라우팅이 올바른 화면으로 이동
       await refreshUser();
-      router.replace('/(student)' as any);
+      if (result.role === 'owner' || result.role === 'teacher') {
+        router.replace('/(teacher)' as any);
+      } else {
+        router.replace('/(student)' as any);
+      }
     } else {
       setError(result.error || '연결에 실패했습니다.');
     }
@@ -41,7 +45,7 @@ export default function ConnectScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.subtitle}>강사에게 받은 초대 코드를 입력하세요.</Text>
+      <Text style={styles.subtitle}>초대 코드를 입력하세요.</Text>
 
       <TextInput
         style={styles.input}
