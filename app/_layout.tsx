@@ -70,6 +70,7 @@ function RootLayoutNav() {
             <Stack.Screen name="test" options={{ title: '컴포넌트 테스트' }} />
             <Stack.Screen name="test-screen-container" options={{ title: 'ScreenContainer 테스트' }} />
             <Stack.Screen name="(auth)" />
+            <Stack.Screen name="(admin)" />
             <Stack.Screen name="(teacher)" />
             <Stack.Screen name="(student)" />
             <Stack.Screen name="+not-found" />
