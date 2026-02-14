@@ -2,8 +2,16 @@
 // OPIc 학습 앱 - 유틸리티 헬퍼 함수
 // ============================================================================
 
-import { APP_CONFIG } from './constants';
-import type { TimerId } from './types';
+import { APP_CONFIG, OPIC_SCORE_THRESHOLDS, OPIC_GRADES, ATTENTION_THRESHOLDS, COLORS } from './constants';
+import type {
+  TimerId,
+  OpicGrade,
+  OpicLevelEstimate,
+  TrendDirection,
+  TeacherStudentListItem,
+  TeacherDashboardStats,
+  AttentionItem,
+} from './types';
 
 // ============================================================================
 // 날짜/시간 포맷팅
@@ -305,6 +313,198 @@ export function isNetworkError(error: unknown): boolean {
     message.includes('connection') ||
     message.includes('timeout')
   );
+}
+
+// ============================================================================
+// OPIc 등급 추정
+// ============================================================================
+
+/**
+ * 평균 점수로 OPIc 등급 추정
+ * OPIC_SCORE_THRESHOLDS 기준으로 매핑 (내림차순 정렬된 배열)
+ */
+export function estimateOpicLevel(avgScore: number | null): OpicLevelEstimate {
+  if (avgScore === null || avgScore === undefined) {
+    return { grade: 'NL', label: '측정 중' };
+  }
+  for (const threshold of OPIC_SCORE_THRESHOLDS) {
+    if (avgScore >= threshold.minScore) {
+      return { grade: threshold.grade, label: threshold.grade };
+    }
+  }
+  return { grade: 'NL', label: 'NL' };
+}
+
+/**
+ * OPIc 등급의 숫자 인덱스 반환 (NL=0, NM=1, ..., AL=8)
+ * 진행률 계산에 사용
+ */
+export function getOpicGradeIndex(grade: OpicGrade): number {
+  const index = OPIC_GRADES.indexOf(grade);
+  return index >= 0 ? index : 0;
+}
+
+/**
+ * 현재 등급에서 목표 등급까지의 진행률 (0~100)
+ * 예: 현재 IM2(5), 목표 IH(7) → (5/7) * 100 = 71%
+ */
+export function getOpicGradeProgress(
+  currentGrade: OpicGrade,
+  targetGrade: OpicGrade | null
+): number {
+  if (!targetGrade) return 0;
+  const currentIndex = getOpicGradeIndex(currentGrade);
+  const targetIndex = getOpicGradeIndex(targetGrade);
+  if (targetIndex <= 0) return 0;
+  if (currentIndex >= targetIndex) return 100;
+  return Math.round((currentIndex / targetIndex) * 100);
+}
+
+/**
+ * OPIc 등급별 색상 반환
+ */
+export function getOpicGradeColor(grade: OpicGrade): string {
+  const index = getOpicGradeIndex(grade);
+  if (index >= 7) return COLORS.SUCCESS;     // IH, AL
+  if (index >= 4) return COLORS.PRIMARY;     // IM1, IM2, IM3
+  if (index >= 3) return COLORS.SECONDARY;   // IL
+  return COLORS.GRAY_400;                    // NL, NM, NH
+}
+
+// ============================================================================
+// 트렌드 비교
+// ============================================================================
+
+/**
+ * 현재 값과 이전 값을 비교해서 트렌드 방향 반환
+ * prev가 null이면 비교 불가 → null 반환
+ */
+export function getTrendDirection(
+  current: number | null,
+  prev: number | null
+): TrendDirection {
+  if (current === null || prev === null) return null;
+  if (current > prev) return 'up';
+  if (current < prev) return 'down';
+  return 'same';
+}
+
+// ============================================================================
+// 강사 대시보드 집계
+// ============================================================================
+
+/**
+ * 학생 목록에서 대시보드 요약 통계 계산 (클라이언트 사이드)
+ */
+export function computeTeacherDashboardStats(
+  students: TeacherStudentListItem[]
+): TeacherDashboardStats {
+  if (students.length === 0) {
+    return {
+      totalStudents: 0,
+      thisWeekPractices: 0,
+      pendingFeedbacks: 0,
+      avgScore: null,
+    };
+  }
+
+  const thisWeekPractices = students.reduce(
+    (sum, s) => sum + (s.this_week_practices ?? 0), 0
+  );
+
+  const pendingFeedbacks = students.reduce(
+    (sum, s) => sum + (s.pending_feedback_count ?? 0), 0
+  );
+
+  // 점수가 있는 학생만 평균 계산
+  const studentsWithScore = students.filter(
+    (s) => s.avg_score !== null && s.avg_score !== undefined
+  );
+  const avgScore = studentsWithScore.length > 0
+    ? Math.round(
+        (studentsWithScore.reduce((sum, s) => sum + (s.avg_score as number), 0)
+          / studentsWithScore.length) * 10
+      ) / 10
+    : null;
+
+  return {
+    totalStudents: students.length,
+    thisWeekPractices,
+    pendingFeedbacks,
+    avgScore,
+  };
+}
+
+/**
+ * 관심 필요 학생 필터링 (클라이언트 사이드 규칙 기반)
+ *
+ * 규칙:
+ * 1. 14일+ 미연습 → danger (빨간색)
+ * 2. 7일+ 미연습 → warning (노란색)
+ * 3. 스크립트 배정 후 연습 0회 → warning
+ */
+export function computeAttentionItems(
+  students: TeacherStudentListItem[]
+): AttentionItem[] {
+  const items: AttentionItem[] = [];
+  const now = new Date();
+
+  for (const student of students) {
+    // 규칙 1, 2: 미연습 일수
+    if (student.last_practice_at) {
+      const lastPractice = new Date(student.last_practice_at);
+      const daysSince = Math.floor(
+        (now.getTime() - lastPractice.getTime()) / (1000 * 60 * 60 * 24)
+      );
+
+      if (daysSince >= ATTENTION_THRESHOLDS.DANGER_INACTIVE_DAYS) {
+        items.push({
+          student,
+          type: 'inactive',
+          level: 'danger',
+          message: `${daysSince}일째 미연습`,
+        });
+        continue; // 한 학생에 대해 가장 심각한 알림만
+      }
+
+      if (daysSince >= ATTENTION_THRESHOLDS.WARNING_INACTIVE_DAYS) {
+        items.push({
+          student,
+          type: 'inactive',
+          level: 'warning',
+          message: `${daysSince}일째 미연습`,
+        });
+        continue;
+      }
+    } else if (student.scripts_count > 0) {
+      // last_practice_at이 null이고 스크립트가 있는 경우 → 한 번도 연습 안 함
+      items.push({
+        student,
+        type: 'no_practice',
+        level: 'warning',
+        message: '스크립트 배정 후 연습 없음',
+      });
+      continue;
+    }
+
+    // 규칙 3: 스크립트 있는데 연습 0회 (last_practice_at이 있어도 practices_count가 0인 경우는 논리적 불가)
+    if (student.scripts_count > 0 && student.practices_count === 0 && student.last_practice_at) {
+      items.push({
+        student,
+        type: 'no_practice',
+        level: 'warning',
+        message: '스크립트 배정 후 연습 없음',
+      });
+    }
+  }
+
+  // danger 먼저, 같은 레벨이면 이름순
+  items.sort((a, b) => {
+    if (a.level !== b.level) return a.level === 'danger' ? -1 : 1;
+    return (a.student.name ?? '').localeCompare(b.student.name ?? '');
+  });
+
+  return items;
 }
 
 // ============================================================================

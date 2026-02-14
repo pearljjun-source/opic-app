@@ -41,6 +41,7 @@ export default function ShadowingScreen() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const contentHeightRef = useRef(0);
+  const scrollViewHeightRef = useRef(0);
 
   // 문장 분리
   const sentences = useMemo(() => {
@@ -84,14 +85,15 @@ export default function ShadowingScreen() {
     };
   }, []);
 
-  // 현재 문장 변경 시 자동 스크롤
+  // 현재 문장 변경 시 자동 스크롤 (화면 중앙에 활성 문장 위치)
   useEffect(() => {
     if (activeSentence < 0 || !contentHeightRef.current) return;
+    const visibleHeight = scrollViewHeightRef.current || 300;
     const headerOffset = 50;
     const textHeight = contentHeightRef.current - headerOffset;
     const ratio = activeSentence > 0 ? cumulativeRatios[activeSentence - 1] : 0;
     const y = headerOffset + ratio * textHeight;
-    scrollViewRef.current?.scrollTo({ y: Math.max(0, y - 30), animated: true });
+    scrollViewRef.current?.scrollTo({ y: Math.max(0, y - visibleHeight / 2), animated: true });
   }, [activeSentence, cumulativeRatios]);
 
   // 재생 상태 콜백 (문장 하이라이트 동기화)
@@ -294,6 +296,9 @@ export default function ShadowingScreen() {
         style={styles.scriptSection}
         contentContainerStyle={styles.scriptContentContainer}
         showsVerticalScrollIndicator={false}
+        onLayout={(e) => {
+          scrollViewHeightRef.current = e.nativeEvent.layout.height;
+        }}
         onContentSizeChange={(_, h) => {
           contentHeightRef.current = h;
         }}

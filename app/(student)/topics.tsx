@@ -2,18 +2,19 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
+  ScrollView,
   Pressable,
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS } from '@/lib/constants';
+import { COLORS, TOPIC_CATEGORY_LABELS } from '@/lib/constants';
 import { supabase } from '@/lib/supabase';
 import { getTopics, TopicListItem } from '@/services/scripts';
+import type { TopicCategory } from '@/lib/types';
 
 export default function TopicsScreen() {
   const [allTopics, setAllTopics] = useState<TopicListItem[]>([]);
@@ -47,6 +48,25 @@ export default function TopicsScreen() {
 
     load();
   }, []);
+
+  // 카테고리별 그룹핑
+  const groupedTopics = useMemo(() => {
+    const groups: { category: TopicCategory; label: string; topics: TopicListItem[] }[] = [];
+    const categoryOrder: TopicCategory[] = ['survey', 'unexpected'];
+
+    for (const cat of categoryOrder) {
+      const filtered = allTopics.filter((t) => t.category === cat);
+      if (filtered.length > 0) {
+        groups.push({
+          category: cat,
+          label: TOPIC_CATEGORY_LABELS[cat],
+          topics: filtered,
+        });
+      }
+    }
+
+    return groups;
+  }, [allTopics]);
 
   const toggleTopic = (topicId: string) => {
     setSelectedTopics((prev) =>
@@ -114,34 +134,51 @@ export default function TopicsScreen() {
         {selectedTopics.length}개 선택됨
       </Text>
 
-      <FlatList
-        data={allTopics}
-        keyExtractor={(item) => item.id}
-        numColumns={2}
+      <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={styles.listContent}
-        renderItem={({ item }) => {
-          const isSelected = selectedTopics.includes(item.id);
-          return (
-            <Pressable
-              style={[styles.topicCard, isSelected && styles.topicCardSelected]}
-              onPress={() => toggleTopic(item.id)}
-            >
-              {isSelected && (
-                <View style={styles.checkBadge}>
-                  <Ionicons name="checkmark" size={14} color={COLORS.WHITE} />
-                </View>
-              )}
-              <Text style={styles.icon}>{item.icon || '📝'}</Text>
-              <Text style={[styles.topicName, isSelected && styles.topicNameSelected]}>
-                {item.name_ko}
-              </Text>
-              {item.name_en && (
-                <Text style={styles.topicNameEn}>{item.name_en}</Text>
-              )}
-            </Pressable>
-          );
-        }}
-      />
+        showsVerticalScrollIndicator={false}
+      >
+        {groupedTopics.map((group) => (
+          <View key={group.category} style={styles.categorySection}>
+            <Text style={styles.categoryTitle}>{group.label} ({group.topics.length})</Text>
+            <View style={styles.topicGrid}>
+              {group.topics.map((item) => {
+                const isSelected = selectedTopics.includes(item.id);
+                return (
+                  <Pressable
+                    key={item.id}
+                    style={[styles.topicCard, isSelected && styles.topicCardSelected]}
+                    onPress={() => toggleTopic(item.id)}
+                  >
+                    {isSelected && (
+                      <View style={styles.checkBadge}>
+                        <Ionicons name="checkmark" size={14} color={COLORS.WHITE} />
+                      </View>
+                    )}
+                    <View style={styles.iconContainer}>
+                      <Ionicons
+                        name={
+                          (item.icon as keyof typeof Ionicons.glyphMap) ||
+                          'document-text-outline'
+                        }
+                        size={24}
+                        color={isSelected ? COLORS.PRIMARY : COLORS.GRAY_500}
+                      />
+                    </View>
+                    <Text style={[styles.topicName, isSelected && styles.topicNameSelected]}>
+                      {item.name_ko}
+                    </Text>
+                    {item.name_en && (
+                      <Text style={styles.topicNameEn}>{item.name_en}</Text>
+                    )}
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ))}
+      </ScrollView>
 
       <Pressable
         style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
@@ -184,9 +221,22 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: 16,
   },
+  categorySection: {
+    marginBottom: 16,
+  },
+  categoryTitle: {
+    fontSize: 15,
+    fontFamily: 'Pretendard-SemiBold',
+    color: COLORS.TEXT_PRIMARY,
+    marginBottom: 10,
+  },
+  topicGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
   topicCard: {
-    flex: 1,
-    margin: 4,
+    width: '48%',
     padding: 16,
     backgroundColor: COLORS.WHITE,
     borderRadius: 16,
@@ -209,8 +259,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  icon: {
-    fontSize: 32,
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: COLORS.GRAY_100,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 8,
   },
   topicName: {

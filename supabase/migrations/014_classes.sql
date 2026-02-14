@@ -471,7 +471,13 @@ BEGIN
   ), '[]'::jsonb) INTO v_members
   FROM public.class_members cm
   INNER JOIN public.users u ON u.id = cm.student_id AND u.deleted_at IS NULL
-  WHERE cm.class_id = p_class_id AND cm.deleted_at IS NULL;
+  WHERE cm.class_id = p_class_id AND cm.deleted_at IS NULL
+    AND EXISTS (
+      SELECT 1 FROM public.teacher_student ts
+      WHERE ts.student_id = cm.student_id
+        AND ts.teacher_id = v_teacher_id
+        AND ts.deleted_at IS NULL
+    );
 
   RETURN jsonb_build_object(
     'success', true,

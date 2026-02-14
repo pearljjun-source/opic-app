@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import type { Database } from '@/lib/database.types';
-import type { AIFeedback } from '@/lib/types';
-import { AppError, classifyError } from '@/lib/errors';
+import type { AIFeedback, StudentPracticeStats } from '@/lib/types';
+import { AppError, classifyError, classifyRpcError } from '@/lib/errors';
 
 // ============================================================================
 // Types
@@ -269,6 +269,71 @@ export async function getMyPractices(): Promise<{
   return { data: practices, error: null };
 }
 
+/**
+ * 내 연습 통계 조회 (학생용)
+ * get_student_practice_stats RPC를 본인 ID로 호출
+ */
+export async function getMyPracticeStats(): Promise<{
+  data: StudentPracticeStats | null;
+  error: Error | null;
+}> {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { data: null, error: new AppError('AUTH_REQUIRED') };
+  }
+
+  const { data, error } = await supabase.rpc('get_student_practice_stats', {
+    p_student_id: user.id,
+  });
+
+  if (error) {
+    return { data: null, error: classifyError(error, { resource: 'practice' }) };
+  }
+
+  const result = data as unknown as StudentPracticeStats & { error?: string };
+  if (result?.error) {
+    return { data: null, error: classifyRpcError(result.error, { resource: 'practice' }) };
+  }
+
+  return { data: result, error: null };
+}
+
+/**
+ * 내 연습 스트릭 조회 (학생용)
+ * get_practice_streak RPC를 본인 ID로 호출
+ *
+ */
+export async function getMyStreak(): Promise<{
+  data: { current_streak: number } | null;
+  error: Error | null;
+}> {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { data: null, error: new AppError('AUTH_REQUIRED') };
+  }
+
+  const { data, error } = await supabase.rpc(
+    'get_practice_streak',
+    { p_student_id: user.id }
+  );
+
+  if (error) {
+    return { data: null, error: classifyError(error, { resource: 'practice' }) };
+  }
+
+  const result = data as { current_streak?: number; error?: string } | null;
+  if (result?.error) {
+    return { data: null, error: classifyRpcError(result.error, { resource: 'practice' }) };
+  }
+
+  return {
+    data: { current_streak: result?.current_streak ?? 0 },
+    error: null,
+  };
+}
+
 // ============================================================================
 // 강사용 함수
 // ============================================================================
@@ -482,10 +547,12 @@ export async function transcribeAudio(audioPath: string): Promise<{
 
 /**
  * AI 피드백 생성 (Claude Haiku via Edge Function)
+ * @param questionType - 질문 유형 (describe, routine 등) — 선택적 컨텍스트
  */
 export async function generateFeedback(
   scriptContent: string,
-  transcription: string
+  transcription: string,
+  questionType?: string | null,
 ): Promise<{
   data: {
     score: number;
@@ -496,7 +563,7 @@ export async function generateFeedback(
 }> {
   try {
     const { data, error } = await supabase.functions.invoke('claude-feedback', {
-      body: { scriptContent, transcription },
+      body: { scriptContent, transcription, questionType: questionType || undefined },
     });
 
     if (error) {

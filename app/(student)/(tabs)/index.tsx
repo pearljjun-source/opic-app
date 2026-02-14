@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, FlatList, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, ScrollView, RefreshControl } from 'react-native';
 import { useState, useEffect, useCallback } from 'react';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,14 +6,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '@/lib/constants';
 import { getMyTeacher, ConnectedTeacher } from '@/services/connection';
 import { getMyTopicsWithProgress } from '@/services/topics';
+import { getMyPracticeStats, getMyStreak } from '@/services/practices';
 import { TopicCard } from '@/components/student/TopicCard';
+import { CompactStatsStrip } from '@/components/student/CompactStatsStrip';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { getUserMessage } from '@/lib/errors';
-import type { StudentTopicWithProgress } from '@/lib/types';
+import type { StudentTopicWithProgress, StudentPracticeStats } from '@/lib/types';
 
 export default function StudentDashboard() {
   const [teacher, setTeacher] = useState<ConnectedTeacher | null>(null);
   const [topics, setTopics] = useState<StudentTopicWithProgress[]>([]);
+  const [practiceStats, setPracticeStats] = useState<StudentPracticeStats | null>(null);
+  const [currentStreak, setCurrentStreak] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,11 +33,24 @@ export default function StudentDashboard() {
 
     setTeacher(teacherData);
 
-    // 연결된 경우 토픽 목록 조회
+    // 연결된 경우 병렬 데이터 조회
     if (teacherData) {
-      const { data: topicsData, error: topicsError } = await getMyTopicsWithProgress();
-      if (!topicsError && topicsData) {
-        setTopics(topicsData);
+      const [topicsResult, statsResult, streakResult] = await Promise.all([
+        getMyTopicsWithProgress(),
+        getMyPracticeStats(),
+        getMyStreak(),
+      ]);
+
+      if (!topicsResult.error && topicsResult.data) {
+        setTopics(topicsResult.data);
+      }
+
+      if (!statsResult.error && statsResult.data) {
+        setPracticeStats(statsResult.data);
+      }
+
+      if (!streakResult.error && streakResult.data) {
+        setCurrentStreak(streakResult.data.current_streak);
       }
     }
 
@@ -100,48 +117,55 @@ export default function StudentDashboard() {
     );
   }
 
-  // 연결됨 - 토픽 카드 표시
+  // 연결됨 - 대시보드 표시
   return (
     <View style={styles.container}>
-      {/* 강사 정보 카드 */}
-      <View style={styles.teacherCard}>
-        <View style={styles.teacherAvatar}>
-          <Text style={styles.teacherInitial}>
-            {teacher.name.charAt(0).toUpperCase()}
-          </Text>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
+        }
+      >
+        {/* 강사 정보 카드 */}
+        <View style={styles.teacherCard}>
+          <View style={styles.teacherAvatar}>
+            <Text style={styles.teacherInitial}>
+              {teacher.name.charAt(0).toUpperCase()}
+            </Text>
+          </View>
+          <View style={styles.teacherInfo}>
+            <Text style={styles.teacherLabel}>담당 강사</Text>
+            <Text style={styles.teacherName}>{teacher.name}</Text>
+          </View>
+          <Ionicons name="checkmark-circle" size={24} color={COLORS.SUCCESS} />
         </View>
-        <View style={styles.teacherInfo}>
-          <Text style={styles.teacherLabel}>담당 강사</Text>
-          <Text style={styles.teacherName}>{teacher.name}</Text>
-        </View>
-        <Ionicons name="checkmark-circle" size={24} color={COLORS.SECONDARY} />
-      </View>
 
-      {/* 토픽 목록 */}
-      <Text style={styles.sectionTitle}>내 토픽</Text>
+        {/* 컴팩트 통계 스트립 (탭하면 상세 펼침) */}
+        {practiceStats && (
+          <CompactStatsStrip stats={practiceStats} currentStreak={currentStreak} />
+        )}
 
-      {topics.length === 0 ? (
-        <View style={styles.emptyTopics}>
-          <Ionicons name="book-outline" size={48} color={COLORS.GRAY_300} />
-          <Text style={styles.emptyTitle}>배정된 토픽이 없습니다</Text>
-          <Text style={styles.emptyHint}>
-            강사님이 토픽을 배정하면{'\n'}여기에 표시됩니다
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={topics}
-          keyExtractor={(item) => item.topic_id}
-          renderItem={({ item }) => (
-            <TopicCard topic={item} onPress={() => handleTopicPress(item)} />
-          )}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
-          }
-        />
-      )}
+        {/* 토픽 목록 */}
+        <Text style={styles.sectionTitle}>내 토픽</Text>
+
+        {topics.length === 0 ? (
+          <View style={styles.emptyTopics}>
+            <Ionicons name="book-outline" size={48} color={COLORS.GRAY_300} />
+            <Text style={styles.emptyTitle}>배정된 토픽이 없습니다</Text>
+            <Text style={styles.emptyHint}>
+              강사님이 토픽을 배정하면{'\n'}여기에 표시됩니다
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.topicsContainer}>
+            {topics.map((item) => (
+              <TopicCard key={item.topic_id} topic={item} onPress={() => handleTopicPress(item)} />
+            ))}
+          </View>
+        )}
+      </ScrollView>
     </View>
   );
 }
@@ -157,6 +181,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: COLORS.BACKGROUND_SECONDARY,
     padding: 16,
+  },
+  scrollContent: {
+    paddingBottom: 24,
   },
   loadingText: {
     marginTop: 12,
@@ -186,6 +213,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: COLORS.WHITE,
     margin: 16,
+    marginBottom: 12,
     padding: 16,
     borderRadius: 16,
     shadowColor: COLORS.BLACK,
@@ -230,15 +258,13 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 12,
   },
-  listContent: {
+  topicsContainer: {
     paddingHorizontal: 16,
-    paddingBottom: 24,
   },
   emptyTopics: {
-    flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 32,
+    paddingVertical: 40,
   },
   emptyTitle: {
     fontSize: 16,

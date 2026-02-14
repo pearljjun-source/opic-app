@@ -1,17 +1,27 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Image, View } from 'react-native';
+import { Image, View, Text } from 'react-native';
 
 import { COLORS } from '@/lib/constants';
+import { useAuth } from '@/hooks/useAuth';
 
 function HeaderLogo() {
+  const { currentOrg } = useAuth();
   return (
-    <View style={{ paddingLeft: 16 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', paddingLeft: 16 }}>
       <Image
         source={require('@/assets/images/speaky-text-logo.png')}
-        style={{ width: 86, height: 28 }}
+        style={{ width: 172, height: 56, marginRight: -24 }}
         resizeMode="contain"
       />
+      {currentOrg && (
+        <>
+          <View style={{ width: 1, height: 16, backgroundColor: COLORS.GRAY_200, marginHorizontal: 8 }} />
+          <Text style={{ fontSize: 13, fontFamily: 'Pretendard-Medium', color: COLORS.TEXT_SECONDARY }} numberOfLines={1}>
+            {currentOrg.name}
+          </Text>
+        </>
+      )}
     </View>
   );
 }

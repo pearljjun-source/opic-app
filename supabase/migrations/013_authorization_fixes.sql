@@ -44,9 +44,14 @@ COMMENT ON COLUMN public.notification_logs.resource_id IS
 
 -- 부분 UNIQUE 인덱스: 삭제되지 않은 알림에 대해서만 중복 방지
 -- (type, user_id, resource_id) 조합이 유일해야 함
-CREATE UNIQUE INDEX IF NOT EXISTS idx_notification_logs_dedup
+-- 주의: 011에서 같은 이름의 non-unique 인덱스가 먼저 생성됨.
+-- IF NOT EXISTS는 이름만 확인하므로 UNIQUE 업그레이드가 스킵됨 → DROP 후 재생성 필요.
+-- ON CONFLICT 절의 WHERE와 정확히 일치해야 함 (resource_id IS NOT NULL 제거)
+-- NULL resource_id는 UNIQUE 인덱스에서 distinct 취급되므로 중복 허용됨 (정상)
+DROP INDEX IF EXISTS public.idx_notification_logs_dedup;
+CREATE UNIQUE INDEX idx_notification_logs_dedup
   ON public.notification_logs (type, user_id, resource_id)
-  WHERE deleted_at IS NULL AND resource_id IS NOT NULL;
+  WHERE deleted_at IS NULL;
 
 -- --------------------------------------------------------------------------
 -- 2. notify_action RPC 수정: created_by 설정

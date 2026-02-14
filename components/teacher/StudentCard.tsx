@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '@/lib/constants';
 import type { TeacherStudentListItem } from '@/lib/types';
@@ -6,6 +7,7 @@ import type { TeacherStudentListItem } from '@/lib/types';
 interface StudentCardProps {
   student: TeacherStudentListItem;
   onPress?: () => void;
+  onAction?: () => void;
 }
 
 /**
@@ -17,7 +19,7 @@ interface StudentCardProps {
  * - 마지막 연습 시간 표시
  * - 평균 점수, 재현율 표시
  */
-export function StudentCard({ student, onPress }: StudentCardProps) {
+export function StudentCard({ student, onPress, onAction }: StudentCardProps) {
   const formatLastPractice = (lastPracticeAt: string | null): string => {
     if (!lastPracticeAt) {
       return '연습 기록 없음';
@@ -64,14 +66,41 @@ export function StudentCard({ student, onPress }: StudentCardProps) {
       {/* 상단: 이름과 마지막 연습 */}
       <View style={styles.header}>
         <View style={styles.nameContainer}>
-          <Text style={styles.name}>{student.name}</Text>
+          <View style={styles.nameRow}>
+            <Text style={styles.name}>{student.name}</Text>
+            {'pending_feedback_count' in student &&
+              (student as TeacherStudentListItem).pending_feedback_count > 0 && (
+              <View style={styles.feedbackBadge}>
+                <Text style={styles.feedbackBadgeText}>
+                  {(student as TeacherStudentListItem).pending_feedback_count}
+                </Text>
+              </View>
+            )}
+          </View>
           <Text style={styles.email}>{student.email}</Text>
         </View>
-        <View style={styles.lastPracticeContainer}>
-          <Text style={styles.lastPracticeLabel}>마지막 연습</Text>
-          <Text style={styles.lastPracticeValue}>
-            {formatLastPractice(student.last_practice_at)}
-          </Text>
+        <View style={styles.headerRight}>
+          <View style={styles.lastPracticeContainer}>
+            <Text style={styles.lastPracticeLabel}>마지막 연습</Text>
+            <Text style={styles.lastPracticeValue}>
+              {formatLastPractice(student.last_practice_at)}
+            </Text>
+          </View>
+          {onAction && (
+            <Pressable
+              style={({ pressed }) => [
+                styles.actionButton,
+                pressed && styles.actionButtonPressed,
+              ]}
+              onPress={(e) => {
+                e.stopPropagation();
+                onAction();
+              }}
+              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+            >
+              <Ionicons name="ellipsis-vertical" size={16} color={COLORS.GRAY_400} />
+            </Pressable>
+          )}
         </View>
       </View>
 
@@ -126,18 +155,54 @@ const styles = StyleSheet.create({
   nameContainer: {
     flex: 1,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
   name: {
     fontSize: 18,
     fontFamily: 'Pretendard-SemiBold',
     color: COLORS.TEXT_PRIMARY,
-    marginBottom: 4,
+  },
+  feedbackBadge: {
+    backgroundColor: COLORS.ERROR,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  feedbackBadgeText: {
+    fontSize: 11,
+    fontFamily: 'Pretendard-Bold',
+    color: COLORS.WHITE,
   },
   email: {
     fontSize: 14,
     color: COLORS.TEXT_SECONDARY,
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
   lastPracticeContainer: {
     alignItems: 'flex-end',
+  },
+  actionButton: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 16,
+    marginTop: -4,
+    marginRight: -8,
+  },
+  actionButtonPressed: {
+    backgroundColor: COLORS.GRAY_100,
   },
   lastPracticeLabel: {
     fontSize: 12,

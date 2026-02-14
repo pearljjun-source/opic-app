@@ -172,3 +172,27 @@ export async function removeClassMember(
   }
   return result;
 }
+
+// ============================================================================
+// 반 멤버 이동 (A반 → B반)
+// ============================================================================
+
+export async function moveClassMember(
+  fromClassId: string,
+  toClassId: string,
+  studentId: string,
+): Promise<ClassMutationResult> {
+  // 1. 대상 반에 추가 (먼저 — 실패해도 원래 반에 영향 없음)
+  const addResult = await addClassMember(toClassId, studentId);
+  if (!addResult.success) return addResult;
+
+  // 2. 기존 반에서 제거
+  const removeResult = await removeClassMember(fromClassId, studentId);
+  if (!removeResult.success) {
+    // 롤백: 대상 반에서 다시 제거
+    await removeClassMember(toClassId, studentId);
+    return removeResult;
+  }
+
+  return { success: true };
+}

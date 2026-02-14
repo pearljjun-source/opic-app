@@ -214,7 +214,9 @@ export default function PracticeScreen() {
       const { data: sttData, error: sttError } = await transcribeAudio(uploadData.path);
 
       if (sttError || !sttData) {
-        Alert.alert('음성 인식 실패', getUserMessage(sttError));
+        const msg = getUserMessage(sttError);
+        if (__DEV__) console.warn('[AppError] STT failed:', sttError);
+        Alert.alert('음성 인식 실패', msg + (__DEV__ ? `\n\n[DEV] ${sttError?.message || 'unknown'}` : ''));
         setPracticeState('ready');
         return;
       }
@@ -224,6 +226,7 @@ export default function PracticeScreen() {
       const { data: feedbackData, error: feedbackError } = await generateFeedback(
         script.content,
         sttData.transcription,
+        script.question?.question_type,
       );
 
       if (feedbackError || !feedbackData) {

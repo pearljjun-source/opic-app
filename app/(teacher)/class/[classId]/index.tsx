@@ -7,39 +7,62 @@ import {
   ActivityIndicator,
   Pressable,
   Alert,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '@/lib/constants';
-import { getClassDetail, deleteClass, removeClassMember } from '@/services/classes';
+import { getClassDetail, getTeacherClasses, deleteClass, removeClassMember, updateClass, moveClassMember } from '@/services/classes';
 import { StudentCard } from '@/components/teacher';
 import { getUserMessage } from '@/lib/errors';
-import type { ClassMemberItem } from '@/lib/types';
+import type { ClassMemberItem, TeacherClassListItem } from '@/lib/types';
 
 export default function ClassDetailScreen() {
   const { classId } = useLocalSearchParams<{ classId: string }>();
   const [className, setClassName] = useState('');
   const [classDescription, setClassDescription] = useState<string | null>(null);
   const [members, setMembers] = useState<ClassMemberItem[]>([]);
+  const [otherClasses, setOtherClasses] = useState<TeacherClassListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  // 반 이동 모달 상태
+  const [showMoveModal, setShowMoveModal] = useState(false);
+  const [moveTarget, setMoveTarget] = useState<{ id: string; name: string } | null>(null);
+  const [isMoving, setIsMoving] = useState(false);
 
   const fetchDetail = useCallback(async () => {
     if (!classId) return;
     setIsLoading(true);
     setError(null);
 
-    const { data, error: fetchError } = await getClassDetail(classId);
+    const [detailResult, classesResult] = await Promise.all([
+      getClassDetail(classId),
+      getTeacherClasses(),
+    ]);
 
-    if (fetchError) {
-      setError(getUserMessage(fetchError));
-    } else if (data && data.success) {
-      setClassName(data.class?.name || '');
-      setClassDescription(data.class?.description || null);
-      setMembers(data.members || []);
-    } else if (data && data.error) {
-      setError(data.error);
+    if (detailResult.error) {
+      setError(getUserMessage(detailResult.error));
+    } else if (detailResult.data && detailResult.data.success) {
+      setClassName(detailResult.data.class?.name || '');
+      setClassDescription(detailResult.data.class?.description || null);
+      setMembers(detailResult.data.members || []);
+    } else if (detailResult.data && detailResult.data.error) {
+      setError(detailResult.data.error);
+    }
+
+    // 현재 반 제외한 다른 반 목록
+    if (classesResult.data) {
+      setOtherClasses(classesResult.data.filter(c => c.id !== classId));
     }
 
     setIsLoading(false);
@@ -71,6 +94,56 @@ export default function ClassDetailScreen() {
     );
   };
 
+  const handleOpenEdit = () => {
+    setEditName(className);
+    setEditDescription(classDescription || '');
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async () => {
+    const trimmedName = editName.trim();
+    if (!trimmedName) {
+      Alert.alert('오류', '반 이름을 입력해주세요');
+      return;
+    }
+
+    setIsSaving(true);
+    const result = await updateClass(classId, trimmedName, editDescription.trim() || undefined);
+    setIsSaving(false);
+
+    if (result.success) {
+      setClassName(trimmedName);
+      setClassDescription(editDescription.trim() || null);
+      setShowEditModal(false);
+    } else {
+      Alert.alert('오류', result.error || '수정에 실패했습니다');
+    }
+  };
+
+  const handleMemberLongPress = (studentId: string, studentName: string) => {
+    const buttons: any[] = [];
+
+    if (otherClasses.length > 0) {
+      buttons.push({
+        text: '다른 반으로 이동',
+        onPress: () => {
+          setMoveTarget({ id: studentId, name: studentName });
+          setShowMoveModal(true);
+        },
+      });
+    }
+
+    buttons.push({
+      text: '반에서 제외',
+      style: 'destructive',
+      onPress: () => handleRemoveMember(studentId, studentName),
+    });
+
+    buttons.push({ text: '취소', style: 'cancel' });
+
+    Alert.alert(studentName, undefined, buttons);
+  };
+
   const handleRemoveMember = (studentId: string, studentName: string) => {
     Alert.alert(
       '학생 제외',
@@ -91,6 +164,23 @@ export default function ClassDetailScreen() {
         },
       ]
     );
+  };
+
+  const handleMoveToClass = async (toClassId: string, toClassName: string) => {
+    if (!moveTarget) return;
+
+    setIsMoving(true);
+    const result = await moveClassMember(classId, toClassId, moveTarget.id);
+    setIsMoving(false);
+
+    if (result.success) {
+      setShowMoveModal(false);
+      setMoveTarget(null);
+      Alert.alert('이동 완료', `${moveTarget.name}님을 "${toClassName}"으로 이동했습니다.`);
+      fetchDetail();
+    } else {
+      Alert.alert('오류', result.error || '이동에 실패했습니다');
+    }
   };
 
   const handleStudentPress = (studentId: string) => {
@@ -124,10 +214,128 @@ export default function ClassDetailScreen() {
           <Ionicons name="arrow-back" size={24} color={COLORS.TEXT_PRIMARY} />
         </Pressable>
         <Text style={styles.headerTitle} numberOfLines={1}>{className}</Text>
-        <Pressable onPress={handleDeleteClass} style={styles.deleteButton}>
-          <Ionicons name="trash-outline" size={22} color={COLORS.ERROR} />
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable onPress={handleOpenEdit} style={styles.headerActionButton}>
+            <Ionicons name="pencil-outline" size={20} color={COLORS.PRIMARY} />
+          </Pressable>
+          <Pressable onPress={handleDeleteClass} style={styles.headerActionButton}>
+            <Ionicons name="trash-outline" size={20} color={COLORS.ERROR} />
+          </Pressable>
+        </View>
       </View>
+
+      {/* Edit Modal */}
+      <Modal
+        visible={showEditModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowEditModal(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalKeyboard}
+        >
+          <Pressable style={styles.modalOverlay} onPress={() => setShowEditModal(false)}>
+            <Pressable style={styles.modalContent} onPress={() => {}}>
+              <Text style={styles.modalTitle}>반 정보 수정</Text>
+
+              <Text style={styles.inputLabel}>반 이름</Text>
+              <TextInput
+                style={styles.textInput}
+                value={editName}
+                onChangeText={setEditName}
+                placeholder="반 이름"
+                maxLength={50}
+                autoFocus
+              />
+
+              <Text style={styles.inputLabel}>설명 (선택)</Text>
+              <TextInput
+                style={[styles.textInput, styles.textArea]}
+                value={editDescription}
+                onChangeText={setEditDescription}
+                placeholder="반 설명을 입력하세요"
+                maxLength={200}
+                multiline
+                numberOfLines={3}
+              />
+
+              <View style={styles.modalButtons}>
+                <Pressable
+                  style={styles.cancelButton}
+                  onPress={() => setShowEditModal(false)}
+                >
+                  <Text style={styles.cancelButtonText}>취소</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+                  onPress={handleSaveEdit}
+                  disabled={isSaving}
+                >
+                  <Text style={styles.saveButtonText}>
+                    {isSaving ? '저장 중...' : '저장'}
+                  </Text>
+                </Pressable>
+              </View>
+            </Pressable>
+          </Pressable>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Move Modal */}
+      <Modal
+        visible={showMoveModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => { setShowMoveModal(false); setMoveTarget(null); }}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => { setShowMoveModal(false); setMoveTarget(null); }}
+        >
+          <Pressable style={styles.modalContent} onPress={() => {}}>
+            <Text style={styles.modalTitle}>이동할 반 선택</Text>
+            {moveTarget && (
+              <Text style={styles.moveSubtitle}>{moveTarget.name}님을 이동합니다</Text>
+            )}
+
+            {isMoving ? (
+              <View style={styles.movingContainer}>
+                <ActivityIndicator size="small" color={COLORS.PRIMARY} />
+                <Text style={styles.movingText}>이동 중...</Text>
+              </View>
+            ) : (
+              <ScrollView style={styles.classPickerList} showsVerticalScrollIndicator={false}>
+                {otherClasses.map((cls) => (
+                  <Pressable
+                    key={cls.id}
+                    style={({ pressed }) => [
+                      styles.classPickerItem,
+                      pressed && styles.classPickerItemPressed,
+                    ]}
+                    onPress={() => handleMoveToClass(cls.id, cls.name)}
+                  >
+                    <Ionicons name="school-outline" size={20} color={COLORS.PRIMARY} />
+                    <View style={styles.classPickerInfo}>
+                      <Text style={styles.classPickerName}>{cls.name}</Text>
+                      <Text style={styles.classPickerCount}>{cls.member_count}명</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={COLORS.GRAY_300} />
+                  </Pressable>
+                ))}
+              </ScrollView>
+            )}
+
+            <Pressable
+              style={styles.moveCancelButton}
+              onPress={() => { setShowMoveModal(false); setMoveTarget(null); }}
+              disabled={isMoving}
+            >
+              <Text style={styles.moveCancelButtonText}>취소</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Class Info */}
       {classDescription ? (
@@ -159,25 +367,22 @@ export default function ClassDetailScreen() {
           data={members}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <Pressable
-              onLongPress={() => handleRemoveMember(item.id, item.name)}
-            >
-              <StudentCard
-                student={{
-                  id: item.id,
-                  name: item.name,
-                  email: item.email,
-                  role: 'student' as any,
-                  created_at: '' as any,
-                  scripts_count: item.scripts_count as any,
-                  practices_count: item.practices_count as any,
-                  last_practice_at: item.last_practice_at as any,
-                  avg_score: item.avg_score as any,
-                  avg_reproduction_rate: item.avg_reproduction_rate as any,
-                } as any}
-                onPress={() => handleStudentPress(item.id)}
-              />
-            </Pressable>
+            <StudentCard
+              student={{
+                id: item.id,
+                name: item.name,
+                email: item.email,
+                role: 'student' as any,
+                created_at: '' as any,
+                scripts_count: item.scripts_count as any,
+                practices_count: item.practices_count as any,
+                last_practice_at: item.last_practice_at as any,
+                avg_score: item.avg_score as any,
+                avg_reproduction_rate: item.avg_reproduction_rate as any,
+              } as any}
+              onPress={() => handleStudentPress(item.id)}
+              onAction={() => handleMemberLongPress(item.id, item.name)}
+            />
           )}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
@@ -224,9 +429,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginHorizontal: 8,
   },
-  deleteButton: {
-    width: 40,
-    height: 40,
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  headerActionButton: {
+    width: 36,
+    height: 36,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -308,5 +518,144 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Pretendard-SemiBold',
     color: COLORS.WHITE,
+  },
+  // Edit Modal
+  modalKeyboard: {
+    flex: 1,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  modalContent: {
+    backgroundColor: COLORS.WHITE,
+    borderRadius: 16,
+    padding: 24,
+    maxHeight: '70%',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontFamily: 'Pretendard-SemiBold',
+    color: COLORS.TEXT_PRIMARY,
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontFamily: 'Pretendard-Medium',
+    color: COLORS.TEXT_SECONDARY,
+    marginBottom: 6,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 15,
+    fontFamily: 'Pretendard-Regular',
+    color: COLORS.TEXT_PRIMARY,
+    backgroundColor: COLORS.BACKGROUND_SECONDARY,
+    marginBottom: 16,
+  },
+  textArea: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 4,
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 15,
+    fontFamily: 'Pretendard-Medium',
+    color: COLORS.TEXT_SECONDARY,
+  },
+  saveButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: COLORS.PRIMARY,
+    alignItems: 'center',
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
+  },
+  saveButtonText: {
+    fontSize: 15,
+    fontFamily: 'Pretendard-SemiBold',
+    color: COLORS.WHITE,
+  },
+  // Move Modal
+  moveSubtitle: {
+    fontSize: 14,
+    fontFamily: 'Pretendard-Regular',
+    color: COLORS.TEXT_SECONDARY,
+    marginBottom: 16,
+  },
+  classPickerList: {
+    maxHeight: 300,
+  },
+  classPickerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: COLORS.BACKGROUND_SECONDARY,
+    marginBottom: 8,
+  },
+  classPickerItemPressed: {
+    opacity: 0.7,
+  },
+  classPickerInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  classPickerName: {
+    fontSize: 15,
+    fontFamily: 'Pretendard-SemiBold',
+    color: COLORS.TEXT_PRIMARY,
+  },
+  classPickerCount: {
+    fontSize: 12,
+    fontFamily: 'Pretendard-Regular',
+    color: COLORS.TEXT_SECONDARY,
+    marginTop: 2,
+  },
+  movingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 24,
+  },
+  movingText: {
+    fontSize: 14,
+    fontFamily: 'Pretendard-Medium',
+    color: COLORS.TEXT_SECONDARY,
+  },
+  moveCancelButton: {
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  moveCancelButtonText: {
+    fontSize: 15,
+    fontFamily: 'Pretendard-Medium',
+    color: COLORS.TEXT_SECONDARY,
   },
 });

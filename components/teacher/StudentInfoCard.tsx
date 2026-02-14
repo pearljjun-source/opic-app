@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet } from 'react-native';
 
 import { COLORS } from '@/lib/constants';
+import { estimateOpicLevel, getOpicGradeColor } from '@/lib/helpers';
 import type { StudentDetailInfo, StudentDetailStats } from '@/lib/types';
 
 interface StudentInfoCardProps {
@@ -59,6 +60,9 @@ export function StudentInfoCard({ student, stats }: StudentInfoCardProps) {
     return `${hours}시간 ${mins}분`;
   };
 
+  const estimated = estimateOpicLevel(stats.avg_score);
+  const gradeColor = getOpicGradeColor(estimated.grade);
+
   return (
     <View style={styles.container}>
       {/* 학생 기본 정보 */}
@@ -69,7 +73,12 @@ export function StudentInfoCard({ student, stats }: StudentInfoCardProps) {
           </Text>
         </View>
         <View style={styles.headerInfo}>
-          <Text style={styles.name}>{student.name}</Text>
+          <View style={styles.nameRow}>
+            <Text style={styles.name}>{student.name}</Text>
+            <View style={[styles.gradeBadge, { backgroundColor: gradeColor }]}>
+              <Text style={styles.gradeBadgeText}>{estimated.label}</Text>
+            </View>
+          </View>
           <Text style={styles.email}>{student.email}</Text>
           <Text style={styles.connectedDate}>
             연결일: {formatDate(stats.connected_at)}
@@ -104,24 +113,11 @@ export function StudentInfoCard({ student, stats }: StudentInfoCardProps) {
         </View>
       </View>
 
-      {/* 추가 정보 */}
+      {/* 추가 정보 (컴팩트 1줄) */}
       <View style={styles.additionalInfo}>
-        <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>이번 주 연습</Text>
-          <Text style={styles.infoValue}>{stats.this_week_practices}회</Text>
-        </View>
-        <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>총 연습 시간</Text>
-          <Text style={styles.infoValue}>
-            {formatDuration(stats.total_duration_minutes)}
-          </Text>
-        </View>
-        <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>마지막 연습</Text>
-          <Text style={styles.infoValue}>
-            {formatLastPractice(stats.last_practice_at)}
-          </Text>
-        </View>
+        <Text style={styles.infoCompact}>
+          이번 주 {stats.this_week_practices}회 · 총 {formatDuration(stats.total_duration_minutes)} · 마지막 {formatLastPractice(stats.last_practice_at)}
+        </Text>
       </View>
     </View>
   );
@@ -161,11 +157,26 @@ const styles = StyleSheet.create({
   headerInfo: {
     flex: 1,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 2,
+  },
   name: {
     fontSize: 20,
     fontFamily: 'Pretendard-SemiBold',
     color: COLORS.TEXT_PRIMARY,
-    marginBottom: 2,
+  },
+  gradeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  gradeBadgeText: {
+    fontSize: 12,
+    fontFamily: 'Pretendard-Bold',
+    color: COLORS.WHITE,
   },
   email: {
     fontSize: 14,
@@ -206,24 +217,15 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.BORDER,
   },
   additionalInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: 12,
+    paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: COLORS.BORDER,
   },
-  infoItem: {
-    alignItems: 'center',
-  },
-  infoLabel: {
-    fontSize: 11,
+  infoCompact: {
+    fontSize: 12,
+    fontFamily: 'Pretendard-Regular',
     color: COLORS.TEXT_SECONDARY,
-    marginBottom: 2,
-  },
-  infoValue: {
-    fontSize: 14,
-    fontFamily: 'Pretendard-Medium',
-    color: COLORS.PRIMARY,
+    textAlign: 'center',
   },
 });
 

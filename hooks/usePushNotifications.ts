@@ -11,15 +11,17 @@ import { useAuth } from './useAuth';
 // ============================================================================
 // 알림 핸들러 설정 (포그라운드 알림 표시)
 // ============================================================================
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+}
 
 // ============================================================================
 // Push Token 등록
@@ -88,6 +90,8 @@ export function usePushNotifications() {
 
   useEffect(() => {
     if (!isAuthenticated || !user) return;
+    // 웹에서는 push notification 미지원
+    if (Platform.OS === 'web') return;
 
     // 1. Push token 등록
     registerForPushNotifications().then(async (token) => {
@@ -154,13 +158,13 @@ function handleNotificationNavigation(data: Record<string, unknown>) {
 
   // script_id → 스크립트 목록 (학생 홈)으로
   if (data.script_id && typeof data.script_id === 'string') {
-    router.push('/(student)');
+    router.push('/(student)' as any);
     return;
   }
 
   // student_id → 강사 대시보드로
   if (data.student_id && typeof data.student_id === 'string') {
-    router.push('/(teacher)');
+    router.push('/(teacher)' as any);
     return;
   }
 }

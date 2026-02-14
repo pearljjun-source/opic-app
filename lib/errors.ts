@@ -104,6 +104,42 @@ export const ERROR_CODES = {
   RATE_TTS: 'RATE_TTS',
   RATE_CLAUDE: 'RATE_CLAUDE',
 
+  // ADMIN (4)
+  ADMIN_LAST_ADMIN_PROTECTION: 'ADMIN_LAST_ADMIN_PROTECTION',
+  ADMIN_UPLOAD_FAILED: 'ADMIN_UPLOAD_FAILED',
+  ADMIN_REORDER_FAILED: 'ADMIN_REORDER_FAILED',
+  ADMIN_RECENT_ACTIONS: 'ADMIN_RECENT_ACTIONS',
+
+  // BILLING (4)
+  BILLING_KEY_FAILED: 'BILLING_KEY_FAILED',
+  BILLING_PAYMENT_FAILED: 'BILLING_PAYMENT_FAILED',
+  BILLING_ALREADY_SUBSCRIBED: 'BILLING_ALREADY_SUBSCRIBED',
+  BILLING_CANCEL_FAILED: 'BILLING_CANCEL_FAILED',
+
+  // DOWNGRADE (2)
+  DOWNGRADE_STUDENT_LIMIT: 'DOWNGRADE_STUDENT_LIMIT',
+  DOWNGRADE_SCRIPT_LIMIT: 'DOWNGRADE_SCRIPT_LIMIT',
+
+  // VALIDATION (additional)
+  VAL_FAILED: 'VAL_FAILED',
+  CONFLICT_TEACHER_HAS_STUDENTS: 'CONFLICT_TEACHER_HAS_STUDENTS',
+
+  // NOT_FOUND (additional)
+  NF_SUBSCRIPTION: 'NF_SUBSCRIPTION',
+  NF_PLAN: 'NF_PLAN',
+  NF_LANDING_SECTION: 'NF_LANDING_SECTION',
+
+  // ORGANIZATION (9)
+  ORG_NOT_FOUND: 'ORG_NOT_FOUND',
+  ORG_ALREADY_MEMBER: 'ORG_ALREADY_MEMBER',
+  ORG_LAST_OWNER: 'ORG_LAST_OWNER',
+  ORG_TEACHER_NOT_IN_ORG: 'ORG_TEACHER_NOT_IN_ORG',
+  ORG_STUDENT_NOT_IN_ORG: 'ORG_STUDENT_NOT_IN_ORG',
+  ORG_OWNER_ONLY: 'ORG_OWNER_ONLY',
+  ORG_NO_MEMBERSHIP: 'ORG_NO_MEMBERSHIP',
+  ORG_NAME_REQUIRED: 'ORG_NAME_REQUIRED',
+  ORG_NAME_TOO_LONG: 'ORG_NAME_TOO_LONG',
+
   // SERVER (10)
   SVR_WHISPER_API: 'SVR_WHISPER_API',
   SVR_TTS_API: 'SVR_TTS_API',
@@ -120,7 +156,7 @@ export const ERROR_CODES = {
 export type ErrorCode = typeof ERROR_CODES[keyof typeof ERROR_CODES];
 
 export interface ErrorContext {
-  resource?: 'script' | 'practice' | 'invite' | 'connection' | 'user' | 'student' | 'teacher' | 'question' | 'notification' | 'audio' | 'class' | 'topic';
+  resource?: 'script' | 'practice' | 'invite' | 'connection' | 'user' | 'student' | 'teacher' | 'question' | 'notification' | 'audio' | 'class' | 'topic' | 'subscription' | 'plan' | 'landing_section' | 'landing_item' | 'organization';
   field?: string;
   apiType?: 'whisper' | 'tts' | 'claude' | 'push';
 }
@@ -174,6 +210,31 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   VAL_CLASS_NAME: '반 이름을 입력해주세요',
   VAL_CLASS_NAME_DUPLICATE: '같은 이름의 반이 이미 존재합니다',
 
+  // ADMIN
+  ADMIN_LAST_ADMIN_PROTECTION: '최소 1명의 관리자가 필요합니다',
+  ADMIN_UPLOAD_FAILED: '파일 업로드에 실패했습니다',
+  ADMIN_REORDER_FAILED: '순서 변경에 실패했습니다',
+  ADMIN_RECENT_ACTIONS: '최근 관리 활동이 있어 강등할 수 없습니다',
+
+  // BILLING
+  BILLING_KEY_FAILED: '결제 수단 등록에 실패했습니다',
+  BILLING_PAYMENT_FAILED: '결제에 실패했습니다',
+  BILLING_ALREADY_SUBSCRIBED: '이미 구독 중입니다',
+  BILLING_CANCEL_FAILED: '구독 취소에 실패했습니다',
+
+  // DOWNGRADE
+  DOWNGRADE_STUDENT_LIMIT: '현재 학생 수가 변경할 플랜의 한도를 초과합니다',
+  DOWNGRADE_SCRIPT_LIMIT: '현재 스크립트 수가 변경할 플랜의 한도를 초과합니다',
+
+  // VALIDATION (additional)
+  VAL_FAILED: '입력값이 올바르지 않습니다',
+  CONFLICT_TEACHER_HAS_STUDENTS: '활성 학생이 있어 강등할 수 없습니다',
+
+  // NOT_FOUND (additional)
+  NF_SUBSCRIPTION: '구독 정보를 찾을 수 없습니다',
+  NF_PLAN: '구독 플랜을 찾을 수 없습니다',
+  NF_LANDING_SECTION: '랜딩 섹션을 찾을 수 없습니다',
+
   // NOT_FOUND
   NF_USER: '사용자를 찾을 수 없습니다',
   NF_TEACHER: '강사를 찾을 수 없습니다',
@@ -198,6 +259,17 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   RATE_WHISPER: '음성 변환 요청이 너무 많습니다. 잠시 후 다시 시도해주세요',
   RATE_TTS: '오디오 생성 요청이 너무 많습니다. 잠시 후 다시 시도해주세요',
   RATE_CLAUDE: 'AI 분석 요청이 너무 많습니다. 잠시 후 다시 시도해주세요',
+
+  // ORGANIZATION
+  ORG_NOT_FOUND: '학원을 찾을 수 없습니다',
+  ORG_ALREADY_MEMBER: '이미 가입된 학원입니다',
+  ORG_LAST_OWNER: '학원에 최소 1명의 원장이 필요합니다',
+  ORG_TEACHER_NOT_IN_ORG: '해당 학원의 강사가 아닙니다',
+  ORG_STUDENT_NOT_IN_ORG: '해당 학원의 학생이 아닙니다',
+  ORG_OWNER_ONLY: '원장만 사용할 수 있는 기능입니다',
+  ORG_NO_MEMBERSHIP: '학원에 가입되어 있지 않습니다',
+  ORG_NAME_REQUIRED: '학원 이름을 입력해주세요',
+  ORG_NAME_TOO_LONG: '학원 이름은 100자 이내로 입력해주세요',
 
   // SERVER
   SVR_WHISPER_API: '음성 변환에 실패했습니다. 다시 시도해주세요',
@@ -240,6 +312,21 @@ const ERROR_CODE_CATEGORY: Record<ErrorCode, ErrorCategory> = {
   VAL_INVITE_CODE_EXPIRED: 'validation',
   VAL_CLASS_NAME: 'validation',
   VAL_CLASS_NAME_DUPLICATE: 'validation',
+  ADMIN_LAST_ADMIN_PROTECTION: 'permission',
+  ADMIN_UPLOAD_FAILED: 'server',
+  ADMIN_REORDER_FAILED: 'server',
+  ADMIN_RECENT_ACTIONS: 'conflict',
+  BILLING_KEY_FAILED: 'server',
+  BILLING_PAYMENT_FAILED: 'server',
+  BILLING_ALREADY_SUBSCRIBED: 'conflict',
+  BILLING_CANCEL_FAILED: 'server',
+  DOWNGRADE_STUDENT_LIMIT: 'conflict',
+  DOWNGRADE_SCRIPT_LIMIT: 'conflict',
+  VAL_FAILED: 'validation',
+  CONFLICT_TEACHER_HAS_STUDENTS: 'conflict',
+  NF_SUBSCRIPTION: 'not_found',
+  NF_PLAN: 'not_found',
+  NF_LANDING_SECTION: 'not_found',
   NF_USER: 'not_found',
   NF_TEACHER: 'not_found',
   NF_STUDENT: 'not_found',
@@ -259,6 +346,15 @@ const ERROR_CODE_CATEGORY: Record<ErrorCode, ErrorCategory> = {
   RATE_WHISPER: 'rate_limit',
   RATE_TTS: 'rate_limit',
   RATE_CLAUDE: 'rate_limit',
+  ORG_NOT_FOUND: 'not_found',
+  ORG_ALREADY_MEMBER: 'conflict',
+  ORG_LAST_OWNER: 'permission',
+  ORG_TEACHER_NOT_IN_ORG: 'permission',
+  ORG_STUDENT_NOT_IN_ORG: 'permission',
+  ORG_OWNER_ONLY: 'permission',
+  ORG_NO_MEMBERSHIP: 'permission',
+  ORG_NAME_REQUIRED: 'validation',
+  ORG_NAME_TOO_LONG: 'validation',
   SVR_WHISPER_API: 'server',
   SVR_TTS_API: 'server',
   SVR_CLAUDE_API: 'server',
@@ -341,6 +437,30 @@ const RPC_ERROR_MAP: Record<string, ErrorCode> = {
   'CANNOT_CHANGE_ADMIN': ERROR_CODES.CONFLICT_ADMIN_PROTECTED,
   'CLASS_NAME_REQUIRED': ERROR_CODES.VAL_CLASS_NAME,
   'CLASS_NAME_DUPLICATE': ERROR_CODES.VAL_CLASS_NAME_DUPLICATE,
+  // Organization RPC errors
+  'NOT_IN_ORG': ERROR_CODES.ORG_NO_MEMBERSHIP,
+  'OWNER_ONLY': ERROR_CODES.ORG_OWNER_ONLY,
+  'LAST_OWNER': ERROR_CODES.ORG_LAST_OWNER,
+  'TEACHER_NOT_IN_ORG': ERROR_CODES.ORG_TEACHER_NOT_IN_ORG,
+  'STUDENT_NOT_IN_ORG': ERROR_CODES.ORG_STUDENT_NOT_IN_ORG,
+  'MEMBER_NOT_FOUND': ERROR_CODES.NF_USER,
+  'CANNOT_REMOVE_SELF': ERROR_CODES.ORG_LAST_OWNER,
+  'CANNOT_DEMOTE_SELF': ERROR_CODES.ORG_LAST_OWNER,
+  'CANNOT_INVITE_OWNER': ERROR_CODES.ORG_OWNER_ONLY,
+  'ORG_NAME_REQUIRED': ERROR_CODES.ORG_NAME_REQUIRED,
+  'ORG_NAME_TOO_LONG': ERROR_CODES.ORG_NAME_TOO_LONG,
+  'ORG_NOT_FOUND': ERROR_CODES.ORG_NOT_FOUND,
+  'ORG_INVALID_SLUG': ERROR_CODES.VAL_FAILED,
+  'ORG_SLUG_TAKEN': ERROR_CODES.ORG_ALREADY_MEMBER,
+  'CANNOT_USE_OWN_CODE': ERROR_CODES.VAL_INVITE_CODE_INVALID,
+  // Admin dashboard RPC errors
+  'LAST_ADMIN': ERROR_CODES.ADMIN_LAST_ADMIN_PROTECTION,
+  'ADMIN_RECENT_ACTIONS': ERROR_CODES.ADMIN_RECENT_ACTIONS,
+  'TEACHER_HAS_STUDENTS': ERROR_CODES.CONFLICT_TEACHER_HAS_STUDENTS,
+  'DOWNGRADE_STUDENT_LIMIT': ERROR_CODES.DOWNGRADE_STUDENT_LIMIT,
+  'DOWNGRADE_SCRIPT_LIMIT': ERROR_CODES.DOWNGRADE_SCRIPT_LIMIT,
+  'SECTION_NOT_FOUND': ERROR_CODES.NF_LANDING_SECTION,
+  'PLAN_NOT_FOUND': ERROR_CODES.NF_PLAN,
 };
 
 /** Supabase AuthError 메시지 패턴 → ErrorCode (우선순위 순) */
@@ -431,6 +551,11 @@ function classifyNotFoundByContext(context?: ErrorContext, originalError?: unkno
     notification: ERROR_CODES.NF_NOTIFICATION,
     audio: ERROR_CODES.NF_AUDIO_FILE,
     class: ERROR_CODES.NF_CLASS,
+    subscription: ERROR_CODES.NF_SUBSCRIPTION,
+    plan: ERROR_CODES.NF_PLAN,
+    landing_section: ERROR_CODES.NF_LANDING_SECTION,
+    landing_item: ERROR_CODES.NF_LANDING_SECTION,
+    organization: ERROR_CODES.ORG_NOT_FOUND,
   };
 
   const code = context?.resource

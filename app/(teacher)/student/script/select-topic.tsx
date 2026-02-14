@@ -1,12 +1,13 @@
-import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS } from '@/lib/constants';
+import { COLORS, TOPIC_CATEGORY_LABELS } from '@/lib/constants';
 import { getTopics, TopicListItem } from '@/services/scripts';
 import { getStudentTopicsWithProgress } from '@/services/topics';
 import { getUserMessage } from '@/lib/errors';
+import type { TopicCategory } from '@/lib/types';
 
 export default function SelectTopicScreen() {
   const { studentId } = useLocalSearchParams<{ studentId: string }>();
@@ -32,6 +33,7 @@ export default function SelectTopicScreen() {
               name_en: t.topic_name_en,
               icon: t.topic_icon,
               description: null,
+              category: t.topic_category,
             })),
           );
           setError(null);
@@ -52,6 +54,25 @@ export default function SelectTopicScreen() {
 
     loadTopics();
   }, [studentId]);
+
+  // 카테고리별 그룹핑
+  const groupedTopics = useMemo(() => {
+    const groups: { category: TopicCategory; label: string; topics: TopicListItem[] }[] = [];
+    const categoryOrder: TopicCategory[] = ['survey', 'unexpected'];
+
+    for (const cat of categoryOrder) {
+      const filtered = topics.filter((t) => t.category === cat);
+      if (filtered.length > 0) {
+        groups.push({
+          category: cat,
+          label: TOPIC_CATEGORY_LABELS[cat],
+          topics: filtered,
+        });
+      }
+    }
+
+    return groups;
+  }, [topics]);
 
   const handleSelectTopic = (topicId: string) => {
     router.push({
@@ -82,33 +103,39 @@ export default function SelectTopicScreen() {
 
   return (
     <View style={styles.container}>
-      <FlatList
-        data={topics}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <Pressable
-            style={({ pressed }) => [
-              styles.topicCard,
-              pressed && styles.topicCardPressed,
-            ]}
-            onPress={() => handleSelectTopic(item.id)}
-          >
-            <View style={styles.iconContainer}>
-              <Ionicons
-                name={(item.icon as keyof typeof Ionicons.glyphMap) || 'document-text-outline'}
-                size={24}
-                color={COLORS.PRIMARY}
-              />
-            </View>
-            <View style={styles.topicInfo}>
-              <Text style={styles.topicName}>{item.name_ko}</Text>
-              <Text style={styles.topicNameEn}>{item.name_en}</Text>
-            </View>
-          </Pressable>
-        )}
+      <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-      />
+      >
+        {groupedTopics.map((group) => (
+          <View key={group.category} style={styles.categorySection}>
+            <Text style={styles.categoryTitle}>{group.label}</Text>
+            {group.topics.map((item) => (
+              <Pressable
+                key={item.id}
+                style={({ pressed }) => [
+                  styles.topicCard,
+                  pressed ? styles.topicCardPressed : null,
+                ]}
+                onPress={() => handleSelectTopic(item.id)}
+              >
+                <View style={styles.iconContainer}>
+                  <Ionicons
+                    name={(item.icon as keyof typeof Ionicons.glyphMap) || 'document-text-outline'}
+                    size={24}
+                    color={COLORS.PRIMARY}
+                  />
+                </View>
+                <View style={styles.topicInfo}>
+                  <Text style={styles.topicName}>{item.name_ko}</Text>
+                  <Text style={styles.topicNameEn}>{item.name_en}</Text>
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        ))}
+      </ScrollView>
     </View>
   );
 }
@@ -125,17 +152,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: COLORS.BACKGROUND_SECONDARY,
     padding: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontFamily: 'Pretendard-Bold',
-    color: COLORS.TEXT_PRIMARY,
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
-    marginBottom: 24,
   },
   loadingText: {
     marginTop: 12,
@@ -161,6 +177,15 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingBottom: 16,
+  },
+  categorySection: {
+    marginBottom: 16,
+  },
+  categoryTitle: {
+    fontSize: 15,
+    fontFamily: 'Pretendard-SemiBold',
+    color: COLORS.TEXT_PRIMARY,
+    marginBottom: 10,
   },
   topicCard: {
     flexDirection: 'row',

@@ -4,39 +4,45 @@ import { Redirect } from 'expo-router';
 
 import { useAuth } from '@/hooks/useAuth';
 import { COLORS } from '@/lib/constants';
-import type { UserRole } from '@/lib/types';
+import { canTeach } from '@/lib/permissions';
+import type { OrgRole, PlatformRole } from '@/lib/types';
 
 interface RoleGuardProps {
   children: ReactNode;
-  allowedRoles: UserRole[];
+  /** 조직 레벨 역할 체크 (owner, teacher, student) */
+  allowedOrgRoles?: OrgRole[];
+  /** 플랫폼 레벨 역할 체크 (super_admin) */
+  allowedPlatformRoles?: PlatformRole[];
   fallback?: ReactNode;
   redirectTo?: string;
 }
 
 /**
- * RoleGuard - 특정 역할의 사용자만 접근 가능하도록 보호
+ * RoleGuard - 역할 기반 접근 제어
  *
  * 사용법:
  * ```tsx
- * <RoleGuard allowedRoles={['teacher']}>
+ * <RoleGuard allowedOrgRoles={['owner', 'teacher']}>
  *   <TeacherOnlyContent />
  * </RoleGuard>
  *
- * <RoleGuard allowedRoles={['teacher', 'admin']} redirectTo="/(student)">
- *   <AdminOrTeacherContent />
+ * <RoleGuard allowedPlatformRoles={['super_admin']}>
+ *   <AdminContent />
+ * </RoleGuard>
+ *
+ * <RoleGuard allowedOrgRoles={['owner']}>
+ *   <OwnerOnlyContent />
  * </RoleGuard>
  * ```
- *
- * 참고: useAuth 훅에서 이미 역할 기반 라우팅을 처리하지만,
- * 이 컴포넌트는 특정 컴포넌트나 기능에 대한 세밀한 접근 제어가 필요할 때 사용
  */
 export function RoleGuard({
   children,
-  allowedRoles,
+  allowedOrgRoles,
+  allowedPlatformRoles,
   fallback,
   redirectTo,
 }: RoleGuardProps) {
-  const { isAuthenticated, isLoading, role } = useAuth();
+  const { isAuthenticated, isLoading, orgRole, platformRole, role } = useAuth();
 
   if (isLoading) {
     return (
@@ -53,24 +59,33 @@ export function RoleGuard({
     return <Redirect href="/(auth)/login" />;
   }
 
-  if (!role || !allowedRoles.includes(role)) {
-    // 역할이 없거나 허용되지 않은 역할
-    if (redirectTo) {
-      return <Redirect href={redirectTo as any} />;
+  // Platform role check
+  if (allowedPlatformRoles && allowedPlatformRoles.length > 0) {
+    if (platformRole && allowedPlatformRoles.includes(platformRole)) {
+      return <>{children}</>;
     }
-
-    // 기본: 역할에 따른 홈으로 리다이렉트
-    if (role === 'teacher') {
-      return <Redirect href="/(teacher)" />;
-    } else if (role === 'student') {
-      return <Redirect href="/(student)" />;
-    }
-
-    // 역할이 없으면 로그인으로
-    return <Redirect href="/(auth)/login" />;
   }
 
-  return <>{children}</>;
+  // Org role check
+  if (allowedOrgRoles && allowedOrgRoles.length > 0) {
+    if (orgRole && allowedOrgRoles.includes(orgRole)) {
+      return <>{children}</>;
+    }
+  }
+
+  // No matching role — redirect
+  if (redirectTo) {
+    return <Redirect href={redirectTo as any} />;
+  }
+
+  // Default redirect based on role
+  if (platformRole === 'super_admin' || role === 'admin') {
+    return <Redirect href={"/(admin)" as any} />;
+  } else if (canTeach(orgRole)) {
+    return <Redirect href={"/(teacher)" as any} />;
+  } else {
+    return <Redirect href={"/(student)" as any} />;
+  }
 }
 
 export default RoleGuard;

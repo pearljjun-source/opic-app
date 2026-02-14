@@ -5,8 +5,10 @@ import { router } from 'expo-router';
 import { COLORS } from '@/lib/constants';
 import { useInviteCode } from '@/services/invites';
 import { deliverNotification } from '@/services/notifications';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function ConnectScreen() {
+  const { refreshUser } = useAuth();
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -27,7 +29,9 @@ export default function ConnectScreen() {
       if (result.notification_log_id) {
         deliverNotification(result.notification_log_id);
       }
-      router.replace('/(student)');
+      // 조직 멤버십 갱신 → useAuth 라우팅이 올바른 화면으로 이동
+      await refreshUser();
+      router.replace('/(student)' as any);
     } else {
       setError(result.error || '연결에 실패했습니다.');
     }
@@ -64,6 +68,7 @@ export default function ConnectScreen() {
           <Text style={styles.buttonText}>연결하기</Text>
         )}
       </Pressable>
+
     </View>
   );
 }

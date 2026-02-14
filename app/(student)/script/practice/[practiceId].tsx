@@ -15,6 +15,7 @@ import { COLORS } from '@/lib/constants';
 import { getPracticeResult, PracticeResult } from '@/services/practices';
 import { getUserMessage } from '@/lib/errors';
 import { diffScript } from '@/lib/diff';
+import FeedbackSection from '@/components/student/FeedbackSection';
 
 export default function PracticeDetailScreen() {
   const { practiceId } = useLocalSearchParams<{ practiceId: string }>();
@@ -177,69 +178,7 @@ export default function PracticeDetailScreen() {
       {feedback && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>AI 피드백</Text>
-          <View style={styles.feedbackBox}>
-            <Text style={styles.feedbackSummary}>{feedback.summary}</Text>
-
-            {feedback.missed_phrases.length > 0 && (
-              <View style={styles.feedbackSection}>
-                <View style={styles.feedbackLabelRow}>
-                  <Ionicons name="remove-circle-outline" size={16} color={COLORS.ERROR} />
-                  <Text style={[styles.feedbackLabel, { color: COLORS.ERROR }]}>빠뜨린 표현</Text>
-                </View>
-                {feedback.missed_phrases.map((p, i) => (
-                  <Text key={i} style={styles.feedbackItem}>• {p}</Text>
-                ))}
-              </View>
-            )}
-
-            {feedback.extra_phrases.length > 0 && (
-              <View style={styles.feedbackSection}>
-                <View style={styles.feedbackLabelRow}>
-                  <Ionicons name="add-circle-outline" size={16} color={COLORS.SECONDARY} />
-                  <Text style={[styles.feedbackLabel, { color: COLORS.SECONDARY }]}>추가된 표현</Text>
-                </View>
-                {feedback.extra_phrases.map((p, i) => (
-                  <Text key={i} style={styles.feedbackItem}>• {p}</Text>
-                ))}
-              </View>
-            )}
-
-            {feedback.pronunciation_tips.length > 0 && (
-              <View style={styles.feedbackSection}>
-                <View style={styles.feedbackLabelRow}>
-                  <Ionicons name="mic-outline" size={16} color={COLORS.PRIMARY} />
-                  <Text style={[styles.feedbackLabel, { color: COLORS.PRIMARY }]}>발음 팁</Text>
-                </View>
-                {feedback.pronunciation_tips.map((p, i) => (
-                  <Text key={i} style={styles.feedbackItem}>• {p}</Text>
-                ))}
-              </View>
-            )}
-
-            {feedback.grammar_issues.length > 0 && (
-              <View style={styles.feedbackSection}>
-                <View style={styles.feedbackLabelRow}>
-                  <Ionicons name="create-outline" size={16} color={COLORS.WARNING} />
-                  <Text style={[styles.feedbackLabel, { color: COLORS.WARNING }]}>문법 교정</Text>
-                </View>
-                {feedback.grammar_issues.map((p, i) => (
-                  <Text key={i} style={styles.feedbackItem}>• {p}</Text>
-                ))}
-              </View>
-            )}
-
-            {feedback.suggestions.length > 0 && (
-              <View style={styles.feedbackSection}>
-                <View style={styles.feedbackLabelRow}>
-                  <Ionicons name="bulb-outline" size={16} color={COLORS.PRIMARY} />
-                  <Text style={[styles.feedbackLabel, { color: COLORS.PRIMARY }]}>개선 제안</Text>
-                </View>
-                {feedback.suggestions.map((p, i) => (
-                  <Text key={i} style={styles.feedbackItem}>• {p}</Text>
-                ))}
-              </View>
-            )}
-          </View>
+          <FeedbackSection feedback={feedback} />
         </View>
       )}
 
@@ -366,38 +305,6 @@ const styles = StyleSheet.create({
   missedWord: {
     color: COLORS.ERROR,
     backgroundColor: COLORS.ERROR + '15',
-  },
-  feedbackBox: {
-    backgroundColor: COLORS.WARNING + '15',
-    padding: 16,
-    borderRadius: 16,
-  },
-  feedbackSummary: {
-    fontSize: 15,
-    fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
-    marginBottom: 16,
-    lineHeight: 22,
-  },
-  feedbackSection: {
-    marginTop: 12,
-  },
-  feedbackLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 8,
-  },
-  feedbackLabel: {
-    fontSize: 14,
-    fontFamily: 'Pretendard-SemiBold',
-  },
-  feedbackItem: {
-    fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
-    marginLeft: 22,
-    marginBottom: 4,
-    lineHeight: 20,
   },
   backNavButton: {
     padding: 16,

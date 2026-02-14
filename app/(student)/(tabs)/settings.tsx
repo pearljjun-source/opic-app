@@ -1,13 +1,35 @@
-import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 
 import { COLORS } from '@/lib/constants';
 import { useAuth } from '@/hooks/useAuth';
 
-export default function StudentSettings() {
-  const { user, signOut } = useAuth();
+type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
-  const handleLogout = async () => {
+interface SettingsRowProps {
+  icon: IoniconsName;
+  label: string;
+  value?: string;
+}
+
+function SettingsRow({ icon, label, value }: SettingsRowProps) {
+  return (
+    <View style={styles.row}>
+      <Ionicons name={icon} size={20} color={COLORS.GRAY_500} />
+      <View style={styles.rowContent}>
+        <Text style={styles.rowLabel}>{label}</Text>
+        {value && <Text style={styles.rowValue} numberOfLines={1}>{value}</Text>}
+      </View>
+    </View>
+  );
+}
+
+export default function StudentSettings() {
+  const { user, signOut, currentOrg } = useAuth();
+  const appVersion = Constants.expoConfig?.version || '1.0.0';
+
+  const handleLogout = () => {
     Alert.alert(
       '로그아웃',
       '정말 로그아웃하시겠습니까?',
@@ -25,42 +47,59 @@ export default function StudentSettings() {
   };
 
   return (
-    <View style={styles.container}>
-      {/* 계정 정보 */}
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+      {/* 계정 */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>계정 정보</Text>
-        <View style={styles.infoCard}>
-          <View style={styles.infoRow}>
-            <Ionicons name="person-outline" size={20} color={COLORS.GRAY_500} />
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>이름</Text>
-              <Text style={styles.infoValue}>{user?.name || '-'}</Text>
-            </View>
-          </View>
+        <Text style={styles.sectionTitle}>계정</Text>
+        <View style={styles.card}>
+          <SettingsRow
+            icon="person-outline"
+            label="이름"
+            value={user?.name || '-'}
+          />
           <View style={styles.divider} />
-          <View style={styles.infoRow}>
-            <Ionicons name="mail-outline" size={20} color={COLORS.GRAY_500} />
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>이메일</Text>
-              <Text style={styles.infoValue}>{user?.email || '-'}</Text>
-            </View>
-          </View>
+          <SettingsRow
+            icon="mail-outline"
+            label="이메일"
+            value={user?.email || '-'}
+          />
           <View style={styles.divider} />
-          <View style={styles.infoRow}>
-            <Ionicons name="school-outline" size={20} color={COLORS.GRAY_500} />
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>역할</Text>
-              <Text style={styles.infoValue}>학생</Text>
-            </View>
-          </View>
+          <SettingsRow
+            icon="school-outline"
+            label="역할"
+            value="학생"
+          />
+          {currentOrg && (
+            <>
+              <View style={styles.divider} />
+              <SettingsRow
+                icon="business-outline"
+                label="소속 학원"
+                value={currentOrg.name}
+              />
+            </>
+          )}
         </View>
       </View>
 
+      {/* 앱 */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>앱</Text>
+        <View style={styles.card}>
+          <SettingsRow
+            icon="information-circle-outline"
+            label="앱 정보"
+            value={`v${appVersion}`}
+          />
+        </View>
+      </View>
+
+      {/* 로그아웃 */}
       <Pressable style={styles.logoutButton} onPress={handleLogout}>
         <Ionicons name="log-out-outline" size={20} color={COLORS.ERROR} />
         <Text style={styles.logoutText}>로그아웃</Text>
       </Pressable>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -68,7 +107,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.BACKGROUND_SECONDARY,
+  },
+  contentContainer: {
     padding: 16,
+    paddingBottom: 40,
   },
   section: {
     marginBottom: 24,
@@ -78,32 +120,37 @@ const styles = StyleSheet.create({
     fontFamily: 'Pretendard-SemiBold',
     color: COLORS.TEXT_SECONDARY,
     marginBottom: 8,
+    marginLeft: 4,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  infoCard: {
+  card: {
     backgroundColor: COLORS.WHITE,
     borderRadius: 16,
     padding: 4,
   },
-  infoRow: {
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 14,
     gap: 12,
   },
-  infoContent: {
+  rowContent: {
     flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  infoLabel: {
-    fontSize: 12,
-    color: COLORS.GRAY_400,
-    marginBottom: 2,
-  },
-  infoValue: {
+  rowLabel: {
     fontSize: 15,
-    color: COLORS.TEXT_PRIMARY,
     fontFamily: 'Pretendard-Medium',
+    color: COLORS.TEXT_PRIMARY,
+  },
+  rowValue: {
+    fontSize: 14,
+    color: COLORS.TEXT_SECONDARY,
+    maxWidth: '60%',
+    textAlign: 'right',
   },
   divider: {
     height: 1,

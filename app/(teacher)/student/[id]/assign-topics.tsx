@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
+  ScrollView,
   Pressable,
   TouchableOpacity,
   ActivityIndicator,
@@ -13,9 +13,11 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '@/lib/constants';
+import { TOPIC_CATEGORY_LABELS } from '@/lib/constants';
 import { getTopics, type TopicListItem } from '@/services/scripts';
 import { setStudentTopics, getStudentTopicsWithProgress } from '@/services/topics';
 import { getUserMessage } from '@/lib/errors';
+import type { TopicCategory } from '@/lib/types';
 
 export default function AssignTopicsScreen() {
   const { id: studentId } = useLocalSearchParams<{ id: string }>();
@@ -53,6 +55,25 @@ export default function AssignTopicsScreen() {
 
     load();
   }, [studentId]);
+
+  // 카테고리별 그룹핑
+  const groupedTopics = useMemo(() => {
+    const groups: { category: TopicCategory; label: string; topics: TopicListItem[] }[] = [];
+    const categoryOrder: TopicCategory[] = ['survey', 'unexpected'];
+
+    for (const cat of categoryOrder) {
+      const filtered = allTopics.filter((t) => t.category === cat);
+      if (filtered.length > 0) {
+        groups.push({
+          category: cat,
+          label: TOPIC_CATEGORY_LABELS[cat],
+          topics: filtered,
+        });
+      }
+    }
+
+    return groups;
+  }, [allTopics]);
 
   const toggleTopic = useCallback((topicId: string) => {
     setSelectedIds((prev) => {
@@ -118,68 +139,72 @@ export default function AssignTopicsScreen() {
           학생에게 배정할 토픽을 선택하세요 ({selectedIds.size}개 선택)
         </Text>
 
-        <FlatList
-          data={allTopics}
-          keyExtractor={(item) => item.id}
-          numColumns={3}
-          columnWrapperStyle={styles.row}
-          renderItem={({ item }) => {
-            const isSelected = selectedIds.has(item.id);
-            return (
-              <Pressable
-                style={[styles.topicCard, isSelected && styles.topicCardSelected]}
-                onPress={() => toggleTopic(item.id)}
-              >
-                <View
-                  style={[
-                    styles.iconContainer,
-                    isSelected && styles.iconContainerSelected,
-                  ]}
-                >
-                  <Ionicons
-                    name={
-                      (item.icon as keyof typeof Ionicons.glyphMap) ||
-                      'document-text-outline'
-                    }
-                    size={20}
-                    color={isSelected ? COLORS.WHITE : COLORS.PRIMARY}
-                  />
-                </View>
-                <Text
-                  style={[
-                    styles.topicName,
-                    isSelected && styles.topicNameSelected,
-                  ]}
-                  numberOfLines={1}
-                >
-                  {item.name_ko}
-                </Text>
-                {isSelected && (
-                  <View style={styles.checkBadge}>
-                    <Ionicons name="checkmark" size={12} color={COLORS.WHITE} />
-                  </View>
-                )}
-              </Pressable>
-            );
-          }}
-          contentContainerStyle={[styles.listContent, { flexGrow: 1 }]}
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          ListFooterComponentStyle={{ flex: 1, justifyContent: 'flex-end' }}
-          ListFooterComponent={
-            <TouchableOpacity
-              style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
-              onPress={handleSave}
-              disabled={isSaving}
-              activeOpacity={0.8}
-            >
-              {isSaving ? (
-                <ActivityIndicator size="small" color={COLORS.WHITE} />
-              ) : (
-                <Text style={styles.saveButtonText}>저장하기</Text>
-              )}
-            </TouchableOpacity>
-          }
-        />
+        >
+          {groupedTopics.map((group) => (
+            <View key={group.category} style={styles.categorySection}>
+              <Text style={styles.categoryTitle}>{group.label} ({group.topics.length})</Text>
+              <View style={styles.topicGrid}>
+                {group.topics.map((item) => {
+                  const isSelected = selectedIds.has(item.id);
+                  return (
+                    <Pressable
+                      key={item.id}
+                      style={[styles.topicCard, isSelected && styles.topicCardSelected]}
+                      onPress={() => toggleTopic(item.id)}
+                    >
+                      <View
+                        style={[
+                          styles.iconContainer,
+                          isSelected && styles.iconContainerSelected,
+                        ]}
+                      >
+                        <Ionicons
+                          name={
+                            (item.icon as keyof typeof Ionicons.glyphMap) ||
+                            'document-text-outline'
+                          }
+                          size={20}
+                          color={isSelected ? COLORS.WHITE : COLORS.PRIMARY}
+                        />
+                      </View>
+                      <Text
+                        style={[
+                          styles.topicName,
+                          isSelected && styles.topicNameSelected,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {item.name_ko}
+                      </Text>
+                      {isSelected && (
+                        <View style={styles.checkBadge}>
+                          <Ionicons name="checkmark" size={12} color={COLORS.WHITE} />
+                        </View>
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+
+        <TouchableOpacity
+          style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+          onPress={handleSave}
+          disabled={isSaving}
+          activeOpacity={0.8}
+        >
+          {isSaving ? (
+            <ActivityIndicator size="small" color={COLORS.WHITE} />
+          ) : (
+            <Text style={styles.saveButtonText}>저장하기</Text>
+          )}
+        </TouchableOpacity>
       </View>
     </>
   );
@@ -226,18 +251,28 @@ const styles = StyleSheet.create({
     fontFamily: 'Pretendard-SemiBold',
     color: COLORS.WHITE,
   },
-  row: {
-    justifyContent: 'space-between',
-  },
   listContent: {
     paddingBottom: 16,
+  },
+  categorySection: {
+    marginBottom: 16,
+  },
+  categoryTitle: {
+    fontSize: 15,
+    fontFamily: 'Pretendard-SemiBold',
+    color: COLORS.TEXT_PRIMARY,
+    marginBottom: 10,
+  },
+  topicGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
   },
   topicCard: {
     width: '31%',
     backgroundColor: COLORS.WHITE,
     borderRadius: 12,
     padding: 10,
-    marginBottom: 8,
     alignItems: 'center',
     borderWidth: 2,
     borderColor: 'transparent',
@@ -289,7 +324,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 16,
     marginTop: 12,
-    marginBottom: 24,
     alignItems: 'center',
     shadowColor: COLORS.BLACK,
     shadowOffset: { width: 0, height: 2 },

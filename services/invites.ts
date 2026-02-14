@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import type { Invite } from '@/lib/types';
+import type { Invite, OrgRole } from '@/lib/types';
 import { AppError, classifyError, classifyRpcError } from '@/lib/errors';
 
 // ============================================================================
@@ -10,6 +10,7 @@ interface CreateInviteResult {
   success: boolean;
   invite_id?: string;
   code?: string;
+  target_role?: OrgRole;
   expires_at?: string;
   error?: string;
 }
@@ -17,6 +18,8 @@ interface CreateInviteResult {
 interface UseInviteResult {
   success: boolean;
   teacher_id?: string;
+  organization_id?: string;
+  role?: OrgRole;
   notification_log_id?: string;
   error?: string;
 }
@@ -26,12 +29,17 @@ interface UseInviteResult {
 // ============================================================================
 
 /**
- * 초대 코드 생성 (강사용)
+ * 초대 코드 생성 (강사/원장용)
  * DB 함수 create_invite를 호출하여 새로운 초대 코드를 생성합니다.
+ * @param targetRole - 초대 대상 역할 ('student' 또는 'teacher'). teacher 초대는 owner만 가능.
  */
-export async function createInvite(expiresInDays: number = 7): Promise<CreateInviteResult> {
+export async function createInvite(
+  expiresInDays: number = 7,
+  targetRole: OrgRole = 'student'
+): Promise<CreateInviteResult> {
   const { data, error } = await supabase.rpc('create_invite', {
     p_expires_in_days: expiresInDays,
+    p_target_role: targetRole,
   });
 
   if (error) {

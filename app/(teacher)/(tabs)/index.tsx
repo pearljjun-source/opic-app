@@ -1,237 +1,144 @@
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable } from 'react-native';
-import { useState, useEffect, useCallback, useLayoutEffect } from 'react';
-import { router, useNavigation } from 'expo-router';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, RefreshControl } from 'react-native';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '@/lib/constants';
+import { computeTeacherDashboardStats, computeAttentionItems } from '@/lib/helpers';
 import { getConnectedStudents } from '@/services/students';
-import { getTeacherClasses } from '@/services/classes';
-import { StudentCard, ClassCard } from '@/components/teacher';
-import type { TeacherStudentListItem, TeacherClassListItem } from '@/lib/types';
+import { StudentCard, AttentionSection, TeacherCompactStatsStrip } from '@/components/teacher';
+import type { TeacherStudentListItem } from '@/lib/types';
 import { getUserMessage } from '@/lib/errors';
 
-type ActiveSection = 'students' | 'classes';
-
 export default function TeacherDashboard() {
-  const navigation = useNavigation();
-  const [activeSection, setActiveSection] = useState<ActiveSection>('students');
-
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      title: activeSection === 'students' ? '학생 목록' : '반 관리',
-    });
-  }, [activeSection, navigation]);
-
-  // Students state
   const [students, setStudents] = useState<TeacherStudentListItem[]>([]);
-  const [isStudentsLoading, setIsStudentsLoading] = useState(true);
-  const [studentsError, setStudentsError] = useState<string | null>(null);
-
-  // Classes state
-  const [classes, setClasses] = useState<TeacherClassListItem[]>([]);
-  const [isClassesLoading, setIsClassesLoading] = useState(false);
-  const [classesError, setClassesError] = useState<string | null>(null);
-  const [classesLoaded, setClassesLoaded] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const fetchStudents = useCallback(async () => {
-    setIsStudentsLoading(true);
-    setStudentsError(null);
+    setIsLoading(true);
+    setError(null);
 
     const { data, error: fetchError } = await getConnectedStudents();
 
     if (fetchError) {
-      setStudentsError(getUserMessage(fetchError));
+      setError(getUserMessage(fetchError));
     } else {
       setStudents(data || []);
     }
 
-    setIsStudentsLoading(false);
+    setIsLoading(false);
   }, []);
 
-  const fetchClasses = useCallback(async () => {
-    setIsClassesLoading(true);
-    setClassesError(null);
-
-    const { data, error: fetchError } = await getTeacherClasses();
-
-    if (fetchError) {
-      setClassesError(getUserMessage(fetchError));
-    } else {
-      setClasses(data || []);
-    }
-
-    setIsClassesLoading(false);
-    setClassesLoaded(true);
-  }, []);
-
+  // 초기 로드
+  const isFirstMount = useRef(true);
   useEffect(() => {
     fetchStudents();
   }, [fetchStudents]);
 
-  // 반 관리 탭을 처음 누를 때 로드
-  useEffect(() => {
-    if (activeSection === 'classes' && !classesLoaded) {
-      fetchClasses();
-    }
-  }, [activeSection, classesLoaded, fetchClasses]);
-
-  // 탭 전환 시 데이터 새로고침
-  const handleSectionChange = (section: ActiveSection) => {
-    setActiveSection(section);
-    if (section === 'students') {
+  // 화면 포커스 시 데이터 재조회 (학생 삭제/연결 해제 후 돌아올 때)
+  useFocusEffect(
+    useCallback(() => {
+      if (isFirstMount.current) {
+        isFirstMount.current = false;
+        return;
+      }
       fetchStudents();
-    } else {
-      fetchClasses();
-    }
-  };
+    }, [fetchStudents]),
+  );
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await fetchStudents();
+    setIsRefreshing(false);
+  }, [fetchStudents]);
 
   const handleStudentPress = (studentId: string) => {
     router.push(`/student/${studentId}`);
   };
 
-  const handleClassPress = (classId: string) => {
-    router.push(`/class/${classId}` as any);
-  };
-
   // ========== Render ==========
 
-  const renderSegmentControl = () => (
-    <View style={styles.segmentContainer}>
-      <Pressable
-        style={[
-          styles.segmentButton,
-          activeSection === 'students' && styles.segmentButtonActive,
-        ]}
-        onPress={() => handleSectionChange('students')}
-      >
-        <Text
-          style={[
-            styles.segmentText,
-            activeSection === 'students' && styles.segmentTextActive,
-          ]}
-        >
-          학생 목록
-        </Text>
-      </Pressable>
-      <Pressable
-        style={[
-          styles.segmentButton,
-          activeSection === 'classes' && styles.segmentButtonActive,
-        ]}
-        onPress={() => handleSectionChange('classes')}
-      >
-        <Text
-          style={[
-            styles.segmentText,
-            activeSection === 'classes' && styles.segmentTextActive,
-          ]}
-        >
-          반 관리
-        </Text>
-      </Pressable>
-    </View>
-  );
-
-  const renderLoading = () => (
-    <View style={styles.centerContainer}>
-      <ActivityIndicator size="large" color={COLORS.PRIMARY} />
-    </View>
-  );
-
-  const renderError = (message: string, onRetry: () => void) => (
-    <View style={styles.centerContainer}>
-      <Text style={styles.errorText}>{message}</Text>
-      <Pressable style={styles.retryButton} onPress={onRetry}>
-        <Text style={styles.retryButtonText}>다시 시도</Text>
-      </Pressable>
-    </View>
-  );
-
-  const renderStudents = () => {
-    if (isStudentsLoading) return renderLoading();
-    if (studentsError) return renderError(studentsError, fetchStudents);
-
-    if (students.length === 0) {
-      return (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="people-outline" size={48} color={COLORS.GRAY_300} />
-          <Text style={styles.emptyTitle}>연결된 학생이 없습니다</Text>
-          <Text style={styles.emptyHint}>
-            초대 탭에서 초대 코드를 생성하여{'\n'}
-            학생들을 초대하세요.
-          </Text>
-          <Pressable
-            style={styles.actionButton}
-            onPress={() => router.push('/invite')}
-          >
-            <Text style={styles.actionButtonText}>학생 초대하기</Text>
-          </Pressable>
-        </View>
-      );
-    }
-
+  if (isLoading) {
     return (
-      <FlatList
-        data={students}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.centerContainer}>
+        <Text style={styles.errorText}>{error}</Text>
+        <Pressable style={styles.retryButton} onPress={fetchStudents}>
+          <Text style={styles.retryButtonText}>다시 시도</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (students.length === 0) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Ionicons name="people-outline" size={48} color={COLORS.GRAY_300} />
+        <Text style={styles.emptyTitle}>연결된 학생이 없습니다</Text>
+        <Text style={styles.emptyHint}>
+          초대 탭에서 초대 코드를 생성하여{'\n'}
+          학생들을 초대하세요.
+        </Text>
+        <Pressable
+          style={styles.actionButton}
+          onPress={() => router.push('/invite')}
+        >
+          <Text style={styles.actionButtonText}>학생 초대하기</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  const dashboardStats = computeTeacherDashboardStats(students);
+  const attentionItems = computeAttentionItems(students);
+
+  return (
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
+      }
+    >
+      {/* 컴팩트 통계 스트립 */}
+      <TeacherCompactStatsStrip stats={dashboardStats} />
+
+      {/* 관심 필요 섹션 */}
+      <AttentionSection
+        items={attentionItems}
+        onStudentPress={handleStudentPress}
+      />
+
+      {/* 학생 카드 목록 */}
+      <View style={styles.studentListHeader}>
+        <View style={styles.sectionTitleRow}>
+          <Ionicons name="people" size={16} color={COLORS.PRIMARY} />
+          <Text style={styles.sectionTitle}>전체 학생</Text>
+        </View>
+        <View style={styles.sectionCountBadge}>
+          <Text style={styles.sectionCount}>{students.length}명</Text>
+        </View>
+      </View>
+      {students.map((item) => (
+        <View key={item.id} style={styles.studentCardWrapper}>
           <StudentCard
             student={item}
             onPress={() => handleStudentPress(item.id)}
           />
-        )}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-      />
-    );
-  };
-
-  const renderClasses = () => {
-    if (isClassesLoading) return renderLoading();
-    if (classesError) return renderError(classesError, fetchClasses);
-
-    return (
-      <View style={{ flex: 1 }}>
-        {/* 반 만들기 버튼 */}
-        <Pressable
-          style={styles.createClassButton}
-          onPress={() => router.push('/class/create')}
-        >
-          <Ionicons name="add-circle-outline" size={20} color={COLORS.PRIMARY} />
-          <Text style={styles.createClassButtonText}>반 만들기</Text>
-        </Pressable>
-
-        {classes.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="school-outline" size={48} color={COLORS.GRAY_300} />
-            <Text style={styles.emptyTitle}>생성된 반이 없습니다</Text>
-            <Text style={styles.emptyHint}>
-              반을 만들어 학생들을{'\n'}그룹으로 관리하세요
-            </Text>
-          </View>
-        ) : (
-          <FlatList
-            data={classes}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <ClassCard
-                classItem={item}
-                onPress={() => handleClassPress(item.id)}
-              />
-            )}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-          />
-        )}
-      </View>
-    );
-  };
-
-  return (
-    <View style={styles.container}>
-      {renderSegmentControl()}
-      {activeSection === 'students' ? renderStudents() : renderClasses()}
-    </View>
+        </View>
+      ))}
+    </ScrollView>
   );
 }
 
@@ -245,38 +152,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
-  },
-  segmentContainer: {
-    flexDirection: 'row',
-    marginHorizontal: 16,
-    marginTop: 8,
-    marginBottom: 12,
-    backgroundColor: COLORS.GRAY_100,
-    borderRadius: 10,
-    padding: 3,
-  },
-  segmentButton: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  segmentButtonActive: {
-    backgroundColor: COLORS.WHITE,
-    shadowColor: COLORS.BLACK,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  segmentText: {
-    fontSize: 14,
-    fontFamily: 'Pretendard-Medium',
-    color: COLORS.TEXT_SECONDARY,
-  },
-  segmentTextActive: {
-    fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
+    backgroundColor: COLORS.BACKGROUND_SECONDARY,
   },
   errorText: {
     fontSize: 16,
@@ -301,6 +177,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 32,
     gap: 8,
+    backgroundColor: COLORS.BACKGROUND_SECONDARY,
   },
   emptyTitle: {
     fontSize: 16,
@@ -327,27 +204,44 @@ const styles = StyleSheet.create({
     fontFamily: 'Pretendard-SemiBold',
     color: COLORS.WHITE,
   },
-  createClassButton: {
+  scrollContent: {
+    paddingTop: 8,
+    paddingBottom: 24,
+  },
+  studentListHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 12,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.GRAY_200,
+  },
+  sectionTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginHorizontal: 16,
-    marginBottom: 8,
-    paddingVertical: 14,
-    backgroundColor: COLORS.WHITE,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.PRIMARY,
-    borderStyle: 'dashed',
+    gap: 6,
   },
-  createClassButtonText: {
-    fontSize: 15,
+  sectionTitle: {
+    fontSize: 14,
+    fontFamily: 'Pretendard-Bold',
+    color: COLORS.TEXT_SECONDARY,
+    letterSpacing: 0.5,
+  },
+  sectionCountBadge: {
+    backgroundColor: COLORS.GRAY_100,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  sectionCount: {
+    fontSize: 12,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.PRIMARY,
+    color: COLORS.TEXT_SECONDARY,
   },
-  listContent: {
-    padding: 16,
-    paddingTop: 8,
+  studentCardWrapper: {
+    marginHorizontal: 16,
   },
 });

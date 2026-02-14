@@ -5,7 +5,7 @@
 // 타입은 types.ts에서 정의하고 여기서 import합니다.
 // ============================================================================
 
-import type { UserRole, InviteStatus, ScriptStatus, QuestionType, ApiType, NotificationType } from './types';
+import type { UserRole, InviteStatus, ScriptStatus, QuestionType, ApiType, NotificationType, TopicCategory, OrgRole, PlatformRole } from './types';
 
 // ============================================================================
 // 상태/역할 상수
@@ -16,6 +16,25 @@ export const USER_ROLES: Record<string, UserRole> = {
   ADMIN: 'admin',
   TEACHER: 'teacher',
   STUDENT: 'student',
+} as const;
+
+/** 조직 역할 상수 */
+export const ORG_ROLES: Record<string, OrgRole> = {
+  OWNER: 'owner',
+  TEACHER: 'teacher',
+  STUDENT: 'student',
+} as const;
+
+/** 조직 역할 한글 라벨 */
+export const ORG_ROLE_LABELS: Record<OrgRole, string> = {
+  owner: '원장',
+  teacher: '강사',
+  student: '학생',
+} as const;
+
+/** 플랫폼 역할 상수 */
+export const PLATFORM_ROLES: Record<string, PlatformRole> = {
+  SUPER_ADMIN: 'super_admin',
 } as const;
 
 /** 초대 상태 상수 */
@@ -51,6 +70,18 @@ export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   advanced: '어드밴스',
 } as const;
 
+/** 토픽 카테고리 상수 */
+export const TOPIC_CATEGORIES: Record<string, TopicCategory> = {
+  SURVEY: 'survey',
+  UNEXPECTED: 'unexpected',
+} as const;
+
+/** 토픽 카테고리 한글 라벨 */
+export const TOPIC_CATEGORY_LABELS: Record<TopicCategory, string> = {
+  survey: '서베이 주제',
+  unexpected: '돌발 주제',
+} as const;
+
 /** API 유형 상수 */
 export const API_TYPES: Record<string, ApiType> = {
   WHISPER: 'whisper',
@@ -79,6 +110,37 @@ export const OPIC_GRADES = [
   'IL', 'IM1', 'IM2', 'IM3', 'IH',
   'AL',
 ] as const;
+
+// ============================================================================
+// 대시보드 설정
+// ============================================================================
+
+/** 학생 학습 목표 기본값 */
+export const STUDENT_GOALS = {
+  /** 주간 연습 횟수 목표 */
+  WEEKLY_PRACTICES: 5,
+} as const;
+
+/** 점수 → OPIc 등급 매핑 기준 (하한선) */
+export const OPIC_SCORE_THRESHOLDS = [
+  { minScore: 95, grade: 'AL' as const },
+  { minScore: 88, grade: 'IH' as const },
+  { minScore: 80, grade: 'IM3' as const },
+  { minScore: 72, grade: 'IM2' as const },
+  { minScore: 64, grade: 'IM1' as const },
+  { minScore: 55, grade: 'IL' as const },
+  { minScore: 45, grade: 'NH' as const },
+  { minScore: 35, grade: 'NM' as const },
+  { minScore: 0, grade: 'NL' as const },
+] as const;
+
+/** 관심 필요 학생 기준 */
+export const ATTENTION_THRESHOLDS = {
+  /** 위험: 미연습 일수 (빨간색) */
+  DANGER_INACTIVE_DAYS: 14,
+  /** 경고: 미연습 일수 (노란색) */
+  WARNING_INACTIVE_DAYS: 7,
+} as const;
 
 // ============================================================================
 // 색상 테마
@@ -159,4 +221,5 @@ export const APP_CONFIG = {
 export const STORAGE_BUCKETS = {
   PRACTICE_RECORDINGS: 'practice-recordings',
   QUESTION_AUDIO: 'question-audio',
+  LANDING_ASSETS: 'landing-assets',
 } as const;

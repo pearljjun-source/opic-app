@@ -16,6 +16,7 @@ export interface TopicListItem {
   name_en: string;
   icon: string | null;
   description: string | null;
+  category: string;
 }
 
 export interface QuestionListItem {
@@ -59,6 +60,7 @@ export interface StudentScriptDetail {
     id: string;
     question_text: string;
     audio_url: string | null;
+    question_type: string | null;
   };
 }
 
@@ -75,7 +77,7 @@ export async function getTopics(): Promise<{
 }> {
   const { data, error } = await supabase
     .from('topics')
-    .select('id, name_ko, name_en, icon, description')
+    .select('id, name_ko, name_en, icon, description, category')
     .eq('is_active', true)
     .order('sort_order', { ascending: true });
 
@@ -376,7 +378,8 @@ export async function getStudentScript(scriptId: string): Promise<{
         question:questions!scripts_question_id_fkey (
           id,
           question_text,
-          audio_url
+          audio_url,
+          question_type
         )
       `)
       .eq('id', scriptId)

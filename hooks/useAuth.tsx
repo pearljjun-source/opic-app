@@ -5,7 +5,8 @@ import { useRouter, useSegments } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { supabase } from '@/lib/supabase';
-import type { User, UserRole } from '@/lib/types';
+import type { User, UserRole, OrgRole, PlatformRole, MyOrganization } from '@/lib/types';
+import { canTeach } from '@/lib/permissions';
 
 // ============================================================================
 // SSR-safe cache helpers
@@ -30,6 +31,8 @@ const safeMultiRemove = (keys: string[]): void => {
 
 const CACHE_KEY_ROLE = 'auth_cached_role';
 const CACHE_KEY_PROFILE = 'auth_cached_profile';
+const CACHE_KEY_ORG = 'auth_cached_org';
+const CACHE_KEY_ORGS = 'auth_cached_orgs';
 
 // ============================================================================
 // Types
@@ -40,7 +43,16 @@ interface AuthState {
   session: Session | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  /** Legacy role from users.role (점진적 폐기) */
   role: UserRole | null;
+  /** 플랫폼 역할 (super_admin) */
+  platformRole: PlatformRole | null;
+  /** 현재 선택된 조직 */
+  currentOrg: MyOrganization | null;
+  /** 현재 조직에서의 역할 */
+  orgRole: OrgRole | null;
+  /** 소속 조직 목록 */
+  organizations: MyOrganization[];
 }
 
 interface AuthContextType extends AuthState {
@@ -49,6 +61,7 @@ interface AuthContextType extends AuthState {
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
   refreshUser: () => Promise<void>;
+  switchOrganization: (orgId: string) => void;
 }
 
 // ============================================================================
@@ -68,32 +81,94 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoading: true,
     isAuthenticated: false,
     role: null,
+    platformRole: null,
+    currentOrg: null,
+    orgRole: null,
+    organizations: [],
   });
 
   const router = useRouter();
   const segments = useSegments();
 
-  // Fetch user profile from public.users table + cache
-  const fetchUserProfile = useCallback(async (userId: string): Promise<User | null> => {
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .single();
-
-    if (error) {
-      if (__DEV__) console.warn('[Auth] Error fetching profile:', error);
-      return null;
+  // Fetch organizations from get_my_organizations RPC
+  const fetchOrganizations = useCallback(async (): Promise<MyOrganization[]> => {
+    const { data, error } = await (supabase.rpc as CallableFunction)('get_my_organizations');
+    if (error || !data) {
+      if (__DEV__) console.warn('[Auth] Error fetching organizations:', error);
+      return [];
     }
+    return data as MyOrganization[];
+  }, []);
+
+  // Fetch user profile from public.users table + organizations + cache
+  const fetchUserProfile = useCallback(async (userId: string): Promise<{
+    profile: User | null;
+    orgs: MyOrganization[];
+  }> => {
+    const [profileResult, orgs] = await Promise.all([
+      supabase.from('users').select('*').eq('id', userId).single(),
+      fetchOrganizations(),
+    ]);
+
+    if (profileResult.error) {
+      if (__DEV__) console.warn('[Auth] Error fetching profile:', profileResult.error);
+      return { profile: null, orgs: [] };
+    }
+
+    const profile = profileResult.data;
 
     // Cache for instant next startup
-    if (data) {
-      safeSetItem(CACHE_KEY_ROLE, data.role);
-      safeSetItem(CACHE_KEY_PROFILE, JSON.stringify(data));
+    if (profile) {
+      safeSetItem(CACHE_KEY_ROLE, profile.role);
+      safeSetItem(CACHE_KEY_PROFILE, JSON.stringify(profile));
+      safeSetItem(CACHE_KEY_ORGS, JSON.stringify(orgs));
     }
 
-    return data;
+    return { profile, orgs };
+  }, [fetchOrganizations]);
+
+  // Determine current org: from cache or auto-select
+  const resolveCurrentOrg = useCallback(async (orgs: MyOrganization[]): Promise<MyOrganization | null> => {
+    if (orgs.length === 0) return null;
+    if (orgs.length === 1) {
+      safeSetItem(CACHE_KEY_ORG, JSON.stringify(orgs[0]));
+      return orgs[0];
+    }
+
+    // Multi-org: try cached selection
+    const cachedOrgStr = await safeGetItem(CACHE_KEY_ORG);
+    if (cachedOrgStr) {
+      const cached = JSON.parse(cachedOrgStr) as MyOrganization;
+      const found = orgs.find(o => o.id === cached.id);
+      if (found) return found;
+    }
+
+    // Default to first org
+    safeSetItem(CACHE_KEY_ORG, JSON.stringify(orgs[0]));
+    return orgs[0];
   }, []);
+
+  // Build full state from profile + orgs
+  const buildAuthState = useCallback(async (
+    session: Session,
+    profile: User | null,
+    orgs: MyOrganization[],
+  ): Promise<Partial<AuthState>> => {
+    const currentOrg = await resolveCurrentOrg(orgs);
+    const platformRole = (profile as Record<string, unknown>)?.platform_role as PlatformRole | null ?? null;
+
+    return {
+      user: profile,
+      session,
+      isLoading: false,
+      isAuthenticated: true,
+      role: profile?.role || null,
+      platformRole,
+      currentOrg,
+      orgRole: currentOrg?.role || null,
+      organizations: orgs,
+    };
+  }, [resolveCurrentOrg]);
 
   // ============================================================================
   // Auth state listener — single source of truth
@@ -106,45 +181,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // ----------------------------------------------------------------
         if (event === 'INITIAL_SESSION') {
           if (session?.user) {
-            // 1) 캐시에서 role + profile 읽기 (로컬, ~10ms)
-            const [cachedRole, cachedProfileStr] = await Promise.all([
+            // 1) 캐시에서 role + profile + orgs 읽기 (로컬, ~10ms)
+            const [cachedRole, cachedProfileStr, cachedOrgsStr] = await Promise.all([
               safeGetItem(CACHE_KEY_ROLE),
               safeGetItem(CACHE_KEY_PROFILE),
+              safeGetItem(CACHE_KEY_ORGS),
             ]);
             const cachedProfile = cachedProfileStr
               ? (JSON.parse(cachedProfileStr) as User)
               : null;
+            const cachedOrgs = cachedOrgsStr
+              ? (JSON.parse(cachedOrgsStr) as MyOrganization[])
+              : [];
 
             if (cachedRole) {
               // Fast path: 캐시 있음 → 즉시 UI 표시
-              setState({
-                user: cachedProfile,
-                session,
-                isLoading: false,
-                isAuthenticated: true,
-                role: cachedRole as UserRole,
-              });
+              const cachedState = await buildAuthState(session, cachedProfile, cachedOrgs);
+              setState(prev => ({ ...prev, ...cachedState }));
 
-              // Background: DB에서 최신 profile 갱신
-              fetchUserProfile(session.user.id).then(fresh => {
+              // Background: DB에서 최신 profile + orgs 갱신
+              fetchUserProfile(session.user.id).then(async ({ profile: fresh, orgs: freshOrgs }) => {
                 if (fresh) {
-                  setState(prev => ({ ...prev, user: fresh, role: fresh.role }));
+                  const freshState = await buildAuthState(session, fresh, freshOrgs);
+                  setState(prev => ({ ...prev, ...freshState }));
                 }
               });
             } else {
-              // Slow path: 캐시 없음 (최초 또는 캐시 삭제) → DB에서 조회
-              const profile = await fetchUserProfile(session.user.id);
-              setState({
-                user: profile,
-                session,
-                isLoading: false,
-                isAuthenticated: true,
-                role: profile?.role || null,
-              });
+              // Slow path: 캐시 없음 → DB에서 조회
+              const { profile, orgs } = await fetchUserProfile(session.user.id);
+              const newState = await buildAuthState(session, profile, orgs);
+              setState(prev => ({ ...prev, ...newState }));
             }
 
             // Background: 서버에서 토큰 유효성 검증
-            // 토큰이 서버에서 취소된 경우 → 강제 로그아웃
             supabase.auth.getUser().then(({ error }) => {
               if (error) {
                 if (__DEV__) console.warn('[Auth] Token invalid, signing out');
@@ -159,6 +228,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               isLoading: false,
               isAuthenticated: false,
               role: null,
+              platformRole: null,
+              currentOrg: null,
+              orgRole: null,
+              organizations: [],
             });
           }
 
@@ -166,39 +239,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // SIGNED_IN: 로그인 성공
         // ----------------------------------------------------------------
         } else if (event === 'SIGNED_IN' && session?.user) {
-          const userProfile = await fetchUserProfile(session.user.id);
-          setState({
-            user: userProfile,
-            session,
-            isLoading: false,
-            isAuthenticated: true,
-            role: userProfile?.role || null,
-          });
+          const { profile, orgs } = await fetchUserProfile(session.user.id);
+          const newState = await buildAuthState(session, profile, orgs);
+          setState(prev => ({ ...prev, ...newState }));
 
         // ----------------------------------------------------------------
         // SIGNED_OUT: 로그아웃
         // ----------------------------------------------------------------
         } else if (event === 'SIGNED_OUT') {
-          safeMultiRemove([CACHE_KEY_ROLE, CACHE_KEY_PROFILE]);
+          safeMultiRemove([CACHE_KEY_ROLE, CACHE_KEY_PROFILE, CACHE_KEY_ORG, CACHE_KEY_ORGS]);
           setState({
             user: null,
             session: null,
             isLoading: false,
             isAuthenticated: false,
             role: null,
+            platformRole: null,
+            currentOrg: null,
+            orgRole: null,
+            organizations: [],
           });
 
         // ----------------------------------------------------------------
         // TOKEN_REFRESHED: 토큰 갱신 시 최신 profile 반영
         // ----------------------------------------------------------------
         } else if (event === 'TOKEN_REFRESHED' && session) {
-          const userProfile = await fetchUserProfile(session.user.id);
-          setState(prev => ({
-            ...prev,
-            session,
-            user: userProfile || prev.user,
-            role: userProfile?.role || prev.role,
-          }));
+          const { profile, orgs } = await fetchUserProfile(session.user.id);
+          if (profile) {
+            const newState = await buildAuthState(session, profile, orgs);
+            setState(prev => ({ ...prev, ...newState }));
+          }
         }
       }
     );
@@ -206,7 +276,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [fetchUserProfile]);
+  }, [fetchUserProfile, buildAuthState]);
 
   // ============================================================================
   // Routing based on auth state
@@ -217,33 +287,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const inAuthGroup = segments[0] === '(auth)';
     const inTeacherGroup = segments[0] === '(teacher)';
     const inStudentGroup = segments[0] === '(student)';
-    const inProtectedGroup = inTeacherGroup || inStudentGroup;
+    const inAdminGroup = segments[0] === '(admin)';
+    const inProtectedGroup = inTeacherGroup || inStudentGroup || inAdminGroup;
+
+    // 역할별 홈 경로 (org 기반)
+    const homeForUser = () => {
+      // super_admin → admin
+      if (state.platformRole === 'super_admin') return '/(admin)' as const;
+      // Legacy admin 호환
+      if (state.role === 'admin') return '/(admin)' as const;
+
+      // org 없으면 → 학생 초대 코드 화면
+      if (!state.currentOrg) return '/(student)' as const;
+
+      // org 역할 기반
+      if (canTeach(state.orgRole)) return '/(teacher)' as const;
+      return '/(student)' as const;
+    };
 
     // 웹 랜딩 페이지: 미인증 사용자가 루트(/)에서 로그인 화면으로 리다이렉트되지 않도록 허용
-    const isRootRoute = !segments[0] || segments[0] === 'index';
+    const isRootRoute = !segments[0] || (segments[0] as string) === 'index';
     if (!state.isAuthenticated && !inAuthGroup) {
       if (Platform.OS === 'web' && isRootRoute) return;
       router.replace('/(auth)/login');
     } else if (state.isAuthenticated && inAuthGroup) {
-      if (state.role === 'teacher') {
-        router.replace('/(teacher)');
-      } else if (state.role === 'student') {
-        router.replace('/(student)');
-      }
+      router.replace(homeForUser() as any);
     } else if (state.isAuthenticated && !inProtectedGroup) {
-      if (state.role === 'teacher') {
-        router.replace('/(teacher)');
-      } else if (state.role === 'student') {
-        router.replace('/(student)');
-      }
+      router.replace(homeForUser() as any);
     } else if (state.isAuthenticated) {
-      if (state.role === 'teacher' && inStudentGroup) {
-        router.replace('/(teacher)');
-      } else if (state.role === 'student' && inTeacherGroup) {
-        router.replace('/(student)');
+      // 잘못된 그룹에 있는 경우 올바른 그룹으로 리다이렉트
+      const correctHome = homeForUser();
+      const inCorrectGroup =
+        (correctHome === '/(admin)' && inAdminGroup) ||
+        (correctHome === '/(teacher)' && inTeacherGroup) ||
+        (correctHome === '/(student)' && inStudentGroup);
+      if (!inCorrectGroup) {
+        router.replace(correctHome as any);
       }
     }
-  }, [state.isAuthenticated, state.isLoading, state.role, segments, router]);
+  }, [state.isAuthenticated, state.isLoading, state.role, state.platformRole, state.orgRole, state.currentOrg, segments, router]);
 
   // ============================================================================
   // Sign in
@@ -265,7 +347,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ============================================================================
 
   // public.users 행 생성 대기 (handle_new_user 트리거 완료 확인)
-  // 최대 3초 (300ms × 10회) 폴링 후 포기 (포기해도 이후 자연스럽게 해소됨)
   const waitForUserRow = async (userId: string) => {
     for (let i = 0; i < 10; i++) {
       const { data } = await supabase
@@ -278,8 +359,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // role은 서버(handle_new_user 트리거)에서 무조건 'student'로 설정
-  // 강사 승격은 admin이 promote_to_teacher RPC로만 가능
   const signUp = useCallback(async (
     email: string,
     password: string,
@@ -300,7 +379,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const autoLoggedIn = !!data.session;
 
-      // 레이스 컨디션 방지: public.users 행이 생성될 때까지 대기
       if (autoLoggedIn && data.user) {
         await waitForUserRow(data.user.id);
       }
@@ -331,20 +409,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // ============================================================================
-  // Refresh user profile
+  // Refresh user profile + organizations
   // ============================================================================
   const refreshUser = useCallback(async () => {
     if (state.session?.user) {
-      const userProfile = await fetchUserProfile(state.session.user.id);
-      if (userProfile) {
-        setState(prev => ({
-          ...prev,
-          user: userProfile,
-          role: userProfile.role,
-        }));
+      const { profile, orgs } = await fetchUserProfile(state.session.user.id);
+      if (profile) {
+        const newState = await buildAuthState(state.session, profile, orgs);
+        setState(prev => ({ ...prev, ...newState }));
       }
     }
-  }, [state.session, fetchUserProfile]);
+  }, [state.session, fetchUserProfile, buildAuthState]);
+
+  // ============================================================================
+  // Switch organization (multi-org)
+  // ============================================================================
+  const switchOrganization = useCallback((orgId: string) => {
+    const org = state.organizations.find(o => o.id === orgId);
+    if (!org) return;
+
+    safeSetItem(CACHE_KEY_ORG, JSON.stringify(org));
+    setState(prev => ({
+      ...prev,
+      currentOrg: org,
+      orgRole: org.role,
+    }));
+  }, [state.organizations]);
 
   const value: AuthContextType = {
     ...state,
@@ -353,6 +443,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signOut,
     resetPassword,
     refreshUser,
+    switchOrganization,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -392,6 +483,16 @@ export function useIsAuthenticated() {
 export function useRole() {
   const { role } = useAuth();
   return role;
+}
+
+export function useOrgRole() {
+  const { orgRole } = useAuth();
+  return orgRole;
+}
+
+export function useCurrentOrg() {
+  const { currentOrg } = useAuth();
+  return currentOrg;
 }
 
 export default useAuth;

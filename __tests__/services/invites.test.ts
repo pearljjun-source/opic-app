@@ -35,7 +35,7 @@ describe('createInvite()', () => {
 
     const result = await createInvite(7);
 
-    expect(mockSupabase.rpc).toHaveBeenCalledWith('create_invite', { p_expires_in_days: 7 });
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('create_invite', { p_expires_in_days: 7, p_target_role: 'student' });
     expect(result.success).toBe(true);
     expect(result.invite_id).toBe('inv-1');
     expect(result.code).toBe('ABC123');
@@ -50,7 +50,7 @@ describe('createInvite()', () => {
 
     await createInvite();
 
-    expect(mockSupabase.rpc).toHaveBeenCalledWith('create_invite', { p_expires_in_days: 7 });
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('create_invite', { p_expires_in_days: 7, p_target_role: 'student' });
   });
 
   it('RPC Supabase error returns success: false with Korean error message', async () => {

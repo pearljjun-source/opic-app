@@ -8,6 +8,8 @@ import {
   Pressable,
   RefreshControl,
   ActivityIndicator,
+  Modal,
+  Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,31 +21,41 @@ import type {
   StudentScriptListItem,
   StudentPracticeListItem,
   StudentTopicWithProgress,
+  OpicGrade,
 } from '@/lib/types';
 import {
   getStudentDetail,
   getStudentScripts,
   getStudentPractices,
+  disconnectStudent,
 } from '@/services/students';
 import { getStudentTopicsWithProgress } from '@/services/topics';
 import { StudentInfoCard } from '@/components/teacher/StudentInfoCard';
+import { StudentNotes } from '@/components/teacher/StudentNotes';
 import { ScriptListItem } from '@/components/teacher/ScriptListItem';
 import { PracticeListItem } from '@/components/teacher/PracticeListItem';
 import { TopicProgressCard } from '@/components/teacher/TopicProgressCard';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { getUserMessage } from '@/lib/errors';
+import { useAuth } from '@/hooks/useAuth';
+import { canManageOrg } from '@/lib/permissions';
+import { removeOrgMember } from '@/services/organizations';
 
 type TabType = 'topics' | 'scripts' | 'practices';
 
 export default function StudentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { currentOrg, orgRole } = useAuth();
+  const isOwner = canManageOrg(orgRole);
 
   // State
   const [activeTab, setActiveTab] = useState<TabType>('topics');
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isNotesModalVisible, setIsNotesModalVisible] = useState(false);
+  const [isMenuVisible, setIsMenuVisible] = useState(false);
 
   // Data
   const [student, setStudent] = useState<StudentDetailInfo | null>(null);
@@ -174,6 +186,59 @@ export default function StudentDetailScreen() {
       pathname: '/(teacher)/student/script/select-topic',
       params: { studentId: id },
     });
+  };
+
+  // 학생 관리 메뉴
+  const handleMoreMenu = () => {
+    setIsMenuVisible(true);
+  };
+
+  const handleDisconnect = () => {
+    if (!id || !student) return;
+
+    Alert.alert(
+      '나와의 연결 해제',
+      `${student.name} 학생과의 연결을 해제하시겠습니까?\n\n• 내 반에서 자동 제외됩니다\n• 배정된 토픽이 해제됩니다\n• 다른 강사와의 연결은 유지됩니다`,
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '연결 해제',
+          style: 'destructive',
+          onPress: async () => {
+            const { error: disconnectError } = await disconnectStudent(id);
+            if (disconnectError) {
+              Alert.alert('오류', getUserMessage(disconnectError));
+            } else {
+              router.back();
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleRemoveFromOrg = () => {
+    if (!id || !student || !currentOrg) return;
+
+    Alert.alert(
+      '학원에서 제거',
+      `${student.name} 학생을 학원에서 완전히 제거하시겠습니까?\n\n• 학원의 모든 강사와 연결이 해제됩니다\n• 모든 반에서 제외됩니다\n• 이 작업은 되돌릴 수 없습니다`,
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '제거',
+          style: 'destructive',
+          onPress: async () => {
+            const result = await removeOrgMember(currentOrg.id, id);
+            if (result.success) {
+              router.back();
+            } else {
+              Alert.alert('오류', result.error || '학생 제거에 실패했습니다.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   // Render tab content (ScrollView + map: RecyclerView z-order 문제 방지)
@@ -315,8 +380,107 @@ export default function StudentDetailScreen() {
         options={{
           title: student.name,
           headerBackTitle: '뒤로',
+          headerRight: () => (
+            <Pressable
+              onPress={handleMoreMenu}
+              style={styles.headerButton}
+            >
+              <Ionicons name="ellipsis-vertical" size={22} color={COLORS.TEXT_PRIMARY} />
+            </Pressable>
+          ),
         }}
       />
+
+      {/* 메모 + 목표 등급 모달 */}
+      <Modal
+        visible={isNotesModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setIsNotesModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>메모 / 목표 등급</Text>
+            <Pressable onPress={() => setIsNotesModalVisible(false)}>
+              <Ionicons name="close" size={24} color={COLORS.TEXT_PRIMARY} />
+            </Pressable>
+          </View>
+          <StudentNotes
+            studentId={id!}
+            initialNotes={stats.notes ?? null}
+            initialTargetGrade={(stats.target_opic_grade as OpicGrade) ?? null}
+            onSaved={() => {
+              fetchStudentDetail();
+              setIsNotesModalVisible(false);
+            }}
+          />
+        </View>
+      </Modal>
+
+      {/* 학생 관리 바텀 시트 */}
+      <Modal
+        visible={isMenuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsMenuVisible(false)}
+      >
+        <Pressable
+          style={styles.menuOverlay}
+          onPress={() => setIsMenuVisible(false)}
+        >
+          <Pressable style={styles.menuSheet} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.menuHandle} />
+            <Text style={styles.menuTitle}>학생 관리</Text>
+
+            <Pressable
+              style={styles.menuItem}
+              onPress={() => {
+                setIsMenuVisible(false);
+                setIsNotesModalVisible(true);
+              }}
+            >
+              <Ionicons name="create-outline" size={20} color={COLORS.TEXT_PRIMARY} />
+              <Text style={styles.menuItemText}>메모 / 목표 등급</Text>
+            </Pressable>
+
+            <View style={styles.menuDivider} />
+
+            <Pressable
+              style={styles.menuItem}
+              onPress={() => {
+                setIsMenuVisible(false);
+                handleDisconnect();
+              }}
+            >
+              <Ionicons name="unlink-outline" size={20} color={COLORS.ERROR} />
+              <Text style={[styles.menuItemText, styles.menuItemDestructive]}>나와의 연결 해제</Text>
+            </Pressable>
+
+            {isOwner && currentOrg && (
+              <>
+                <View style={styles.menuDivider} />
+                <Pressable
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setIsMenuVisible(false);
+                    handleRemoveFromOrg();
+                  }}
+                >
+                  <Ionicons name="trash-outline" size={20} color={COLORS.ERROR} />
+                  <Text style={[styles.menuItemText, styles.menuItemDestructive]}>학원에서 제거</Text>
+                </Pressable>
+              </>
+            )}
+
+            <Pressable
+              style={styles.menuCancelButton}
+              onPress={() => setIsMenuVisible(false)}
+            >
+              <Text style={styles.menuCancelText}>취소</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <View style={styles.container}>
         {/* 학생 정보 카드 */}
@@ -459,5 +623,86 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: 'Pretendard-SemiBold',
     color: COLORS.WHITE,
+  },
+  headerButton: {
+    padding: 4,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: COLORS.BACKGROUND_SECONDARY,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: COLORS.WHITE,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.BORDER,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontFamily: 'Pretendard-SemiBold',
+    color: COLORS.TEXT_PRIMARY,
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  menuSheet: {
+    backgroundColor: COLORS.WHITE,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 16,
+    paddingBottom: 32,
+  },
+  menuHandle: {
+    width: 36,
+    height: 4,
+    backgroundColor: COLORS.GRAY_300,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: 12,
+    marginBottom: 16,
+  },
+  menuTitle: {
+    fontSize: 16,
+    fontFamily: 'Pretendard-Bold',
+    color: COLORS.TEXT_PRIMARY,
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+  },
+  menuItemText: {
+    fontSize: 15,
+    fontFamily: 'Pretendard-Medium',
+    color: COLORS.TEXT_PRIMARY,
+  },
+  menuItemDestructive: {
+    color: COLORS.ERROR,
+  },
+  menuDivider: {
+    height: 1,
+    backgroundColor: COLORS.GRAY_100,
+  },
+  menuCancelButton: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    backgroundColor: COLORS.BACKGROUND_SECONDARY,
+    borderRadius: 12,
+    marginTop: 16,
+  },
+  menuCancelText: {
+    fontSize: 15,
+    fontFamily: 'Pretendard-SemiBold',
+    color: COLORS.TEXT_SECONDARY,
   },
 });
