@@ -10,7 +10,7 @@ import {
   useWindowDimensions,
   Animated,
 } from 'react-native';
-import { Link } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { getLandingData } from '@/services/landing';
 import type { LandingSection, LandingItem } from '@/lib/types';
 import {
@@ -662,6 +662,8 @@ const FAQ = [
 // ============================================================================
 export default function LandingPage() {
 
+  const router = useRouter();
+  const go = (path: string) => () => router.push(path as any);
   const { width } = useWindowDimensions();
   const mob = width < 768;
   const [heroBgMode, setHeroBgMode] = useState<HeroBgMode>('blob');
@@ -750,16 +752,12 @@ export default function LandingPage() {
               <Image source={require('@/assets/images/speaky-text-logo.png')} style={s.navTextLogo} resizeMode="contain" />
             </View>
             <View style={s.navRight}>
-              <Link href="/(auth)/login" asChild>
-                <Pressable>
-                  <Text style={s.navLink}>로그인</Text>
-                </Pressable>
-              </Link>
-              <Link href="/(auth)/signup" asChild>
-                <Pressable style={s.navCta}>
-                  <Text style={s.navCtaText}>무료 체험</Text>
-                </Pressable>
-              </Link>
+              <Pressable onPress={go('/(auth)/login')}>
+                <Text style={s.navLink}>로그인</Text>
+              </Pressable>
+              <Pressable style={s.navCta} onPress={go('/(auth)/signup')}>
+                <Text style={s.navCtaText}>무료 체험</Text>
+              </Pressable>
             </View>
           </View>
         </View>
@@ -775,12 +773,10 @@ export default function LandingPage() {
 
           <FadeInView delay={600}>
             <View style={s.heroButtons}>
-              <Link href="/(auth)/signup" asChild>
-                <Pressable style={s.heroBtn}>
-                  <Text style={s.heroBtnText}>무료로 시작하기</Text>
-                  <ArrowRight size={18} color="#fff" weight="bold" />
-                </Pressable>
-              </Link>
+              <Pressable style={s.heroBtn} onPress={go('/(auth)/signup')}>
+                <Text style={s.heroBtnText}>무료로 시작하기</Text>
+                <ArrowRight size={18} color="#fff" weight="bold" />
+              </Pressable>
               <Pressable style={s.heroBtnOutline}>
                 <GooglePlayLogo size={18} color="#e8b4bb" weight="duotone" />
                 <Text style={s.heroBtnOutlineText}>앱 다운로드</Text>
@@ -1053,11 +1049,9 @@ export default function LandingPage() {
                     <Text style={s.priceFeatText}>{f}</Text>
                   </View>
                 ))}
-                <Link href="/(auth)/signup" asChild>
-                  <Pressable style={[s.priceCta, p.highlighted && s.priceCtaHL]}>
-                    <Text style={[s.priceCtaText, p.highlighted && { color: '#fff' }]}>{p.cta}</Text>
-                  </Pressable>
-                </Link>
+                <Pressable style={[s.priceCta, p.highlighted && s.priceCtaHL]} onPress={go('/(auth)/signup')}>
+                  <Text style={[s.priceCtaText, p.highlighted && { color: '#fff' }]}>{p.cta}</Text>
+                </Pressable>
               </HoverCard>
             </FadeInView>
           ))}
@@ -1087,11 +1081,9 @@ export default function LandingPage() {
           </Text>
           <Text style={s.ctaSub}>카드 등록 없이, 지금 바로 무료로 체험해 보세요</Text>
           <View style={s.ctaButtons}>
-            <Link href="/(auth)/signup" asChild>
-              <Pressable style={s.ctaBtn}>
-                <Text style={s.ctaBtnText}>무료로 시작하기</Text>
-              </Pressable>
-            </Link>
+            <Pressable style={s.ctaBtn} onPress={go('/(auth)/signup')}>
+              <Text style={s.ctaBtnText}>무료로 시작하기</Text>
+            </Pressable>
             <Pressable style={s.ctaBtnOutline}>
               <GooglePlayLogo size={18} color="#fff" weight="duotone" />
               <Text style={s.ctaBtnOutlineText}>앱 다운로드</Text>
