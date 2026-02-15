@@ -41,13 +41,10 @@ export default function LoginScreen() {
     try {
       const { error: signInError } = await signIn(email.trim(), password);
       if (signInError) {
-        // TODO: 디버그용 — 실제 에러 메시지 표시 (원인 파악 후 제거)
-        const raw = signInError.message || String(signInError);
-        const classified = classifyAuthError(signInError);
-        setError(`[${classified.code}] ${raw}`);
+        setError(classifyAuthError(signInError).userMessage);
       }
     } catch (err) {
-      setError(`[catch] ${err instanceof Error ? err.message : String(err)}`);
+      setError(classifyAuthError(err).userMessage);
     } finally {
       setIsSubmitting(false);
     }

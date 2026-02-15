@@ -4,8 +4,8 @@ import { createClient } from '@supabase/supabase-js';
 
 import type { Database } from './database.types';
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseUrl = (process.env.EXPO_PUBLIC_SUPABASE_URL ?? '').trim();
+const supabaseAnonKey = (process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '').replace(/\s/g, '');
 
 // SSR-safe storage: 정적 렌더링(Node.js)에서 window.localStorage 접근 방지
 const noopStorage = {
