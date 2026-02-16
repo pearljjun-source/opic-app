@@ -24,6 +24,16 @@ import {
   GooglePlayLogo,
 } from 'phosphor-react-native';
 
+// Icon name → Component mapping (DB icon string → phosphor component)
+const ICON_MAP: Record<string, React.ComponentType<any>> = {
+  Clock, Headphones, FileText, EyeSlash,
+  PencilLine, Microphone, Lightning, TrendUp,
+  Cpu, ChatCircle, Trophy, Users,
+  UserPlus, ChartBar, PlayCircle, BookOpen, User,
+  Link: LinkIcon,
+  Circle: CircleIcon,
+};
+
 const ROSE = '#D4707F';
 const ROSE_LIGHT = '#FDE8EB';
 const DARK = '#111827';
@@ -731,6 +741,83 @@ export default function LandingPage() {
     return STATS;
   }, [getItems]);
 
+  // DB 기반 동적 Pain Points (fallback: 하드코딩)
+  const painPointsData = useMemo(() => {
+    const dbItems = getItems('pain_points');
+    if (dbItems.length > 0) {
+      return dbItems.map(item => ({
+        Icon: ICON_MAP[item.icon || ''] || Clock,
+        title: item.title,
+        desc: item.description || '',
+      }));
+    }
+    return PAIN_POINTS;
+  }, [getItems]);
+
+  // DB 기반 동적 Features Now (fallback: 하드코딩)
+  const featuresNowData = useMemo(() => {
+    const dbItems = getItems('features_now');
+    if (dbItems.length > 0) {
+      return dbItems.map(item => ({
+        Icon: ICON_MAP[item.icon || ''] || PencilLine,
+        image: item.image_url ? { uri: item.image_url } : null,
+        title: item.title,
+        desc: item.description || '',
+      }));
+    }
+    return FEATURES_NOW;
+  }, [getItems]);
+
+  // DB 기반 동적 Features Soon (fallback: 하드코딩)
+  const featuresSoonData = useMemo(() => {
+    const dbItems = getItems('features_soon');
+    if (dbItems.length > 0) {
+      return dbItems.map(item => ({
+        Icon: ICON_MAP[item.icon || ''] || Cpu,
+        title: item.title,
+        desc: item.description || '',
+      }));
+    }
+    return FEATURES_SOON;
+  }, [getItems]);
+
+  // DB 기반 동적 Steps (fallback: 하드코딩)
+  const stepsData = useMemo(() => {
+    const dbItems = getItems('steps');
+    if (dbItems.length > 0) {
+      return dbItems.map((item, i) => ({
+        num: (item.metadata as any)?.num || String(i + 1).padStart(2, '0'),
+        Icon: ICON_MAP[item.icon || ''] || UserPlus,
+        title: item.title,
+        desc: item.description || '',
+      }));
+    }
+    return STEPS;
+  }, [getItems]);
+
+  // DB 기반 동적 Roadmap (fallback: 하드코딩)
+  const roadmapData = useMemo(() => {
+    const dbItems = getItems('roadmap');
+    if (dbItems.length > 0) {
+      return dbItems.map(item => ({
+        phase: (item.metadata as any)?.phase || '',
+        status: ((item.metadata as any)?.status || 'planned') as 'live' | 'next' | 'planned',
+        title: item.title,
+        items: ((item.metadata as any)?.items as string[]) || [],
+      }));
+    }
+    return ROADMAP;
+  }, [getItems]);
+
+  // DB 기반 동영상 URL
+  const videoUrl = useMemo(() => {
+    const videoSec = getSection('video');
+    if (videoSec?.content && (videoSec.content as any).video_url) {
+      return (videoSec.content as any).video_url as string;
+    }
+    return null;
+  }, [getSection]);
+
 
   return (
     <ScrollView style={s.root}>
@@ -839,7 +926,7 @@ export default function LandingPage() {
                   3) 이미지 → <Image source={require('@/assets/images/demo.png')} style={...} /> 로 교체
                 */}
                 <iframe
-                  src="https://www.youtube.com/embed/YOUR_VIDEO_ID"
+                  src={videoUrl || "https://www.youtube.com/embed/YOUR_VIDEO_ID"}
                   title="Speaky 소개"
                   style={{
                     width: '100%',
@@ -870,7 +957,7 @@ export default function LandingPage() {
           </Text>
         </FadeInView>
         <View style={[s.painGrid, mob && s.painGridM]}>
-          {PAIN_POINTS.map((p, i) => (
+          {painPointsData.map((p, i) => (
             <FadeInView key={i} delay={i * 120} style={mob ? { width: '100%' } : {}}>
               <HoverCard style={[s.painCard, mob && s.painCardM]}>
                 <View style={s.painIconBox}>
@@ -904,13 +991,13 @@ export default function LandingPage() {
             지금 바로 사용할 수 있는 기능
           </Text>
           <Text style={s.featSecSub}>
-            현재 총 <Text style={{ color: ROSE, fontFamily: 'Pretendard-Bold' }}>{FEATURES_NOW.length}가지</Text> 핵심 기능을 제공하고 있습니다.
+            현재 총 <Text style={{ color: ROSE, fontFamily: 'Pretendard-Bold' }}>{featuresNowData.length}가지</Text> 핵심 기능을 제공하고 있습니다.
           </Text>
         </FadeInView>
 
         {/* Gallery row */}
         <View style={[s.featGallery, mob && s.featGalleryM]}>
-          {FEATURES_NOW.map((f, i) => {
+          {featuresNowData.map((f, i) => {
             const colors = [
               ['#4C1D95', '#7C3AED'],  // 보라
               [DARK, ROSE],            // 다크→로즈
@@ -948,7 +1035,7 @@ export default function LandingPage() {
           <Text style={s.featComingSoon}>Coming Soon</Text>
         </FadeInView>
         <View style={[s.featSoonRow, mob && s.featSoonRowM]}>
-          {FEATURES_SOON.map((f, i) => (
+          {featuresSoonData.map((f, i) => (
             <FadeInView key={i} delay={400 + i * 80}>
               <View style={[s.featSoonCard, mob && s.featSoonCardM]}>
                 <View style={s.featSoonIcon}>
@@ -971,12 +1058,12 @@ export default function LandingPage() {
           <Text style={s.secTitle}>5분이면 시작할 수 있어요</Text>
         </FadeInView>
         <View style={[s.stepsRow, mob && s.stepsRowM]}>
-          {STEPS.map((st, i) => (
+          {stepsData.map((st, i) => (
             <FadeInView key={i} delay={i * 150} style={s.stepWrap}>
               <View style={s.stepCircle}>
                 <st.Icon size={24} color={ROSE} weight="duotone" />
               </View>
-              {i < STEPS.length - 1 && !mob && <View style={s.stepLine} />}
+              {i < stepsData.length - 1 && !mob && <View style={s.stepLine} />}
               <Text style={s.stepNum}>{st.num}</Text>
               <Text style={s.stepTitle}>{st.title}</Text>
               <Text style={s.stepDesc}>{st.desc}</Text>
@@ -993,7 +1080,7 @@ export default function LandingPage() {
           <Text style={s.secSub}>Speaky는 OPIc 학습의 모든 영역으로 확장됩니다</Text>
         </FadeInView>
         <View style={[s.rmGrid, mob && s.rmGridM]}>
-          {ROADMAP.map((r, i) => (
+          {roadmapData.map((r, i) => (
             <FadeInView key={i} delay={i * 120}>
               <HoverCard style={[s.rmCard, mob && s.rmCardM]}>
                 <View style={s.rmHeader}>

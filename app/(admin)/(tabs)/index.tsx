@@ -1,9 +1,11 @@
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable } from 'react-native';
 import { useState, useEffect, useCallback } from 'react';
+import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '@/lib/constants';
 import { getUserMessage } from '@/lib/errors';
-import { getAdminDashboardStats } from '@/services/admin';
+import { getAdminDashboardStats, listOrganizations } from '@/services/admin';
 import { adminGetSubscriptionStats } from '@/services/billing';
 import type { AdminDashboardStats, SubscriptionStats } from '@/lib/types';
 
@@ -20,6 +22,7 @@ function KpiCard({ label, value, sub }: { label: string; value: string | number;
 export default function AdminDashboard() {
   const [stats, setStats] = useState<AdminDashboardStats | null>(null);
   const [subStats, setSubStats] = useState<SubscriptionStats | null>(null);
+  const [orgCount, setOrgCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -27,9 +30,10 @@ export default function AdminDashboard() {
   const fetchData = useCallback(async () => {
     setError(null);
 
-    const [statsResult, subResult] = await Promise.all([
+    const [statsResult, subResult, orgsResult] = await Promise.all([
       getAdminDashboardStats(),
       adminGetSubscriptionStats(),
+      listOrganizations(),
     ]);
 
     if (statsResult.error) {
@@ -40,6 +44,10 @@ export default function AdminDashboard() {
 
     if (subResult.data) {
       setSubStats(subResult.data);
+    }
+
+    if (orgsResult.data) {
+      setOrgCount(orgsResult.data.length);
     }
 
     setIsLoading(false);
@@ -92,6 +100,7 @@ export default function AdminDashboard() {
       <View style={styles.kpiRow}>
         <KpiCard label="7일 활성" value={stats?.active_7d ?? 0} />
         <KpiCard label="30일 활성" value={stats?.active_30d ?? 0} />
+        <KpiCard label="등록 학원" value={orgCount} />
       </View>
 
       {/* 구독/수익 KPI */}
@@ -120,6 +129,27 @@ export default function AdminDashboard() {
           ))}
         </>
       )}
+
+      {/* 바로가기 */}
+      <Text style={styles.sectionTitle}>바로가기</Text>
+      <View style={styles.shortcutGrid}>
+        <Pressable style={styles.shortcutCard} onPress={() => router.push('/(admin)/(tabs)/users')}>
+          <Ionicons name="people" size={24} color={COLORS.PRIMARY} />
+          <Text style={styles.shortcutLabel}>사용자 관리</Text>
+        </Pressable>
+        <Pressable style={styles.shortcutCard} onPress={() => router.push('/(admin)/(tabs)/academies')}>
+          <Ionicons name="business" size={24} color="#7C3AED" />
+          <Text style={styles.shortcutLabel}>학원 관리</Text>
+        </Pressable>
+        <Pressable style={styles.shortcutCard} onPress={() => router.push('/(admin)/(tabs)/billing')}>
+          <Ionicons name="card" size={24} color={COLORS.SECONDARY} />
+          <Text style={styles.shortcutLabel}>결제 관리</Text>
+        </Pressable>
+        <Pressable style={styles.shortcutCard} onPress={() => router.push('/(admin)/(tabs)/landing')}>
+          <Ionicons name="globe" size={24} color="#F59E0B" />
+          <Text style={styles.shortcutLabel}>랜딩 관리</Text>
+        </Pressable>
+      </View>
     </ScrollView>
   );
 }
@@ -161,4 +191,16 @@ const styles = StyleSheet.create({
   },
   planName: { fontSize: 14, fontFamily: 'Pretendard-Medium', color: COLORS.TEXT_PRIMARY },
   planCount: { fontSize: 14, fontFamily: 'Pretendard-Bold', color: COLORS.PRIMARY },
+  shortcutGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  shortcutCard: {
+    width: '47%' as any,
+    backgroundColor: COLORS.WHITE,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+  },
+  shortcutLabel: { fontSize: 13, fontFamily: 'Pretendard-Medium', color: COLORS.TEXT_PRIMARY },
 });

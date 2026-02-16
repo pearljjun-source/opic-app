@@ -497,6 +497,24 @@ export interface AdminOrganizationItem {
   student_count: number;
 }
 
+/** 학원 상세 멤버 아이템 */
+export interface AdminOrgMemberItem {
+  id: string;
+  user_id: string;
+  name: string;
+  email: string;
+  role: string;
+  created_at: string;
+}
+
+/** 학원 상세 구독 정보 */
+export interface AdminOrgSubscription {
+  id: string;
+  status: string;
+  plan_name: string;
+  current_period_end: string;
+}
+
 // ============================================================================
 // Subscription & Payment Types
 // ============================================================================

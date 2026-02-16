@@ -4,6 +4,7 @@ import {
   KeyboardAvoidingView,
 } from 'react-native';
 import { useState, useEffect, useCallback } from 'react';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 
@@ -106,12 +107,20 @@ function InviteCard({
 
 function OrgCard({ org }: { org: AdminOrganizationItem }) {
   return (
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>{org.name}</Text>
-      <View style={styles.cardMeta}>
-        <Text style={styles.metaText}>
-          원장: {org.owner_name} ({org.owner_email})
-        </Text>
+    <Pressable
+      style={styles.card}
+      onPress={() => router.push(`/(admin)/academy/${org.id}`)}
+    >
+      <View style={styles.cardHeader}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.cardTitle}>{org.name}</Text>
+          <View style={styles.cardMeta}>
+            <Text style={styles.metaText}>
+              원장: {org.owner_name} ({org.owner_email})
+            </Text>
+          </View>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color={COLORS.GRAY_400} />
       </View>
       <View style={styles.orgStats}>
         <View style={styles.orgStat}>
@@ -123,7 +132,7 @@ function OrgCard({ org }: { org: AdminOrganizationItem }) {
           <Text style={styles.orgStatText}>학생 {org.student_count}명</Text>
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 

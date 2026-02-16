@@ -9,6 +9,7 @@ export default function AdminLayout() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="user" />
         <Stack.Screen name="subscription" />
+        <Stack.Screen name="academy" />
       </Stack>
     </RoleGuard>
   );

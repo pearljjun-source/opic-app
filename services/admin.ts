@@ -8,7 +8,10 @@ import type {
   AdminAuditLog,
   AdminOwnerInviteItem,
   AdminOrganizationItem,
+  AdminOrgMemberItem,
+  AdminOrgSubscription,
   UserRole,
+  PaymentRecord,
 } from '@/lib/types';
 
 // ============================================================================
@@ -209,6 +212,93 @@ export async function listOrganizations(): Promise<{
   }
 
   return { data: data?.organizations || [], error: null };
+}
+
+// ============================================================================
+// 학원 상세 (Super Admin)
+// ============================================================================
+
+/** 학원 상세 조회 (org 정보 + 멤버 + 구독) */
+export async function getOrganizationDetail(orgId: string): Promise<{
+  data: {
+    members: AdminOrgMemberItem[];
+    subscription: AdminOrgSubscription | null;
+  } | null;
+  error: Error | null;
+}> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: new AppError('AUTH_REQUIRED') };
+
+  const [membersResult, subResult] = await Promise.all([
+    supabase
+      .from('organization_members')
+      .select('id, role, created_at, user_id, users(id, name, email)')
+      .eq('organization_id', orgId)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: true }),
+    supabase
+      .from('subscriptions')
+      .select('id, status, current_period_end, subscription_plans(name)')
+      .eq('organization_id', orgId)
+      .in('status', ['active', 'trialing', 'past_due'])
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  if (membersResult.error) {
+    return { data: null, error: classifyError(membersResult.error, { resource: 'organization' }) };
+  }
+
+  const members: AdminOrgMemberItem[] = (membersResult.data || []).map((m: any) => ({
+    id: m.id,
+    user_id: m.users?.id || m.user_id,
+    name: m.users?.name || '(알 수 없음)',
+    email: m.users?.email || '',
+    role: m.role,
+    created_at: m.created_at,
+  }));
+
+  let subscription: AdminOrgSubscription | null = null;
+  if (subResult.data) {
+    const sub = subResult.data as any;
+    subscription = {
+      id: sub.id,
+      status: sub.status,
+      plan_name: sub.subscription_plans?.name || '(알 수 없음)',
+      current_period_end: sub.current_period_end,
+    };
+  }
+
+  return { data: { members, subscription }, error: null };
+}
+
+/** 학원 결제 이력 조회 */
+export async function getOrganizationPayments(orgId: string): Promise<{
+  data: PaymentRecord[] | null;
+  error: Error | null;
+}> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: new AppError('AUTH_REQUIRED') };
+
+  // 해당 org의 subscription IDs 조회
+  const { data: subs, error: subsError } = await supabase
+    .from('subscriptions')
+    .select('id')
+    .eq('organization_id', orgId);
+
+  if (subsError) return { data: null, error: classifyError(subsError, { resource: 'subscription' }) };
+  if (!subs || subs.length === 0) return { data: [], error: null };
+
+  const subIds = subs.map((s: any) => s.id);
+  const { data, error } = await supabase
+    .from('payment_history')
+    .select('*')
+    .in('subscription_id', subIds)
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  if (error) return { data: null, error: classifyError(error, { resource: 'subscription' }) };
+  return { data: data as PaymentRecord[], error: null };
 }
 
 /** 감사 로그 조회 */
