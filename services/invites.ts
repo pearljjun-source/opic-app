@@ -79,23 +79,29 @@ export async function getMyInvites(): Promise<{ data: Invite[] | null; error: Er
 /**
  * 활성 초대 코드 조회 (강사용)
  * 아직 사용되지 않고 만료되지 않은 초대 코드
+ * @param targetRole - 필터링할 대상 역할. 지정하면 해당 역할의 초대만 반환.
  */
-export async function getActiveInvite(): Promise<{ data: Invite | null; error: Error | null }> {
+export async function getActiveInvite(targetRole?: OrgRole): Promise<{ data: Invite | null; error: Error | null }> {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
     return { data: null, error: new AppError('AUTH_REQUIRED') };
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('invites')
     .select('*')
     .eq('teacher_id', user.id)
     .eq('status', 'pending')
     .gt('expires_at', new Date().toISOString())
     .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
+    .limit(1);
+
+  if (targetRole) {
+    query = query.eq('target_role', targetRole);
+  }
+
+  const { data, error } = await query.single();
 
   if (error && error.code !== 'PGRST116') {
     // PGRST116 = no rows returned (which is fine)

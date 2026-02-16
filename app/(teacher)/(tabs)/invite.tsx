@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert, ScrollView } from 'react-native';
 import { useState, useEffect, useCallback } from 'react';
 
 import { COLORS, APP_CONFIG, ORG_ROLE_LABELS } from '@/lib/constants';
@@ -15,7 +15,7 @@ import { getUserMessage } from '@/lib/errors';
  * 기능:
  * - 활성 초대 코드가 있으면 표시
  * - 없으면 새로 생성 가능
- * - owner: 학생 또는 강사 초대 선택 가능
+ * - owner: 학생 + 강사 초대를 독립적으로 관리 (동시 가능)
  * - teacher: 학생 초대만 가능
  * - 코드 삭제 가능
  */
@@ -23,53 +23,76 @@ export default function InviteScreen() {
   const { orgRole } = useAuth();
   const canInviteTeachers = canInviteTeacher(orgRole);
 
-  const [invite, setInvite] = useState<Invite | null>(null);
+  const [studentInvite, setStudentInvite] = useState<Invite | null>(null);
+  const [teacherInvite, setTeacherInvite] = useState<Invite | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isCreating, setIsCreating] = useState(false);
+  const [creatingRole, setCreatingRole] = useState<OrgRole | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [targetRole, setTargetRole] = useState<OrgRole>('student');
 
   // 활성 초대 코드 조회
-  const fetchActiveInvite = useCallback(async () => {
+  const fetchActiveInvites = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
-    const { data, error: fetchError } = await getActiveInvite();
+    // owner는 student + teacher 둘 다 조회, teacher는 student만
+    const requests: Promise<{ data: Invite | null; error: Error | null }>[] = [
+      getActiveInvite('student'),
+    ];
+    if (canInviteTeachers) {
+      requests.push(getActiveInvite('teacher'));
+    }
 
-    if (fetchError) {
-      setError(getUserMessage(fetchError));
+    const results = await Promise.all(requests);
+
+    const studentResult = results[0];
+    if (studentResult.error) {
+      setError(getUserMessage(studentResult.error));
     } else {
-      setInvite(data);
+      setStudentInvite(studentResult.data);
+    }
+
+    if (canInviteTeachers && results[1]) {
+      const teacherResult = results[1];
+      if (teacherResult.error) {
+        setError(getUserMessage(teacherResult.error));
+      } else {
+        setTeacherInvite(teacherResult.data);
+      }
     }
 
     setIsLoading(false);
-  }, []);
+  }, [canInviteTeachers]);
 
   useEffect(() => {
-    fetchActiveInvite();
-  }, [fetchActiveInvite]);
+    fetchActiveInvites();
+  }, [fetchActiveInvites]);
 
   // 초대 코드 생성
-  const handleCreateInvite = async () => {
-    setIsCreating(true);
+  const handleCreateInvite = async (targetRole: OrgRole) => {
+    setCreatingRole(targetRole);
     setError(null);
 
     const result = await createInvite(APP_CONFIG.INVITE_EXPIRE_DAYS, targetRole);
 
     if (result.success && result.invite_id) {
-      // 새로 생성된 코드를 다시 조회
-      await fetchActiveInvite();
+      // 해당 역할의 초대만 다시 조회
+      const { data, error: fetchError } = await getActiveInvite(targetRole);
+      if (fetchError) {
+        setError(getUserMessage(fetchError));
+      } else if (targetRole === 'student') {
+        setStudentInvite(data);
+      } else {
+        setTeacherInvite(data);
+      }
     } else {
       setError(result.error || '초대 코드 생성에 실패했습니다.');
     }
 
-    setIsCreating(false);
+    setCreatingRole(null);
   };
 
   // 초대 코드 삭제
-  const handleDeleteInvite = () => {
-    if (!invite) return;
-
+  const handleDeleteInvite = (invite: Invite, role: OrgRole) => {
     Alert.alert(
       '초대 코드 삭제',
       '이 초대 코드를 삭제하시겠습니까?\n삭제 후 새 코드를 생성할 수 있습니다.',
@@ -79,15 +102,16 @@ export default function InviteScreen() {
           text: '삭제',
           style: 'destructive',
           onPress: async () => {
-            setIsLoading(true);
             const { error: deleteError } = await deleteInvite(invite.id);
 
             if (deleteError) {
               setError(getUserMessage(deleteError));
-              setIsLoading(false);
             } else {
-              setInvite(null);
-              setIsLoading(false);
+              if (role === 'student') {
+                setStudentInvite(null);
+              } else {
+                setTeacherInvite(null);
+              }
             }
           },
         },
@@ -98,94 +122,129 @@ export default function InviteScreen() {
   // 로딩 중
   if (isLoading) {
     return (
-      <View style={styles.container}>
+      <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color={COLORS.PRIMARY} />
         <Text style={styles.loadingText}>로딩 중...</Text>
       </View>
     );
   }
 
+  // 단일 섹션 렌더링 (초대 카드 또는 생성 버튼)
+  const renderInviteSection = (role: OrgRole) => {
+    const invite = role === 'student' ? studentInvite : teacherInvite;
+    const isCreating = creatingRole === role;
+    const roleLabel = ORG_ROLE_LABELS[role];
+
+    if (invite) {
+      return (
+        <InviteCodeCard
+          invite={invite}
+          targetRole={role}
+          onDelete={() => handleDeleteInvite(invite, role)}
+        />
+      );
+    }
+
+    return (
+      <View style={styles.createSection}>
+        <Text style={styles.createDescription}>
+          {role === 'teacher'
+            ? '새 초대 코드를 생성하여 강사를 초대하세요.'
+            : '새 초대 코드를 생성하여 학생을 초대하세요.'}
+          {'\n'}코드는 {APP_CONFIG.INVITE_EXPIRE_DAYS}일간 유효합니다.
+        </Text>
+        <Pressable
+          style={[styles.button, isCreating && styles.buttonDisabled]}
+          onPress={() => handleCreateInvite(role)}
+          disabled={isCreating}
+        >
+          {isCreating ? (
+            <ActivityIndicator size="small" color={COLORS.WHITE} />
+          ) : (
+            <Text style={styles.buttonText}>{roleLabel} 초대 코드 생성</Text>
+          )}
+        </Pressable>
+      </View>
+    );
+  };
+
+  // owner가 아닌 teacher: 학생 초대만 표시 (기존과 유사한 단일 화면)
+  if (!canInviteTeachers) {
+    return (
+      <View style={styles.container}>
+        {error && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
+
+        {studentInvite ? (
+          <InviteCodeCard
+            invite={studentInvite}
+            targetRole="student"
+            onDelete={() => handleDeleteInvite(studentInvite, 'student')}
+          />
+        ) : (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyTitle}>활성 초대 코드가 없습니다</Text>
+            <Text style={styles.emptyDescription}>
+              새 초대 코드를 생성하여 학생을 초대하세요.{'\n'}
+              코드는 {APP_CONFIG.INVITE_EXPIRE_DAYS}일간 유효합니다.
+            </Text>
+            <Pressable
+              style={[styles.button, creatingRole === 'student' && styles.buttonDisabled]}
+              onPress={() => handleCreateInvite('student')}
+              disabled={creatingRole === 'student'}
+            >
+              {creatingRole === 'student' ? (
+                <ActivityIndicator size="small" color={COLORS.WHITE} />
+              ) : (
+                <Text style={styles.buttonText}>학생 초대 코드 생성</Text>
+              )}
+            </Pressable>
+          </View>
+        )}
+      </View>
+    );
+  }
+
+  // owner: 학생 + 강사 초대를 독립적으로 관리
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       {error && (
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{error}</Text>
         </View>
       )}
 
-      {invite ? (
-        <InviteCodeCard
-          invite={invite}
-          onDelete={handleDeleteInvite}
-        />
-      ) : (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyTitle}>활성 초대 코드가 없습니다</Text>
-          <Text style={styles.emptyDescription}>
-            새 초대 코드를 생성하여 멤버를 초대하세요.{'\n'}
-            코드는 {APP_CONFIG.INVITE_EXPIRE_DAYS}일간 유효합니다.
-          </Text>
+      {/* 학생 초대 섹션 */}
+      <View style={styles.sectionContainer}>
+        <Text style={styles.sectionTitle}>{ORG_ROLE_LABELS.student} 초대</Text>
+        {renderInviteSection('student')}
+      </View>
 
-          {/* 초대 대상 역할 선택 (owner만) */}
-          {canInviteTeachers && (
-            <View style={styles.roleSelector}>
-              <Text style={styles.roleSelectorLabel}>초대 대상</Text>
-              <View style={styles.roleButtons}>
-                <Pressable
-                  style={[
-                    styles.roleButton,
-                    targetRole === 'student' && styles.roleButtonActive,
-                  ]}
-                  onPress={() => setTargetRole('student')}
-                >
-                  <Text style={[
-                    styles.roleButtonText,
-                    targetRole === 'student' && styles.roleButtonTextActive,
-                  ]}>
-                    {ORG_ROLE_LABELS.student}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  style={[
-                    styles.roleButton,
-                    targetRole === 'teacher' && styles.roleButtonActive,
-                  ]}
-                  onPress={() => setTargetRole('teacher')}
-                >
-                  <Text style={[
-                    styles.roleButtonText,
-                    targetRole === 'teacher' && styles.roleButtonTextActive,
-                  ]}>
-                    {ORG_ROLE_LABELS.teacher}
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-          )}
-
-          <Pressable
-            style={[styles.button, isCreating && styles.buttonDisabled]}
-            onPress={handleCreateInvite}
-            disabled={isCreating}
-          >
-            {isCreating ? (
-              <ActivityIndicator size="small" color={COLORS.WHITE} />
-            ) : (
-              <Text style={styles.buttonText}>
-                {targetRole === 'teacher' ? '강사 초대 코드 생성' : '학생 초대 코드 생성'}
-              </Text>
-            )}
-          </Pressable>
-        </View>
-      )}
-    </View>
+      {/* 강사 초대 섹션 */}
+      <View style={styles.sectionContainer}>
+        <Text style={styles.sectionTitle}>{ORG_ROLE_LABELS.teacher} 초대</Text>
+        {renderInviteSection('teacher')}
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: COLORS.BACKGROUND_SECONDARY,
+  },
+  scrollContent: {
     padding: 24,
+    paddingBottom: 48,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: COLORS.BACKGROUND_SECONDARY,
   },
   loadingText: {
@@ -224,43 +283,32 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: 24,
   },
-  roleSelector: {
+  sectionContainer: {
     marginBottom: 24,
-    alignItems: 'center',
   },
-  roleSelectorLabel: {
-    fontSize: 14,
-    fontFamily: 'Pretendard-Medium',
-    color: COLORS.TEXT_SECONDARY,
-    marginBottom: 8,
-  },
-  roleButtons: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.GRAY_100,
-    borderRadius: 12,
-    padding: 4,
-  },
-  roleButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  roleButtonActive: {
-    backgroundColor: COLORS.WHITE,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  roleButtonText: {
-    fontSize: 14,
-    fontFamily: 'Pretendard-Medium',
-    color: COLORS.TEXT_SECONDARY,
-  },
-  roleButtonTextActive: {
-    color: COLORS.PRIMARY,
+  sectionTitle: {
+    fontSize: 16,
     fontFamily: 'Pretendard-SemiBold',
+    color: COLORS.TEXT_PRIMARY,
+    marginBottom: 12,
+  },
+  createSection: {
+    backgroundColor: COLORS.WHITE,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  createDescription: {
+    fontSize: 14,
+    color: COLORS.TEXT_SECONDARY,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 20,
   },
   button: {
     backgroundColor: COLORS.PRIMARY,

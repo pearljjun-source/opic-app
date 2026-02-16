@@ -9,6 +9,7 @@ interface InviteCodeCardProps {
   invite: Invite | null;
   isLoading?: boolean;
   onDelete?: () => void;
+  targetRole?: 'student' | 'teacher';
 }
 
 /**
@@ -20,7 +21,7 @@ interface InviteCodeCardProps {
  * - 클립보드 복사
  * - 삭제 기능
  */
-export function InviteCodeCard({ invite, isLoading, onDelete }: InviteCodeCardProps) {
+export function InviteCodeCard({ invite, isLoading, onDelete, targetRole }: InviteCodeCardProps) {
   const [copied, setCopied] = useState(false);
 
   if (isLoading) {
@@ -59,7 +60,9 @@ export function InviteCodeCard({ invite, isLoading, onDelete }: InviteCodeCardPr
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>초대 코드</Text>
+      <Text style={styles.label}>
+        {targetRole === 'teacher' ? '강사 초대 코드' : '학생 초대 코드'}
+      </Text>
 
       <Pressable onPress={handleCopy} style={styles.codeContainer}>
         <Text style={styles.code}>{invite.code}</Text>
@@ -75,8 +78,9 @@ export function InviteCodeCard({ invite, isLoading, onDelete }: InviteCodeCardPr
       </View>
 
       <Text style={styles.hint}>
-        학생에게 이 코드를 공유하세요.{'\n'}
-        학생이 앱에서 코드를 입력하면 연결됩니다.
+        {targetRole === 'teacher'
+          ? '강사에게 이 코드를 공유하세요.\n강사가 앱에서 코드를 입력하면 학원에 합류합니다.'
+          : '학생에게 이 코드를 공유하세요.\n학생이 앱에서 코드를 입력하면 연결됩니다.'}
       </Text>
 
       {onDelete && (
