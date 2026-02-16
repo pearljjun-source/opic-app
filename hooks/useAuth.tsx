@@ -175,6 +175,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [resolveCurrentOrg]);
 
   // ============================================================================
+  // Auth init timeout — 어떤 이유든 10초 안에 초기화 안 되면 로그인 화면으로
+  // ============================================================================
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setState(prev => {
+        if (!prev.isLoading) return prev;
+        // 초기화 실패 → 캐시 삭제 후 로그인 화면으로
+        if (__DEV__) console.warn('[Auth] Init timeout — forcing isLoading: false');
+        safeMultiRemove([CACHE_KEY_ROLE, CACHE_KEY_PROFILE, CACHE_KEY_ORG, CACHE_KEY_ORGS]);
+        return {
+          user: null,
+          session: null,
+          isLoading: false,
+          isAuthenticated: false,
+          role: null,
+          platformRole: null,
+          currentOrg: null,
+          orgRole: null,
+          organizations: [],
+        };
+      });
+    }, 10_000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // ============================================================================
   // Auth state listener — single source of truth
   // ============================================================================
   useEffect(() => {
