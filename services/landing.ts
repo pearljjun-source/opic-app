@@ -6,6 +6,7 @@ import {
   LandingItemSchema,
   ReorderItemsSchema,
   ImageUploadSchema,
+  VideoUploadSchema,
 } from '@/lib/validations';
 import { STORAGE_BUCKETS } from '@/lib/constants';
 import type { LandingSection, LandingItem } from '@/lib/types';
@@ -237,15 +238,17 @@ export async function reorderLandingItems(
   return { data: { success: true }, error: null };
 }
 
-/** 랜딩 에셋 이미지 업로드 */
+/** 랜딩 에셋 업로드 (이미지 또는 동영상) */
 export async function uploadLandingAsset(
-  fileUri: string,
+  file: Blob,
   section: string,
   filename: string,
-  fileInfo: { size: number; mimeType: string }
+  fileInfo: { size: number; mimeType: string },
+  type: 'image' | 'video' = 'image'
 ): Promise<{ data: { url: string } | null; error: Error | null }> {
-  // Valibot 이미지 검증
-  const validation = safeParse(ImageUploadSchema, {
+  // Valibot 검증 (타입에 따라 스키마 선택)
+  const schema = type === 'video' ? VideoUploadSchema : ImageUploadSchema;
+  const validation = safeParse(schema, {
     fileSize: fileInfo.size,
     mimeType: fileInfo.mimeType,
   });
@@ -260,13 +263,9 @@ export async function uploadLandingAsset(
   const sanitized = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
   const path = `${section}/${Date.now()}_${sanitized}`;
 
-  // Fetch file as blob
-  const response = await fetch(fileUri);
-  const blob = await response.blob();
-
   const { error: uploadError } = await supabase.storage
     .from(STORAGE_BUCKETS.LANDING_ASSETS)
-    .upload(path, blob, {
+    .upload(path, file, {
       contentType: fileInfo.mimeType,
       upsert: false,
     });

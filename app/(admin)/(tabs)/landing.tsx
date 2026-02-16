@@ -14,6 +14,7 @@ import {
   deleteLandingItem,
   upsertLandingItem,
   reorderLandingItems,
+  uploadLandingAsset,
 } from '@/services/landing';
 import type { LandingSection, LandingItem } from '@/lib/types';
 
@@ -69,6 +70,9 @@ export default function AdminLandingScreen() {
   // 순서 변경
   const [isReorderMode, setIsReorderMode] = useState(false);
   const [isSavingOrder, setIsSavingOrder] = useState(false);
+
+  // 파일 업로드
+  const [isUploading, setIsUploading] = useState<'image' | 'video' | null>(null);
 
   // ============================================================================
   // Data Fetching
@@ -335,6 +339,44 @@ export default function AdminLandingScreen() {
     }
     setIsSavingOrder(false);
   }, [items]);
+
+  // ============================================================================
+  // File Upload (Web)
+  // ============================================================================
+
+  const handleFileUpload = useCallback((type: 'image' | 'video') => {
+    if (Platform.OS !== 'web' || !selectedSection) return;
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = type === 'image'
+      ? 'image/jpeg,image/png,image/webp,image/gif'
+      : 'video/mp4,video/webm,video/quicktime';
+
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+
+      setIsUploading(type);
+      const { data, error: uploadError } = await uploadLandingAsset(
+        file,
+        selectedSection.section_key,
+        file.name,
+        { size: file.size, mimeType: file.type },
+        type
+      );
+
+      if (uploadError) {
+        Alert.alert('업로드 실패', getUserMessage(uploadError));
+      } else if (data) {
+        const field = type === 'image' ? 'image_url' : 'video_url';
+        setItemForm(prev => ({ ...prev, [field]: data.url }));
+      }
+      setIsUploading(null);
+    };
+
+    input.click();
+  }, [selectedSection]);
 
   // ============================================================================
   // Render
@@ -633,26 +675,56 @@ export default function AdminLandingScreen() {
               />
 
               <Text style={styles.inputLabel}>이미지 URL</Text>
-              <TextInput
-                style={styles.input}
-                value={itemForm.image_url}
-                onChangeText={(v) => setItemForm(prev => ({ ...prev, image_url: v }))}
-                placeholder="https://example.com/image.png"
-                placeholderTextColor={COLORS.GRAY_400}
-                autoCapitalize="none"
-                keyboardType="url"
-              />
+              <View style={styles.uploadRow}>
+                <TextInput
+                  style={[styles.input, { flex: 1 }]}
+                  value={itemForm.image_url}
+                  onChangeText={(v) => setItemForm(prev => ({ ...prev, image_url: v }))}
+                  placeholder="https://example.com/image.png"
+                  placeholderTextColor={COLORS.GRAY_400}
+                  autoCapitalize="none"
+                  keyboardType="url"
+                />
+                {Platform.OS === 'web' && (
+                  <Pressable
+                    style={[styles.uploadBtn, isUploading === 'image' && styles.uploadBtnDisabled]}
+                    onPress={() => handleFileUpload('image')}
+                    disabled={isUploading !== null}
+                  >
+                    {isUploading === 'image' ? (
+                      <ActivityIndicator size="small" color={COLORS.WHITE} />
+                    ) : (
+                      <Ionicons name="cloud-upload-outline" size={18} color={COLORS.WHITE} />
+                    )}
+                  </Pressable>
+                )}
+              </View>
 
               <Text style={styles.inputLabel}>동영상 URL</Text>
-              <TextInput
-                style={styles.input}
-                value={itemForm.video_url}
-                onChangeText={(v) => setItemForm(prev => ({ ...prev, video_url: v }))}
-                placeholder="https://www.youtube.com/embed/..."
-                placeholderTextColor={COLORS.GRAY_400}
-                autoCapitalize="none"
-                keyboardType="url"
-              />
+              <View style={styles.uploadRow}>
+                <TextInput
+                  style={[styles.input, { flex: 1 }]}
+                  value={itemForm.video_url}
+                  onChangeText={(v) => setItemForm(prev => ({ ...prev, video_url: v }))}
+                  placeholder="https://www.youtube.com/embed/..."
+                  placeholderTextColor={COLORS.GRAY_400}
+                  autoCapitalize="none"
+                  keyboardType="url"
+                />
+                {Platform.OS === 'web' && (
+                  <Pressable
+                    style={[styles.uploadBtn, isUploading === 'video' && styles.uploadBtnDisabled]}
+                    onPress={() => handleFileUpload('video')}
+                    disabled={isUploading !== null}
+                  >
+                    {isUploading === 'video' ? (
+                      <ActivityIndicator size="small" color={COLORS.WHITE} />
+                    ) : (
+                      <Ionicons name="cloud-upload-outline" size={18} color={COLORS.WHITE} />
+                    )}
+                  </Pressable>
+                )}
+              </View>
 
               {/* 섹션별 메타데이터 필드 */}
               {selectedSection?.section_key === 'stats' && (
@@ -974,6 +1046,16 @@ const styles = StyleSheet.create({
   statusChipActive: { backgroundColor: COLORS.PRIMARY },
   statusChipText: { fontSize: 13, fontFamily: 'Pretendard-Medium', color: COLORS.TEXT_SECONDARY },
   statusChipTextActive: { color: COLORS.WHITE },
+  uploadRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  uploadBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: COLORS.PRIMARY,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  uploadBtnDisabled: { opacity: 0.5 },
   modalActions: { flexDirection: 'row', gap: 12, marginTop: 24 },
   modalCancel: { flex: 1, paddingVertical: 14, borderRadius: 10, alignItems: 'center', backgroundColor: COLORS.GRAY_100 },
   modalCancelText: { fontSize: 15, fontFamily: 'Pretendard-Medium', color: COLORS.TEXT_SECONDARY },

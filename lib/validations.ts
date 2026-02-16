@@ -102,6 +102,17 @@ export const ImageUploadSchema = v.object({
 
 export type ImageUploadInput = v.InferOutput<typeof ImageUploadSchema>;
 
+/** 동영상 업로드 검증 */
+export const VideoUploadSchema = v.object({
+  fileSize: v.pipe(v.number(), v.maxValue(50 * 1024 * 1024, '파일 크기는 50MB 이하여야 합니다')),
+  mimeType: v.picklist(
+    ['video/mp4', 'video/webm', 'video/quicktime'],
+    '지원하지 않는 동영상 형식입니다 (MP4, WebM, MOV)'
+  ),
+});
+
+export type VideoUploadInput = v.InferOutput<typeof VideoUploadSchema>;
+
 // ============================================================================
 // 학원 관리 (Admin)
 // ============================================================================
