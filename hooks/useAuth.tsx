@@ -138,9 +138,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Multi-org: try cached selection
     const cachedOrgStr = await safeGetItem(CACHE_KEY_ORG);
     if (cachedOrgStr) {
-      const cached = JSON.parse(cachedOrgStr) as MyOrganization;
-      const found = orgs.find(o => o.id === cached.id);
-      if (found) return found;
+      try {
+        const cached = JSON.parse(cachedOrgStr) as MyOrganization;
+        const found = orgs.find(o => o.id === cached.id);
+        if (found) return found;
+      } catch {
+        // 캐시 손상 → 무시하고 첫 번째 org 사용
+      }
     }
 
     // Default to first org
@@ -176,6 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        try {
         // ----------------------------------------------------------------
         // INITIAL_SESSION: 앱 시작 시 로컬 세션으로 즉시 UI 표시
         // ----------------------------------------------------------------
@@ -187,14 +192,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               safeGetItem(CACHE_KEY_PROFILE),
               safeGetItem(CACHE_KEY_ORGS),
             ]);
-            const cachedProfile = cachedProfileStr
-              ? (JSON.parse(cachedProfileStr) as User)
-              : null;
-            const cachedOrgs = cachedOrgsStr
-              ? (JSON.parse(cachedOrgsStr) as MyOrganization[])
-              : [];
 
-            if (cachedRole) {
+            // 안전한 JSON 파싱 (캐시 손상 방어)
+            let cachedProfile: User | null = null;
+            let cachedOrgs: MyOrganization[] = [];
+            try {
+              if (cachedProfileStr) cachedProfile = JSON.parse(cachedProfileStr) as User;
+              if (cachedOrgsStr) cachedOrgs = JSON.parse(cachedOrgsStr) as MyOrganization[];
+            } catch {
+              // 캐시 손상 → 무시하고 DB에서 다시 조회
+              safeMultiRemove([CACHE_KEY_ROLE, CACHE_KEY_PROFILE, CACHE_KEY_ORG, CACHE_KEY_ORGS]);
+            }
+
+            if (cachedRole && cachedProfile) {
               // Fast path: 캐시 있음 → 즉시 UI 표시
               const cachedState = await buildAuthState(session, cachedProfile, cachedOrgs);
               setState(prev => ({ ...prev, ...cachedState }));
@@ -207,7 +217,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 }
               });
             } else {
-              // Slow path: 캐시 없음 → DB에서 조회
+              // Slow path: 캐시 없거나 손상 → DB에서 조회
               const { profile, orgs } = await fetchUserProfile(session.user.id);
               const newState = await buildAuthState(session, profile, orgs);
               setState(prev => ({ ...prev, ...newState }));
@@ -269,6 +279,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const newState = await buildAuthState(session, profile, orgs);
             setState(prev => ({ ...prev, ...newState }));
           }
+        }
+
+        } catch (err) {
+          // 어떤 에러든 isLoading을 false로 → 앱이 멈추지 않음
+          if (__DEV__) console.warn('[Auth] onAuthStateChange error:', err);
+          safeMultiRemove([CACHE_KEY_ROLE, CACHE_KEY_PROFILE, CACHE_KEY_ORG, CACHE_KEY_ORGS]);
+          setState({
+            user: null,
+            session: null,
+            isLoading: false,
+            isAuthenticated: false,
+            role: null,
+            platformRole: null,
+            currentOrg: null,
+            orgRole: null,
+            organizations: [],
+          });
         }
       }
     );
