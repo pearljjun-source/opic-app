@@ -14,11 +14,12 @@ import { ScreenContainer } from '@/components/layout/SafeAreaView';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/hooks/useAuth';
-import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 import { classifyAuthError } from '@/lib/errors';
 
 export default function ForgotPasswordScreen() {
   const { resetPassword } = useAuth();
+  const colors = useThemeColors();
 
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -54,15 +55,15 @@ export default function ForgotPasswordScreen() {
 
   if (success) {
     return (
-      <ScreenContainer backgroundColor={COLORS.GRAY_50}>
+      <ScreenContainer backgroundColor={colors.surfaceSecondary}>
         <View className="flex-1 justify-center items-center px-6">
           <View className="w-20 h-20 bg-blue-100 rounded-full items-center justify-center mb-6">
-            <Ionicons name="mail" size={40} color={COLORS.PRIMARY} />
+            <Ionicons name="mail" size={40} color={colors.primary} />
           </View>
-          <Text className="text-2xl font-bold text-gray-900 mb-2 text-center">
+          <Text className="text-2xl font-bold text-gray-900 dark:text-gray-50 mb-2 text-center">
             이메일을 확인해주세요
           </Text>
-          <Text className="text-base text-gray-500 text-center mb-8">
+          <Text className="text-base text-gray-500 dark:text-gray-400 text-center mb-8">
             {email}로{'\n'}
             비밀번호 재설정 링크를 보냈습니다.
           </Text>
@@ -86,7 +87,7 @@ export default function ForgotPasswordScreen() {
   }
 
   return (
-    <ScreenContainer backgroundColor={COLORS.GRAY_50}>
+    <ScreenContainer backgroundColor={colors.surfaceSecondary}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
@@ -101,21 +102,21 @@ export default function ForgotPasswordScreen() {
             <View className="flex-row items-center mb-6">
               <Link href="/(auth)/login" asChild>
                 <TouchableOpacity className="p-2 -ml-2">
-                  <Ionicons name="arrow-back" size={24} color={COLORS.GRAY_900} />
+                  <Ionicons name="arrow-back" size={24} color={colors.gray900} />
                 </TouchableOpacity>
               </Link>
-              <Text className="text-2xl font-bold text-gray-900 ml-2">
+              <Text className="text-2xl font-bold text-gray-900 dark:text-gray-50 ml-2">
                 비밀번호 찾기
               </Text>
             </View>
 
             {/* Form Card */}
-            <View className="bg-white rounded-2xl p-6 shadow-sm">
+            <View className="bg-white dark:bg-neutral-900 rounded-2xl p-6 shadow-sm">
               <View className="items-center mb-6">
-                <View className="w-16 h-16 bg-gray-100 rounded-full items-center justify-center mb-4">
-                  <Ionicons name="key-outline" size={32} color={COLORS.GRAY_500} />
+                <View className="w-16 h-16 bg-gray-100 dark:bg-neutral-800 rounded-full items-center justify-center mb-4">
+                  <Ionicons name="key-outline" size={32} color={colors.gray500} />
                 </View>
-                <Text className="text-base text-gray-600 text-center">
+                <Text className="text-base text-gray-600 dark:text-gray-400 text-center">
                   가입할 때 사용한 이메일을 입력하시면{'\n'}
                   비밀번호 재설정 링크를 보내드립니다.
                 </Text>
@@ -136,7 +137,7 @@ export default function ForgotPasswordScreen() {
                 autoCapitalize="none"
                 autoComplete="email"
                 leftIcon={
-                  <Ionicons name="mail-outline" size={20} color={COLORS.GRAY_400} />
+                  <Ionicons name="mail-outline" size={20} color={colors.textDisabled} />
                 }
               />
 
@@ -154,7 +155,7 @@ export default function ForgotPasswordScreen() {
 
             {/* Back to Login */}
             <View className="flex-row justify-center items-center mt-6">
-              <Text className="text-gray-500">비밀번호가 기억나셨나요? </Text>
+              <Text className="text-gray-500 dark:text-gray-400">비밀번호가 기억나셨나요? </Text>
               <Link href="/(auth)/login" asChild>
                 <TouchableOpacity>
                   <Text className="text-primary font-semibold">로그인</Text>

@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 import { getMyTeacher, ConnectedTeacher } from '@/services/connection';
 import { getMyTopicsWithProgress } from '@/services/topics';
 import { getMyPracticeStats, getMyStreak } from '@/services/practices';
@@ -14,6 +14,7 @@ import { getUserMessage } from '@/lib/errors';
 import type { StudentTopicWithProgress, StudentPracticeStats } from '@/lib/types';
 
 export default function StudentDashboard() {
+  const colors = useThemeColors();
   const [teacher, setTeacher] = useState<ConnectedTeacher | null>(null);
   const [topics, setTopics] = useState<StudentTopicWithProgress[]>([]);
   const [practiceStats, setPracticeStats] = useState<StudentPracticeStats | null>(null);
@@ -82,9 +83,9 @@ export default function StudentDashboard() {
   // 로딩 중
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={COLORS.PRIMARY} />
-        <Text style={styles.loadingText}>불러오는 중...</Text>
+      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>불러오는 중...</Text>
       </View>
     );
   }
@@ -92,10 +93,10 @@ export default function StudentDashboard() {
   // 에러 상태
   if (error) {
     return (
-      <View style={styles.centerContainer}>
-        <Ionicons name="alert-circle-outline" size={48} color={COLORS.ERROR} />
-        <Text style={styles.errorText}>{error}</Text>
-        <Pressable style={styles.retryButton} onPress={handleRefresh}>
+      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
+        <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+        <Pressable style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={handleRefresh}>
           <Text style={styles.retryButtonText}>다시 시도</Text>
         </Pressable>
       </View>
@@ -105,7 +106,7 @@ export default function StudentDashboard() {
   // 강사와 연결되지 않은 상태
   if (!teacher) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}>
         <EmptyState
           icon="people-outline"
           title="아직 학원에 소속되지 않았습니다"
@@ -119,7 +120,7 @@ export default function StudentDashboard() {
 
   // 연결됨 - 대시보드 표시
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}>
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
@@ -129,17 +130,17 @@ export default function StudentDashboard() {
         }
       >
         {/* 강사 정보 카드 */}
-        <View style={styles.teacherCard}>
-          <View style={styles.teacherAvatar}>
+        <View style={[styles.teacherCard, { backgroundColor: colors.surface, shadowColor: colors.shadowColor }]}>
+          <View style={[styles.teacherAvatar, { backgroundColor: colors.primary }]}>
             <Text style={styles.teacherInitial}>
               {teacher.name.charAt(0).toUpperCase()}
             </Text>
           </View>
           <View style={styles.teacherInfo}>
-            <Text style={styles.teacherLabel}>담당 강사</Text>
-            <Text style={styles.teacherName}>{teacher.name}</Text>
+            <Text style={[styles.teacherLabel, { color: colors.textSecondary }]}>담당 강사</Text>
+            <Text style={[styles.teacherName, { color: colors.textPrimary }]}>{teacher.name}</Text>
           </View>
-          <Ionicons name="checkmark-circle" size={24} color={COLORS.SUCCESS} />
+          <Ionicons name="checkmark-circle" size={24} color={colors.success} />
         </View>
 
         {/* 컴팩트 통계 스트립 (탭하면 상세 펼침) */}
@@ -148,13 +149,13 @@ export default function StudentDashboard() {
         )}
 
         {/* 토픽 목록 */}
-        <Text style={styles.sectionTitle}>내 토픽</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>내 토픽</Text>
 
         {topics.length === 0 ? (
           <View style={styles.emptyTopics}>
-            <Ionicons name="book-outline" size={48} color={COLORS.GRAY_300} />
-            <Text style={styles.emptyTitle}>배정된 토픽이 없습니다</Text>
-            <Text style={styles.emptyHint}>
+            <Ionicons name="book-outline" size={48} color={colors.gray300} />
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>배정된 토픽이 없습니다</Text>
+            <Text style={[styles.emptyHint, { color: colors.textSecondary }]}>
               강사님이 토픽을 배정하면{'\n'}여기에 표시됩니다
             </Text>
           </View>
@@ -173,13 +174,11 @@ export default function StudentDashboard() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
     padding: 16,
   },
   scrollContent: {
@@ -188,35 +187,30 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
   },
   errorText: {
     marginTop: 12,
     fontSize: 16,
-    color: COLORS.ERROR,
     textAlign: 'center',
   },
   retryButton: {
     marginTop: 16,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: COLORS.PRIMARY,
     borderRadius: 12,
   },
   retryButtonText: {
     fontSize: 14,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.WHITE,
+    color: '#FFFFFF',
   },
   teacherCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.WHITE,
     margin: 16,
     marginBottom: 12,
     padding: 16,
     borderRadius: 16,
-    shadowColor: COLORS.BLACK,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -226,7 +220,6 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: COLORS.PRIMARY,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -234,7 +227,7 @@ const styles = StyleSheet.create({
   teacherInitial: {
     fontSize: 20,
     fontFamily: 'Pretendard-Bold',
-    color: COLORS.WHITE,
+    color: '#FFFFFF',
   },
   teacherInfo: {
     flex: 1,
@@ -242,18 +235,15 @@ const styles = StyleSheet.create({
   teacherLabel: {
     fontSize: 12,
     fontFamily: 'Pretendard-Regular',
-    color: COLORS.TEXT_SECONDARY,
     marginBottom: 2,
   },
   teacherName: {
     fontSize: 16,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
   },
   sectionTitle: {
     fontSize: 18,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
     marginHorizontal: 16,
     marginTop: 8,
     marginBottom: 12,
@@ -269,14 +259,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
     marginTop: 16,
     marginBottom: 8,
   },
   emptyHint: {
     fontSize: 14,
     fontFamily: 'Pretendard-Regular',
-    color: COLORS.TEXT_SECONDARY,
     textAlign: 'center',
     lineHeight: 20,
   },

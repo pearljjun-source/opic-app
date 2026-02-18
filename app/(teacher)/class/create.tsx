@@ -13,11 +13,12 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS } from '@/lib/constants';
 import { createClass } from '@/services/classes';
 import { getUserMessage } from '@/lib/errors';
+import { useThemeColors } from '@/hooks/useTheme';
 
 export default function CreateClassScreen() {
+  const colors = useThemeColors();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -53,14 +54,14 @@ export default function CreateClassScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.TEXT_PRIMARY} />
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </Pressable>
-        <Text style={styles.headerTitle}>반 만들기</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>반 만들기</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -69,17 +70,17 @@ export default function CreateClassScreen() {
         keyboardShouldPersistTaps="handled"
       >
         {error && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
+          <View style={[styles.errorContainer, { backgroundColor: colors.accentPinkBg }]}>
+            <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
           </View>
         )}
 
         <View style={styles.field}>
-          <Text style={styles.label}>반 이름 *</Text>
+          <Text style={[styles.label, { color: colors.textPrimary }]}>반 이름 *</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.textPrimary }]}
             placeholder="예: 월요일 초급반"
-            placeholderTextColor={COLORS.GRAY_400}
+            placeholderTextColor={colors.textDisabled}
             value={name}
             onChangeText={setName}
             maxLength={50}
@@ -88,11 +89,11 @@ export default function CreateClassScreen() {
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>설명 (선택)</Text>
+          <Text style={[styles.label, { color: colors.textPrimary }]}>설명 (선택)</Text>
           <TextInput
-            style={[styles.input, styles.textArea]}
+            style={[styles.input, styles.textArea, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.textPrimary }]}
             placeholder="반에 대한 메모를 입력하세요"
-            placeholderTextColor={COLORS.GRAY_400}
+            placeholderTextColor={colors.textDisabled}
             value={description}
             onChangeText={setDescription}
             multiline
@@ -102,12 +103,12 @@ export default function CreateClassScreen() {
         </View>
 
         <Pressable
-          style={[styles.createButton, isSubmitting && styles.createButtonDisabled]}
+          style={[styles.createButton, { backgroundColor: colors.primary }, isSubmitting && styles.createButtonDisabled]}
           onPress={handleCreate}
           disabled={isSubmitting}
         >
           {isSubmitting ? (
-            <ActivityIndicator color={COLORS.WHITE} />
+            <ActivityIndicator color="#FFFFFF" />
           ) : (
             <Text style={styles.createButtonText}>만들기</Text>
           )}
@@ -120,7 +121,6 @@ export default function CreateClassScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
   },
   header: {
     flexDirection: 'row',
@@ -129,9 +129,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 56,
     paddingBottom: 16,
-    backgroundColor: COLORS.WHITE,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.BORDER,
   },
   backButton: {
     width: 40,
@@ -142,19 +140,16 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
   },
   content: {
     padding: 16,
     gap: 20,
   },
   errorContainer: {
-    backgroundColor: '#FEF2F2',
     borderRadius: 16,
     padding: 14,
   },
   errorText: {
-    color: COLORS.ERROR,
     fontSize: 14,
     fontFamily: 'Pretendard-Medium',
   },
@@ -164,25 +159,20 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 15,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
   },
   input: {
-    backgroundColor: COLORS.WHITE,
     borderWidth: 1,
-    borderColor: COLORS.BORDER,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
     fontFamily: 'Pretendard-Regular',
-    color: COLORS.TEXT_PRIMARY,
   },
   textArea: {
     minHeight: 80,
     paddingTop: 14,
   },
   createButton: {
-    backgroundColor: COLORS.PRIMARY,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -194,6 +184,6 @@ const styles = StyleSheet.create({
   createButtonText: {
     fontSize: 16,
     fontFamily: 'Pretendard-Bold',
-    color: COLORS.WHITE,
+    color: '#FFFFFF',
   },
 });

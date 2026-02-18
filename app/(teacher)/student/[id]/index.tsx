@@ -14,7 +14,6 @@ import {
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS } from '@/lib/constants';
 import type {
   StudentDetailInfo,
   StudentDetailStats,
@@ -40,6 +39,7 @@ import { getUserMessage } from '@/lib/errors';
 import { useAuth } from '@/hooks/useAuth';
 import { canManageOrg } from '@/lib/permissions';
 import { removeOrgMember } from '@/services/organizations';
+import { useThemeColors } from '@/hooks/useTheme';
 
 type TabType = 'topics' | 'scripts' | 'practices';
 
@@ -47,6 +47,7 @@ export default function StudentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { currentOrg, orgRole } = useAuth();
+  const colors = useThemeColors();
   const isOwner = canManageOrg(orgRole);
 
   // State
@@ -270,11 +271,11 @@ export default function StudentDetailScreen() {
           ))}
         </ScrollView>
         <Pressable
-          style={styles.actionBar}
+          style={[styles.actionBar, { backgroundColor: colors.primary }]}
           android_ripple={{ color: 'rgba(255,255,255,0.3)' }}
           onPress={handleAssignTopics}
         >
-          <Ionicons name="settings-outline" size={20} color={COLORS.WHITE} />
+          <Ionicons name="settings-outline" size={20} color="#FFFFFF" />
           <Text style={styles.actionBarText}>토픽 배정</Text>
         </Pressable>
       </View>
@@ -309,11 +310,11 @@ export default function StudentDetailScreen() {
           ))}
         </ScrollView>
         <Pressable
-          style={styles.actionBar}
+          style={[styles.actionBar, { backgroundColor: colors.primary }]}
           android_ripple={{ color: 'rgba(255,255,255,0.3)' }}
           onPress={handleNewScript}
         >
-          <Ionicons name="add" size={22} color={COLORS.WHITE} />
+          <Ionicons name="add" size={22} color="#FFFFFF" />
           <Text style={styles.actionBarText}>스크립트 작성</Text>
         </Pressable>
       </View>
@@ -354,9 +355,9 @@ export default function StudentDetailScreen() {
   // Loading state
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={COLORS.PRIMARY} />
-        <Text style={styles.loadingText}>불러오는 중...</Text>
+      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>불러오는 중...</Text>
       </View>
     );
   }
@@ -364,10 +365,10 @@ export default function StudentDetailScreen() {
   // Error state
   if (error || !student || !stats) {
     return (
-      <View style={styles.centerContainer}>
-        <Ionicons name="alert-circle-outline" size={48} color={COLORS.ERROR} />
-        <Text style={styles.errorText}>{error || '오류가 발생했습니다'}</Text>
-        <Pressable style={styles.retryButton} onPress={handleRefresh}>
+      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
+        <Text style={[styles.errorText, { color: colors.error }]}>{error || '오류가 발생했습니다'}</Text>
+        <Pressable style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={handleRefresh}>
           <Text style={styles.retryButtonText}>다시 시도</Text>
         </Pressable>
       </View>
@@ -385,7 +386,7 @@ export default function StudentDetailScreen() {
               onPress={handleMoreMenu}
               style={styles.headerButton}
             >
-              <Ionicons name="ellipsis-vertical" size={22} color={COLORS.TEXT_PRIMARY} />
+              <Ionicons name="ellipsis-vertical" size={22} color={colors.textPrimary} />
             </Pressable>
           ),
         }}
@@ -398,11 +399,11 @@ export default function StudentDetailScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setIsNotesModalVisible(false)}
       >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>메모 / 목표 등급</Text>
+        <View style={[styles.modalContainer, { backgroundColor: colors.surfaceSecondary }]}>
+          <View style={[styles.modalHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>메모 / 목표 등급</Text>
             <Pressable onPress={() => setIsNotesModalVisible(false)}>
-              <Ionicons name="close" size={24} color={COLORS.TEXT_PRIMARY} />
+              <Ionicons name="close" size={24} color={colors.textPrimary} />
             </Pressable>
           </View>
           <StudentNotes
@@ -428,9 +429,9 @@ export default function StudentDetailScreen() {
           style={styles.menuOverlay}
           onPress={() => setIsMenuVisible(false)}
         >
-          <Pressable style={styles.menuSheet} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.menuHandle} />
-            <Text style={styles.menuTitle}>학생 관리</Text>
+          <Pressable style={[styles.menuSheet, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
+            <View style={[styles.menuHandle, { backgroundColor: colors.gray300 }]} />
+            <Text style={[styles.menuTitle, { color: colors.textPrimary }]}>학생 관리</Text>
 
             <Pressable
               style={styles.menuItem}
@@ -439,11 +440,11 @@ export default function StudentDetailScreen() {
                 setIsNotesModalVisible(true);
               }}
             >
-              <Ionicons name="create-outline" size={20} color={COLORS.TEXT_PRIMARY} />
-              <Text style={styles.menuItemText}>메모 / 목표 등급</Text>
+              <Ionicons name="create-outline" size={20} color={colors.textPrimary} />
+              <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>메모 / 목표 등급</Text>
             </Pressable>
 
-            <View style={styles.menuDivider} />
+            <View style={[styles.menuDivider, { backgroundColor: colors.borderLight }]} />
 
             <Pressable
               style={styles.menuItem}
@@ -452,13 +453,13 @@ export default function StudentDetailScreen() {
                 handleDisconnect();
               }}
             >
-              <Ionicons name="unlink-outline" size={20} color={COLORS.ERROR} />
-              <Text style={[styles.menuItemText, styles.menuItemDestructive]}>나와의 연결 해제</Text>
+              <Ionicons name="unlink-outline" size={20} color={colors.error} />
+              <Text style={[styles.menuItemText, styles.menuItemDestructive, { color: colors.error }]}>나와의 연결 해제</Text>
             </Pressable>
 
             {isOwner && currentOrg && (
               <>
-                <View style={styles.menuDivider} />
+                <View style={[styles.menuDivider, { backgroundColor: colors.borderLight }]} />
                 <Pressable
                   style={styles.menuItem}
                   onPress={() => {
@@ -466,35 +467,36 @@ export default function StudentDetailScreen() {
                     handleRemoveFromOrg();
                   }}
                 >
-                  <Ionicons name="trash-outline" size={20} color={COLORS.ERROR} />
-                  <Text style={[styles.menuItemText, styles.menuItemDestructive]}>학원에서 제거</Text>
+                  <Ionicons name="trash-outline" size={20} color={colors.error} />
+                  <Text style={[styles.menuItemText, styles.menuItemDestructive, { color: colors.error }]}>학원에서 제거</Text>
                 </Pressable>
               </>
             )}
 
             <Pressable
-              style={styles.menuCancelButton}
+              style={[styles.menuCancelButton, { backgroundColor: colors.surfaceSecondary }]}
               onPress={() => setIsMenuVisible(false)}
             >
-              <Text style={styles.menuCancelText}>취소</Text>
+              <Text style={[styles.menuCancelText, { color: colors.textSecondary }]}>취소</Text>
             </Pressable>
           </Pressable>
         </Pressable>
       </Modal>
 
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}>
         {/* 학생 정보 카드 */}
         <StudentInfoCard student={student} stats={stats} />
 
         {/* 탭 네비게이션 */}
-        <View style={styles.tabContainer}>
+        <View style={[styles.tabContainer, { backgroundColor: colors.surface }]}>
           <Pressable
-            style={[styles.tab, activeTab === 'topics' && styles.activeTab]}
+            style={[styles.tab, activeTab === 'topics' && [styles.activeTab, { backgroundColor: colors.primary }]]}
             onPress={() => setActiveTab('topics')}
           >
             <Text
               style={[
                 styles.tabText,
+                { color: colors.textSecondary },
                 activeTab === 'topics' && styles.activeTabText,
               ]}
             >
@@ -502,12 +504,13 @@ export default function StudentDetailScreen() {
             </Text>
           </Pressable>
           <Pressable
-            style={[styles.tab, activeTab === 'scripts' && styles.activeTab]}
+            style={[styles.tab, activeTab === 'scripts' && [styles.activeTab, { backgroundColor: colors.primary }]]}
             onPress={() => setActiveTab('scripts')}
           >
             <Text
               style={[
                 styles.tabText,
+                { color: colors.textSecondary },
                 activeTab === 'scripts' && styles.activeTabText,
               ]}
             >
@@ -515,12 +518,13 @@ export default function StudentDetailScreen() {
             </Text>
           </Pressable>
           <Pressable
-            style={[styles.tab, activeTab === 'practices' && styles.activeTab]}
+            style={[styles.tab, activeTab === 'practices' && [styles.activeTab, { backgroundColor: colors.primary }]]}
             onPress={() => setActiveTab('practices')}
           >
             <Text
               style={[
                 styles.tabText,
+                { color: colors.textSecondary },
                 activeTab === 'practices' && styles.activeTabText,
               ]}
             >
@@ -543,42 +547,36 @@ export default function StudentDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
     padding: 16,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
     padding: 16,
   },
   loadingText: {
     marginTop: 12,
     fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
   },
   errorText: {
     marginTop: 12,
     fontSize: 16,
-    color: COLORS.ERROR,
     textAlign: 'center',
   },
   retryButton: {
     marginTop: 16,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: COLORS.PRIMARY,
     borderRadius: 12,
   },
   retryButtonText: {
     fontSize: 14,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.WHITE,
+    color: '#FFFFFF',
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: COLORS.WHITE,
     borderRadius: 16,
     padding: 4,
     marginBottom: 16,
@@ -589,16 +587,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 12,
   },
-  activeTab: {
-    backgroundColor: COLORS.PRIMARY,
-  },
+  activeTab: {},
   tabText: {
     fontSize: 14,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.TEXT_SECONDARY,
   },
   activeTabText: {
-    color: COLORS.WHITE,
+    color: '#FFFFFF',
   },
   tabContent: {
     flex: 1,
@@ -611,7 +606,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: COLORS.PRIMARY,
     paddingVertical: 14,
     borderRadius: 12,
     marginTop: 8,
@@ -622,14 +616,13 @@ const styles = StyleSheet.create({
   actionBarText: {
     fontSize: 15,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.WHITE,
+    color: '#FFFFFF',
   },
   headerButton: {
     padding: 4,
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -637,14 +630,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: COLORS.WHITE,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.BORDER,
   },
   modalTitle: {
     fontSize: 17,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
   },
   menuOverlay: {
     flex: 1,
@@ -652,7 +642,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   menuSheet: {
-    backgroundColor: COLORS.WHITE,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingHorizontal: 16,
@@ -661,7 +650,6 @@ const styles = StyleSheet.create({
   menuHandle: {
     width: 36,
     height: 4,
-    backgroundColor: COLORS.GRAY_300,
     borderRadius: 2,
     alignSelf: 'center',
     marginTop: 12,
@@ -670,7 +658,6 @@ const styles = StyleSheet.create({
   menuTitle: {
     fontSize: 16,
     fontFamily: 'Pretendard-Bold',
-    color: COLORS.TEXT_PRIMARY,
     marginBottom: 12,
     paddingHorizontal: 4,
   },
@@ -684,25 +671,19 @@ const styles = StyleSheet.create({
   menuItemText: {
     fontSize: 15,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.TEXT_PRIMARY,
   },
-  menuItemDestructive: {
-    color: COLORS.ERROR,
-  },
+  menuItemDestructive: {},
   menuDivider: {
     height: 1,
-    backgroundColor: COLORS.GRAY_100,
   },
   menuCancelButton: {
     alignItems: 'center',
     paddingVertical: 14,
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
     borderRadius: 12,
     marginTop: 16,
   },
   menuCancelText: {
     fontSize: 15,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_SECONDARY,
   },
 });

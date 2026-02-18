@@ -3,11 +3,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { View, Text } from 'react-native';
 
 import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 
 function AdminHeaderLogo() {
+  const colors = useThemeColors();
   return (
     <View style={{ paddingLeft: 16, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-      <Text style={{ fontFamily: 'Pretendard-Bold', fontSize: 18, color: COLORS.TEXT_PRIMARY }}>
+      <Text style={{ fontFamily: 'Pretendard-Bold', fontSize: 18, color: colors.textPrimary }}>
         Speaky Admin
       </Text>
     </View>
@@ -15,14 +17,16 @@ function AdminHeaderLogo() {
 }
 
 export default function AdminTabsLayout() {
+  const colors = useThemeColors();
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: COLORS.PRIMARY,
-        tabBarInactiveTintColor: COLORS.GRAY_400,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textDisabled,
         tabBarStyle: {
           borderTopWidth: 0.5,
-          borderTopColor: COLORS.BORDER,
+          borderTopColor: colors.border,
+          backgroundColor: colors.surface,
           elevation: 0,
           shadowOpacity: 0,
         },
@@ -31,12 +35,12 @@ export default function AdminTabsLayout() {
           fontSize: 11,
         },
         headerShown: true,
-        headerStyle: { backgroundColor: COLORS.BACKGROUND_SECONDARY },
+        headerStyle: { backgroundColor: colors.surfaceSecondary },
         headerShadowVisible: false,
         headerTitleStyle: {
           fontFamily: 'Pretendard-Bold',
           fontSize: 20,
-          color: COLORS.TEXT_PRIMARY,
+          color: colors.textPrimary,
         },
         headerTitle: '',
         headerLeft: () => <AdminHeaderLogo />,

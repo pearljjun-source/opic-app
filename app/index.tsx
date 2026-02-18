@@ -1,7 +1,7 @@
 import { View, ActivityIndicator, Platform } from 'react-native';
 
 import { useAuth } from '@/hooks/useAuth';
-import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 import LandingPage from '@/components/LandingPage';
 
 /**
@@ -12,6 +12,7 @@ import LandingPage from '@/components/LandingPage';
  */
 export default function Index() {
   const { isLoading, isAuthenticated } = useAuth();
+  const colors = useThemeColors();
 
   // 웹: 미인증 사용자에게 랜딩 페이지 표시
   if (Platform.OS === 'web' && !isAuthenticated) {
@@ -20,8 +21,8 @@ export default function Index() {
 
   // 네이티브 또는 웹 인증 사용자: 로딩 후 useAuth가 자동 리다이렉트
   return (
-    <View className="flex-1 justify-center items-center bg-white">
-      {isLoading && <ActivityIndicator size="large" color={COLORS.PRIMARY} />}
+    <View className="flex-1 justify-center items-center bg-white dark:bg-neutral-900">
+      {isLoading && <ActivityIndicator size="large" color={colors.primary} />}
     </View>
   );
 }

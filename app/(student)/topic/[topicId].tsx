@@ -11,12 +11,13 @@ import {
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 import type { TopicQuestionWithScript } from '@/lib/types';
 import { getMyTopicQuestionsWithScripts } from '@/services/topics';
 import { getUserMessage } from '@/lib/errors';
 
 export default function StudentTopicQuestionsScreen() {
+  const colors = useThemeColors();
   const { topicId } = useLocalSearchParams<{ topicId: string }>();
   const { topicName: topicNameParam } = useLocalSearchParams<{
     topicName: string;
@@ -70,6 +71,7 @@ export default function StudentTopicQuestionsScreen() {
       <Pressable
         style={({ pressed }) => [
           styles.questionCard,
+          { backgroundColor: colors.surface, shadowColor: colors.shadowColor },
           pressed && hasScript && styles.questionCardPressed,
           !hasScript && styles.questionCardDisabled,
         ]}
@@ -80,39 +82,39 @@ export default function StudentTopicQuestionsScreen() {
           <View
             style={[
               styles.statusDot,
-              { backgroundColor: hasScript ? COLORS.SECONDARY : COLORS.GRAY_300 },
+              { backgroundColor: hasScript ? colors.secondary : colors.gray300 },
             ]}
           />
-          <Text style={styles.questionText} numberOfLines={2}>
+          <Text style={[styles.questionText, { color: colors.textPrimary }]} numberOfLines={2}>
             {item.question_text}
           </Text>
         </View>
 
         {item.hint_ko && (
-          <Text style={styles.hintText} numberOfLines={1}>
+          <Text style={[styles.hintText, { color: colors.textSecondary }]} numberOfLines={1}>
             {item.hint_ko}
           </Text>
         )}
 
         {hasScript ? (
           <View style={styles.scriptInfo}>
-            <View style={styles.scriptBadge}>
-              <Ionicons name="document-text" size={12} color={COLORS.PRIMARY} />
-              <Text style={styles.scriptBadgeText}>스크립트 준비됨</Text>
+            <View style={[styles.scriptBadge, { backgroundColor: colors.primaryLight }]}>
+              <Ionicons name="document-text" size={12} color={colors.primary} />
+              <Text style={[styles.scriptBadgeText, { color: colors.primary }]}>스크립트 준비됨</Text>
             </View>
             {item.practices_count > 0 ? (
-              <Text style={styles.practiceInfo}>
+              <Text style={[styles.practiceInfo, { color: colors.textDisabled }]}>
                 연습 {item.practices_count}회
                 {item.best_score != null && ` · 최고 ${item.best_score}점`}
               </Text>
             ) : (
-              <Text style={styles.practiceInfo}>아직 연습 없음</Text>
+              <Text style={[styles.practiceInfo, { color: colors.textDisabled }]}>아직 연습 없음</Text>
             )}
           </View>
         ) : (
           <View style={styles.noScriptRow}>
-            <Ionicons name="time-outline" size={14} color={COLORS.GRAY_400} />
-            <Text style={styles.noScriptText}>강사님이 준비 중이에요</Text>
+            <Ionicons name="time-outline" size={14} color={colors.textDisabled} />
+            <Text style={[styles.noScriptText, { color: colors.textDisabled }]}>강사님이 준비 중이에요</Text>
           </View>
         )}
       </Pressable>
@@ -121,18 +123,18 @@ export default function StudentTopicQuestionsScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.centerContainer}>
-        <Ionicons name="alert-circle-outline" size={48} color={COLORS.ERROR} />
-        <Text style={styles.errorText}>{error}</Text>
-        <Pressable style={styles.retryButton} onPress={handleRefresh}>
+      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
+        <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+        <Pressable style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={handleRefresh}>
           <Text style={styles.retryButtonText}>다시 시도</Text>
         </Pressable>
       </View>
@@ -150,17 +152,18 @@ export default function StudentTopicQuestionsScreen() {
         }}
       />
 
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}>
         {/* 진행 상황 */}
-        <View style={styles.progressCard}>
-          <Text style={styles.progressLabel}>스크립트 준비</Text>
-          <Text style={styles.progressValue}>
+        <View style={[styles.progressCard, { backgroundColor: colors.surface, shadowColor: colors.shadowColor }]}>
+          <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>스크립트 준비</Text>
+          <Text style={[styles.progressValue, { color: colors.textPrimary }]}>
             {scriptsReady} / {questions.length}
           </Text>
-          <View style={styles.progressBarBg}>
+          <View style={[styles.progressBarBg, { backgroundColor: colors.borderLight }]}>
             <View
               style={[
                 styles.progressBarFill,
+                { backgroundColor: colors.primary },
                 {
                   width: `${
                     questions.length > 0
@@ -191,40 +194,34 @@ export default function StudentTopicQuestionsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
     padding: 16,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
     padding: 16,
   },
   errorText: {
     marginTop: 12,
     fontSize: 16,
-    color: COLORS.ERROR,
     textAlign: 'center',
   },
   retryButton: {
     marginTop: 16,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: COLORS.PRIMARY,
     borderRadius: 12,
   },
   retryButtonText: {
     fontSize: 14,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.WHITE,
+    color: '#FFFFFF',
   },
   progressCard: {
-    backgroundColor: COLORS.WHITE,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
-    shadowColor: COLORS.BLACK,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -233,35 +230,29 @@ const styles = StyleSheet.create({
   progressLabel: {
     fontSize: 13,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.TEXT_SECONDARY,
     marginBottom: 4,
   },
   progressValue: {
     fontSize: 20,
     fontFamily: 'Pretendard-Bold',
-    color: COLORS.TEXT_PRIMARY,
     marginBottom: 8,
   },
   progressBarBg: {
     height: 6,
-    backgroundColor: COLORS.GRAY_100,
     borderRadius: 3,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: COLORS.PRIMARY,
     borderRadius: 3,
   },
   listContent: {
     paddingBottom: 24,
   },
   questionCard: {
-    backgroundColor: COLORS.WHITE,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    shadowColor: COLORS.BLACK,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -289,13 +280,11 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.TEXT_PRIMARY,
     lineHeight: 20,
   },
   hintText: {
     fontSize: 13,
     fontFamily: 'Pretendard-Regular',
-    color: COLORS.TEXT_SECONDARY,
     marginLeft: 18,
     marginBottom: 8,
   },
@@ -309,7 +298,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: COLORS.PRIMARY_LIGHT,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
@@ -317,12 +305,10 @@ const styles = StyleSheet.create({
   scriptBadgeText: {
     fontSize: 12,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.PRIMARY,
   },
   practiceInfo: {
     fontSize: 12,
     fontFamily: 'Pretendard-Regular',
-    color: COLORS.GRAY_400,
   },
   noScriptRow: {
     flexDirection: 'row',
@@ -333,6 +319,5 @@ const styles = StyleSheet.create({
   noScriptText: {
     fontSize: 12,
     fontFamily: 'Pretendard-Regular',
-    color: COLORS.GRAY_400,
   },
 });

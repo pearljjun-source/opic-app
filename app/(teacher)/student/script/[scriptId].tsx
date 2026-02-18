@@ -14,11 +14,12 @@ import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS } from '@/lib/constants';
 import { getUserMessage } from '@/lib/errors';
 import { getScript, updateScript, deleteScript, ScriptDetail } from '@/services/scripts';
+import { useThemeColors } from '@/hooks/useTheme';
 
 export default function EditScriptScreen() {
+  const colors = useThemeColors();
   const { scriptId } = useLocalSearchParams<{ scriptId: string }>();
 
   const [script, setScript] = useState<ScriptDetail | null>(null);
@@ -131,18 +132,18 @@ export default function EditScriptScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={COLORS.PRIMARY} />
-        <Text style={styles.loadingText}>스크립트 불러오는 중...</Text>
+      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>스크립트 불러오는 중...</Text>
       </View>
     );
   }
 
   if (error || !script) {
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>{error || '스크립트를 찾을 수 없습니다'}</Text>
-        <Pressable style={styles.retryButton} onPress={() => router.back()}>
+      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <Text style={[styles.errorText, { color: colors.error }]}>{error || '스크립트를 찾을 수 없습니다'}</Text>
+        <Pressable style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={() => router.back()}>
           <Text style={styles.retryButtonText}>뒤로 가기</Text>
         </Pressable>
       </View>
@@ -160,7 +161,7 @@ export default function EditScriptScreen() {
               <Ionicons
                 name="trash-outline"
                 size={24}
-                color={isDeleting ? COLORS.GRAY_300 : COLORS.ERROR}
+                color={isDeleting ? colors.gray300 : colors.error}
               />
             </Pressable>
           ),
@@ -168,7 +169,7 @@ export default function EditScriptScreen() {
       />
 
       <KeyboardAvoidingView
-        style={styles.container}
+        style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={100}
       >
@@ -178,54 +179,54 @@ export default function EditScriptScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* 질문 정보 */}
-          <View style={styles.questionCard}>
+          <View style={[styles.questionCard, { backgroundColor: colors.primary + '10', borderLeftColor: colors.primary }]}>
             <View style={styles.topicBadge}>
               <Text style={styles.topicIcon}>{script.question.topic.icon || '📝'}</Text>
-              <Text style={styles.topicName}>{script.question.topic.name_ko}</Text>
+              <Text style={[styles.topicName, { color: colors.primary }]}>{script.question.topic.name_ko}</Text>
             </View>
-            <Text style={styles.questionText}>{script.question.question_text}</Text>
+            <Text style={[styles.questionText, { color: colors.textPrimary }]}>{script.question.question_text}</Text>
           </View>
 
-          <Text style={styles.label}>스크립트 내용 *</Text>
+          <Text style={[styles.label, { color: colors.textPrimary }]}>스크립트 내용 *</Text>
           <TextInput
-            style={styles.textArea}
+            style={[styles.textArea, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.textPrimary }]}
             multiline
             numberOfLines={10}
             value={content}
             onChangeText={setContent}
             placeholder="영어 스크립트를 작성하세요..."
-            placeholderTextColor={COLORS.GRAY_300}
+            placeholderTextColor={colors.gray300}
             textAlignVertical="top"
           />
 
-          <Text style={styles.label}>강사 코멘트/팁 (선택)</Text>
+          <Text style={[styles.label, { color: colors.textPrimary }]}>강사 코멘트/팁 (선택)</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.textPrimary }]}
             value={comment}
             onChangeText={setComment}
             placeholder="학생에게 전달할 발음 팁이나 주의사항"
-            placeholderTextColor={COLORS.GRAY_300}
+            placeholderTextColor={colors.gray300}
             multiline
             numberOfLines={3}
             textAlignVertical="top"
           />
         </ScrollView>
 
-        <View style={styles.footer}>
+        <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
           <Pressable
-            style={styles.cancelButton}
+            style={[styles.cancelButton, { backgroundColor: colors.borderLight }]}
             onPress={() => router.back()}
             disabled={isSaving || isDeleting}
           >
-            <Text style={styles.cancelButtonText}>취소</Text>
+            <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>취소</Text>
           </Pressable>
           <Pressable
-            style={[styles.saveButton, (isSaving || isDeleting) && styles.saveButtonDisabled]}
+            style={[styles.saveButton, { backgroundColor: colors.primary }, (isSaving || isDeleting) && styles.saveButtonDisabled]}
             onPress={handleUpdate}
             disabled={isSaving || isDeleting}
           >
             {isSaving ? (
-              <ActivityIndicator size="small" color={COLORS.WHITE} />
+              <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
               <Text style={styles.saveButtonText}>수정 완료</Text>
             )}
@@ -239,36 +240,31 @@ export default function EditScriptScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
     padding: 16,
   },
   loadingText: {
     marginTop: 12,
     fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
   },
   errorText: {
     fontSize: 16,
-    color: COLORS.ERROR,
     textAlign: 'center',
     marginBottom: 16,
   },
   retryButton: {
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: COLORS.PRIMARY,
     borderRadius: 12,
   },
   retryButtonText: {
     fontSize: 14,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.WHITE,
+    color: '#FFFFFF',
   },
   scrollView: {
     flex: 1,
@@ -278,12 +274,10 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   questionCard: {
-    backgroundColor: COLORS.PRIMARY + '10',
     borderRadius: 16,
     padding: 16,
     marginBottom: 24,
     borderLeftWidth: 4,
-    borderLeftColor: COLORS.PRIMARY,
   },
   topicBadge: {
     flexDirection: 'row',
@@ -297,67 +291,53 @@ const styles = StyleSheet.create({
   topicName: {
     fontSize: 13,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.PRIMARY,
   },
   questionText: {
     fontSize: 15,
     lineHeight: 22,
-    color: COLORS.TEXT_PRIMARY,
   },
   label: {
     fontSize: 14,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.TEXT_PRIMARY,
     marginBottom: 8,
   },
   textArea: {
-    backgroundColor: COLORS.WHITE,
     borderWidth: 1,
-    borderColor: COLORS.BORDER,
     borderRadius: 12,
     padding: 16,
     fontSize: 15,
     lineHeight: 22,
     minHeight: 200,
     marginBottom: 20,
-    color: COLORS.TEXT_PRIMARY,
   },
   input: {
-    backgroundColor: COLORS.WHITE,
     borderWidth: 1,
-    borderColor: COLORS.BORDER,
     borderRadius: 12,
     padding: 16,
     fontSize: 15,
     lineHeight: 22,
     minHeight: 80,
-    color: COLORS.TEXT_PRIMARY,
   },
   footer: {
     flexDirection: 'row',
     padding: 16,
-    backgroundColor: COLORS.WHITE,
     borderTopWidth: 1,
-    borderTopColor: COLORS.BORDER,
     gap: 12,
   },
   cancelButton: {
     flex: 1,
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: COLORS.GRAY_100,
     alignItems: 'center',
   },
   cancelButtonText: {
     fontSize: 16,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_SECONDARY,
   },
   saveButton: {
     flex: 2,
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: COLORS.PRIMARY,
     alignItems: 'center',
   },
   saveButtonDisabled: {
@@ -366,6 +346,6 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 16,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.WHITE,
+    color: '#FFFFFF',
   },
 });

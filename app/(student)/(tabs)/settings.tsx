@@ -1,8 +1,10 @@
+import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 
 import { COLORS } from '@/lib/constants';
+import { useThemeColors, useThemeControl, loadThemePreference, ThemePreference } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
@@ -11,23 +13,54 @@ interface SettingsRowProps {
   icon: IoniconsName;
   label: string;
   value?: string;
+  onPress?: () => void;
+  selected?: boolean;
 }
 
-function SettingsRow({ icon, label, value }: SettingsRowProps) {
-  return (
-    <View style={styles.row}>
-      <Ionicons name={icon} size={20} color={COLORS.GRAY_500} />
+function SettingsRow({ icon, label, value, onPress, selected }: SettingsRowProps) {
+  const colors = useThemeColors();
+  const content = (
+    <View style={[styles.row, selected && { backgroundColor: colors.primaryLight }]}>
+      <Ionicons name={icon} size={20} color={selected ? colors.primary : colors.textSecondary} />
       <View style={styles.rowContent}>
-        <Text style={styles.rowLabel}>{label}</Text>
-        {value && <Text style={styles.rowValue} numberOfLines={1}>{value}</Text>}
+        <Text style={[styles.rowLabel, { color: colors.textPrimary }]}>{label}</Text>
+        {value && <Text style={[styles.rowValue, { color: colors.textSecondary }]} numberOfLines={1}>{value}</Text>}
       </View>
+      {selected && (
+        <Ionicons name="checkmark" size={20} color={colors.primary} />
+      )}
     </View>
   );
+
+  if (onPress) {
+    return (
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => pressed && [styles.rowPressed, { backgroundColor: colors.surfaceSecondary }]}
+      >
+        {content}
+      </Pressable>
+    );
+  }
+
+  return content;
 }
 
 export default function StudentSettings() {
   const { user, signOut, currentOrg } = useAuth();
   const appVersion = Constants.expoConfig?.version || '1.0.0';
+  const colors = useThemeColors();
+  const { setThemePreference } = useThemeControl();
+  const [themePref, setThemePref] = useState<ThemePreference>('system');
+
+  useEffect(() => {
+    loadThemePreference().then(setThemePref);
+  }, []);
+
+  const handleThemeChange = async (pref: ThemePreference) => {
+    setThemePref(pref);
+    await setThemePreference(pref);
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -47,23 +80,23 @@ export default function StudentSettings() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.surfaceSecondary }]} contentContainerStyle={styles.contentContainer}>
       {/* 계정 */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>계정</Text>
-        <View style={styles.card}>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>계정</Text>
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
           <SettingsRow
             icon="person-outline"
             label="이름"
             value={user?.name || '-'}
           />
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
           <SettingsRow
             icon="mail-outline"
             label="이메일"
             value={user?.email || '-'}
           />
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
           <SettingsRow
             icon="school-outline"
             label="역할"
@@ -71,7 +104,7 @@ export default function StudentSettings() {
           />
           {currentOrg && (
             <>
-              <View style={styles.divider} />
+              <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
               <SettingsRow
                 icon="business-outline"
                 label="소속 학원"
@@ -82,10 +115,37 @@ export default function StudentSettings() {
         </View>
       </View>
 
+      {/* 테마 */}
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>테마</Text>
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+          <SettingsRow
+            icon="phone-portrait-outline"
+            label="시스템 설정"
+            onPress={() => handleThemeChange('system')}
+            selected={themePref === 'system'}
+          />
+          <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
+          <SettingsRow
+            icon="sunny-outline"
+            label="라이트"
+            onPress={() => handleThemeChange('light')}
+            selected={themePref === 'light'}
+          />
+          <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
+          <SettingsRow
+            icon="moon-outline"
+            label="다크"
+            onPress={() => handleThemeChange('dark')}
+            selected={themePref === 'dark'}
+          />
+        </View>
+      </View>
+
       {/* 앱 */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>앱</Text>
-        <View style={styles.card}>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>앱</Text>
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
           <SettingsRow
             icon="information-circle-outline"
             label="앱 정보"
@@ -95,9 +155,9 @@ export default function StudentSettings() {
       </View>
 
       {/* 로그아웃 */}
-      <Pressable style={styles.logoutButton} onPress={handleLogout}>
-        <Ionicons name="log-out-outline" size={20} color={COLORS.ERROR} />
-        <Text style={styles.logoutText}>로그아웃</Text>
+      <Pressable style={[styles.logoutButton, { backgroundColor: colors.error + '10' }]} onPress={handleLogout}>
+        <Ionicons name="log-out-outline" size={20} color={colors.error} />
+        <Text style={[styles.logoutText, { color: colors.error }]}>로그아웃</Text>
       </Pressable>
     </ScrollView>
   );
@@ -106,7 +166,6 @@ export default function StudentSettings() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
   },
   contentContainer: {
     padding: 16,
@@ -118,14 +177,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 13,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_SECONDARY,
     marginBottom: 8,
     marginLeft: 4,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   card: {
-    backgroundColor: COLORS.WHITE,
     borderRadius: 16,
     padding: 4,
   },
@@ -134,6 +191,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 14,
     gap: 12,
+    borderRadius: 12,
+  },
+  rowPressed: {
+    borderRadius: 12,
   },
   rowContent: {
     flex: 1,
@@ -144,17 +205,14 @@ const styles = StyleSheet.create({
   rowLabel: {
     fontSize: 15,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.TEXT_PRIMARY,
   },
   rowValue: {
     fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
     maxWidth: '60%',
     textAlign: 'right',
   },
   divider: {
     height: 1,
-    backgroundColor: COLORS.GRAY_100,
     marginHorizontal: 14,
   },
   logoutButton: {
@@ -162,12 +220,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
-    backgroundColor: COLORS.ERROR + '10',
     borderRadius: 12,
     gap: 8,
   },
   logoutText: {
-    color: COLORS.ERROR,
     fontFamily: 'Pretendard-SemiBold',
     fontSize: 16,
   },

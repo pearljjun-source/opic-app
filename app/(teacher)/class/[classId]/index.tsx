@@ -16,13 +16,14 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS } from '@/lib/constants';
 import { getClassDetail, getTeacherClasses, deleteClass, removeClassMember, updateClass, moveClassMember } from '@/services/classes';
 import { StudentCard } from '@/components/teacher';
 import { getUserMessage } from '@/lib/errors';
 import type { ClassMemberItem, TeacherClassListItem } from '@/lib/types';
+import { useThemeColors } from '@/hooks/useTheme';
 
 export default function ClassDetailScreen() {
+  const colors = useThemeColors();
   const { classId } = useLocalSearchParams<{ classId: string }>();
   const [className, setClassName] = useState('');
   const [classDescription, setClassDescription] = useState<string | null>(null);
@@ -189,17 +190,17 @@ export default function ClassDetailScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>{error}</Text>
-        <Pressable style={styles.retryButton} onPress={fetchDetail}>
+      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+        <Pressable style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={fetchDetail}>
           <Text style={styles.retryButtonText}>다시 시도</Text>
         </Pressable>
       </View>
@@ -207,19 +208,19 @@ export default function ClassDetailScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.TEXT_PRIMARY} />
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </Pressable>
-        <Text style={styles.headerTitle} numberOfLines={1}>{className}</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]} numberOfLines={1}>{className}</Text>
         <View style={styles.headerActions}>
           <Pressable onPress={handleOpenEdit} style={styles.headerActionButton}>
-            <Ionicons name="pencil-outline" size={20} color={COLORS.PRIMARY} />
+            <Ionicons name="pencil-outline" size={20} color={colors.primary} />
           </Pressable>
           <Pressable onPress={handleDeleteClass} style={styles.headerActionButton}>
-            <Ionicons name="trash-outline" size={20} color={COLORS.ERROR} />
+            <Ionicons name="trash-outline" size={20} color={colors.error} />
           </Pressable>
         </View>
       </View>
@@ -236,12 +237,12 @@ export default function ClassDetailScreen() {
           style={styles.modalKeyboard}
         >
           <Pressable style={styles.modalOverlay} onPress={() => setShowEditModal(false)}>
-            <Pressable style={styles.modalContent} onPress={() => {}}>
-              <Text style={styles.modalTitle}>반 정보 수정</Text>
+            <Pressable style={[styles.modalContent, { backgroundColor: colors.surface }]} onPress={() => {}}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>반 정보 수정</Text>
 
-              <Text style={styles.inputLabel}>반 이름</Text>
+              <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>반 이름</Text>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, { borderColor: colors.border, color: colors.textPrimary, backgroundColor: colors.surfaceSecondary }]}
                 value={editName}
                 onChangeText={setEditName}
                 placeholder="반 이름"
@@ -249,9 +250,9 @@ export default function ClassDetailScreen() {
                 autoFocus
               />
 
-              <Text style={styles.inputLabel}>설명 (선택)</Text>
+              <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>설명 (선택)</Text>
               <TextInput
-                style={[styles.textInput, styles.textArea]}
+                style={[styles.textInput, styles.textArea, { borderColor: colors.border, color: colors.textPrimary, backgroundColor: colors.surfaceSecondary }]}
                 value={editDescription}
                 onChangeText={setEditDescription}
                 placeholder="반 설명을 입력하세요"
@@ -262,13 +263,13 @@ export default function ClassDetailScreen() {
 
               <View style={styles.modalButtons}>
                 <Pressable
-                  style={styles.cancelButton}
+                  style={[styles.cancelButton, { borderColor: colors.border }]}
                   onPress={() => setShowEditModal(false)}
                 >
-                  <Text style={styles.cancelButtonText}>취소</Text>
+                  <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>취소</Text>
                 </Pressable>
                 <Pressable
-                  style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+                  style={[styles.saveButton, { backgroundColor: colors.primary }, isSaving && styles.saveButtonDisabled]}
                   onPress={handleSaveEdit}
                   disabled={isSaving}
                 >
@@ -293,16 +294,16 @@ export default function ClassDetailScreen() {
           style={styles.modalOverlay}
           onPress={() => { setShowMoveModal(false); setMoveTarget(null); }}
         >
-          <Pressable style={styles.modalContent} onPress={() => {}}>
-            <Text style={styles.modalTitle}>이동할 반 선택</Text>
+          <Pressable style={[styles.modalContent, { backgroundColor: colors.surface }]} onPress={() => {}}>
+            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>이동할 반 선택</Text>
             {moveTarget && (
-              <Text style={styles.moveSubtitle}>{moveTarget.name}님을 이동합니다</Text>
+              <Text style={[styles.moveSubtitle, { color: colors.textSecondary }]}>{moveTarget.name}님을 이동합니다</Text>
             )}
 
             {isMoving ? (
               <View style={styles.movingContainer}>
-                <ActivityIndicator size="small" color={COLORS.PRIMARY} />
-                <Text style={styles.movingText}>이동 중...</Text>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={[styles.movingText, { color: colors.textSecondary }]}>이동 중...</Text>
               </View>
             ) : (
               <ScrollView style={styles.classPickerList} showsVerticalScrollIndicator={false}>
@@ -311,27 +312,28 @@ export default function ClassDetailScreen() {
                     key={cls.id}
                     style={({ pressed }) => [
                       styles.classPickerItem,
+                      { backgroundColor: colors.surfaceSecondary },
                       pressed && styles.classPickerItemPressed,
                     ]}
                     onPress={() => handleMoveToClass(cls.id, cls.name)}
                   >
-                    <Ionicons name="school-outline" size={20} color={COLORS.PRIMARY} />
+                    <Ionicons name="school-outline" size={20} color={colors.primary} />
                     <View style={styles.classPickerInfo}>
-                      <Text style={styles.classPickerName}>{cls.name}</Text>
-                      <Text style={styles.classPickerCount}>{cls.member_count}명</Text>
+                      <Text style={[styles.classPickerName, { color: colors.textPrimary }]}>{cls.name}</Text>
+                      <Text style={[styles.classPickerCount, { color: colors.textSecondary }]}>{cls.member_count}명</Text>
                     </View>
-                    <Ionicons name="chevron-forward" size={16} color={COLORS.GRAY_300} />
+                    <Ionicons name="chevron-forward" size={16} color={colors.gray300} />
                   </Pressable>
                 ))}
               </ScrollView>
             )}
 
             <Pressable
-              style={styles.moveCancelButton}
+              style={[styles.moveCancelButton, { borderColor: colors.border }]}
               onPress={() => { setShowMoveModal(false); setMoveTarget(null); }}
               disabled={isMoving}
             >
-              <Text style={styles.moveCancelButtonText}>취소</Text>
+              <Text style={[styles.moveCancelButtonText, { color: colors.textSecondary }]}>취소</Text>
             </Pressable>
           </Pressable>
         </Pressable>
@@ -339,28 +341,28 @@ export default function ClassDetailScreen() {
 
       {/* Class Info */}
       {classDescription ? (
-        <View style={styles.descriptionContainer}>
-          <Text style={styles.descriptionText}>{classDescription}</Text>
+        <View style={[styles.descriptionContainer, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+          <Text style={[styles.descriptionText, { color: colors.textSecondary }]}>{classDescription}</Text>
         </View>
       ) : null}
 
       {/* Members Section */}
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>학생 ({members.length}명)</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>학생 ({members.length}명)</Text>
         <Pressable
-          style={styles.addButton}
+          style={[styles.addButton, { backgroundColor: colors.primaryLight }]}
           onPress={() => router.push(`/class/${classId}/add-members` as any)}
         >
-          <Ionicons name="person-add-outline" size={18} color={COLORS.PRIMARY} />
-          <Text style={styles.addButtonText}>추가</Text>
+          <Ionicons name="person-add-outline" size={18} color={colors.primary} />
+          <Text style={[styles.addButtonText, { color: colors.primary }]}>추가</Text>
         </Pressable>
       </View>
 
       {members.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="people-outline" size={48} color={COLORS.GRAY_300} />
-          <Text style={styles.emptyTitle}>반에 소속된 학생이 없습니다</Text>
-          <Text style={styles.emptyHint}>연결된 학생을 이 반에 추가하세요</Text>
+          <Ionicons name="people-outline" size={48} color={colors.gray300} />
+          <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>반에 소속된 학생이 없습니다</Text>
+          <Text style={[styles.emptyHint, { color: colors.textSecondary }]}>연결된 학생을 이 반에 추가하세요</Text>
         </View>
       ) : (
         <FlatList
@@ -395,13 +397,11 @@ export default function ClassDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
     padding: 24,
   },
   header: {
@@ -411,9 +411,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 56,
     paddingBottom: 16,
-    backgroundColor: COLORS.WHITE,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.BORDER,
   },
   backButton: {
     width: 40,
@@ -425,7 +423,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 18,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
     textAlign: 'center',
     marginHorizontal: 8,
   },
@@ -441,16 +438,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   descriptionContainer: {
-    backgroundColor: COLORS.WHITE,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.BORDER,
   },
   descriptionText: {
     fontSize: 14,
     fontFamily: 'Pretendard-Regular',
-    color: COLORS.TEXT_SECONDARY,
     lineHeight: 20,
   },
   sectionHeader: {
@@ -464,7 +458,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
   },
   addButton: {
     flexDirection: 'row',
@@ -472,13 +465,11 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: COLORS.PRIMARY_LIGHT,
     borderRadius: 12,
   },
   addButtonText: {
     fontSize: 14,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.PRIMARY,
   },
   emptyContainer: {
     flex: 1,
@@ -490,13 +481,11 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
     marginTop: 8,
   },
   emptyHint: {
     fontSize: 14,
     fontFamily: 'Pretendard-Regular',
-    color: COLORS.TEXT_SECONDARY,
   },
   listContent: {
     padding: 16,
@@ -504,20 +493,18 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: COLORS.ERROR,
     textAlign: 'center',
     marginBottom: 16,
   },
   retryButton: {
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: COLORS.PRIMARY,
     borderRadius: 12,
   },
   retryButtonText: {
     fontSize: 14,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.WHITE,
+    color: '#FFFFFF',
   },
   // Edit Modal
   modalKeyboard: {
@@ -530,7 +517,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   modalContent: {
-    backgroundColor: COLORS.WHITE,
     borderRadius: 16,
     padding: 24,
     maxHeight: '70%',
@@ -538,25 +524,20 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
     marginBottom: 16,
   },
   inputLabel: {
     fontSize: 13,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.TEXT_SECONDARY,
     marginBottom: 6,
   },
   textInput: {
     borderWidth: 1,
-    borderColor: COLORS.BORDER,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 15,
     fontFamily: 'Pretendard-Regular',
-    color: COLORS.TEXT_PRIMARY,
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
     marginBottom: 16,
   },
   textArea: {
@@ -573,19 +554,16 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: COLORS.BORDER,
     alignItems: 'center',
   },
   cancelButtonText: {
     fontSize: 15,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.TEXT_SECONDARY,
   },
   saveButton: {
     flex: 1,
     paddingVertical: 12,
     borderRadius: 10,
-    backgroundColor: COLORS.PRIMARY,
     alignItems: 'center',
   },
   saveButtonDisabled: {
@@ -594,13 +572,12 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 15,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.WHITE,
+    color: '#FFFFFF',
   },
   // Move Modal
   moveSubtitle: {
     fontSize: 14,
     fontFamily: 'Pretendard-Regular',
-    color: COLORS.TEXT_SECONDARY,
     marginBottom: 16,
   },
   classPickerList: {
@@ -612,7 +589,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 12,
     borderRadius: 12,
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
     marginBottom: 8,
   },
   classPickerItemPressed: {
@@ -625,12 +601,10 @@ const styles = StyleSheet.create({
   classPickerName: {
     fontSize: 15,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
   },
   classPickerCount: {
     fontSize: 12,
     fontFamily: 'Pretendard-Regular',
-    color: COLORS.TEXT_SECONDARY,
     marginTop: 2,
   },
   movingContainer: {
@@ -643,19 +617,16 @@ const styles = StyleSheet.create({
   movingText: {
     fontSize: 14,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.TEXT_SECONDARY,
   },
   moveCancelButton: {
     paddingVertical: 12,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: COLORS.BORDER,
     alignItems: 'center',
     marginTop: 8,
   },
   moveCancelButtonText: {
     fontSize: 15,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.TEXT_SECONDARY,
   },
 });

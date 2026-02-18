@@ -53,6 +53,8 @@ interface AuthState {
   orgRole: OrgRole | null;
   /** 소속 조직 목록 */
   organizations: MyOrganization[];
+  /** @internal 프로필이 DB에서 검증되었는지 (캐시 불일치 방지) */
+  _profileVerified: boolean;
 }
 
 interface AuthContextType extends AuthState {
@@ -85,6 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     currentOrg: null,
     orgRole: null,
     organizations: [],
+    _profileVerified: false,
   });
 
   const router = useRouter();
@@ -194,6 +197,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           currentOrg: null,
           orgRole: null,
           organizations: [],
+          _profileVerified: true,
         };
       });
     }, 10_000);
@@ -231,22 +235,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
 
             if (cachedRole && cachedProfile) {
-              // Fast path: 캐시 있음 → 즉시 UI 표시
+              // Fast path: 캐시 있음 → 즉시 UI 표시 (단, 라우팅은 DB 검증 후)
               const cachedState = await buildAuthState(session, cachedProfile, cachedOrgs);
-              setState(prev => ({ ...prev, ...cachedState }));
+              setState(prev => ({ ...prev, ...cachedState, _profileVerified: false }));
 
               // Background: DB에서 최신 profile + orgs 갱신
               fetchUserProfile(session.user.id).then(async ({ profile: fresh, orgs: freshOrgs }) => {
                 if (fresh) {
                   const freshState = await buildAuthState(session, fresh, freshOrgs);
-                  setState(prev => ({ ...prev, ...freshState }));
+                  setState(prev => ({ ...prev, ...freshState, _profileVerified: true }));
+                } else {
+                  // DB fetch 실패해도 검증 완료로 표시 (캐시 기반 라우팅 허용)
+                  setState(prev => ({ ...prev, _profileVerified: true }));
                 }
               });
             } else {
-              // Slow path: 캐시 없거나 손상 → DB에서 조회
+              // Slow path: 캐시 없거나 손상 → DB에서 조회 (직접 검증)
               const { profile, orgs } = await fetchUserProfile(session.user.id);
               const newState = await buildAuthState(session, profile, orgs);
-              setState(prev => ({ ...prev, ...newState }));
+              setState(prev => ({ ...prev, ...newState, _profileVerified: true }));
             }
 
             // Background: 서버에서 토큰 유효성 검증
@@ -268,6 +275,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               currentOrg: null,
               orgRole: null,
               organizations: [],
+              _profileVerified: true,
             });
           }
 
@@ -277,7 +285,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else if (event === 'SIGNED_IN' && session?.user) {
           const { profile, orgs } = await fetchUserProfile(session.user.id);
           const newState = await buildAuthState(session, profile, orgs);
-          setState(prev => ({ ...prev, ...newState }));
+          setState(prev => ({ ...prev, ...newState, _profileVerified: true }));
 
         // ----------------------------------------------------------------
         // SIGNED_OUT: 로그아웃
@@ -294,6 +302,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             currentOrg: null,
             orgRole: null,
             organizations: [],
+            _profileVerified: true,
           });
 
         // ----------------------------------------------------------------
@@ -303,7 +312,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const { profile, orgs } = await fetchUserProfile(session.user.id);
           if (profile) {
             const newState = await buildAuthState(session, profile, orgs);
-            setState(prev => ({ ...prev, ...newState }));
+            setState(prev => ({ ...prev, ...newState, _profileVerified: true }));
           }
         }
 
@@ -321,6 +330,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             currentOrg: null,
             orgRole: null,
             organizations: [],
+            _profileVerified: true,
           });
         }
       }
@@ -367,8 +377,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       router.replace(homeForUser() as any);
     } else if (state.isAuthenticated && !inProtectedGroup) {
       router.replace(homeForUser() as any);
-    } else if (state.isAuthenticated) {
+    } else if (state.isAuthenticated && state._profileVerified) {
       // 잘못된 그룹에 있는 경우 올바른 그룹으로 리다이렉트
+      // _profileVerified: DB 검증 후에만 실행 (캐시 불일치로 인한 리다이렉트 반복 방지)
       const correctHome = homeForUser();
       const inCorrectGroup =
         (correctHome === '/(admin)' && inAdminGroup) ||
@@ -378,7 +389,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         router.replace(correctHome as any);
       }
     }
-  }, [state.isAuthenticated, state.isLoading, state.role, state.platformRole, state.orgRole, state.currentOrg, segments, router]);
+  }, [state.isAuthenticated, state.isLoading, state._profileVerified, state.role, state.platformRole, state.orgRole, state.currentOrg, segments, router]);
 
   // ============================================================================
   // Sign in

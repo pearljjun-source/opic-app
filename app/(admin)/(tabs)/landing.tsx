@@ -5,7 +5,7 @@ import {
 import { useState, useEffect, useCallback } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 import { getUserMessage } from '@/lib/errors';
 import {
   getAllLandingSections,
@@ -48,6 +48,7 @@ const EMPTY_ITEM_FORM = {
 };
 
 export default function AdminLandingScreen() {
+  const colors = useThemeColors();
   const [sections, setSections] = useState<LandingSection[]>([]);
   const [selectedSection, setSelectedSection] = useState<LandingSection | null>(null);
   const [items, setItems] = useState<LandingItem[]>([]);
@@ -385,18 +386,18 @@ export default function AdminLandingScreen() {
   if (isLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}>
       {/* 섹션 탭 */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={styles.tabRow}
+        style={[styles.tabRow, { borderBottomColor: colors.border, backgroundColor: colors.surface }]}
         contentContainerStyle={styles.tabContent}
       >
         {sections.map((section) => (
@@ -404,7 +405,8 @@ export default function AdminLandingScreen() {
             key={section.id}
             style={[
               styles.tabChip,
-              selectedSection?.id === section.id && styles.tabChipActive,
+              { backgroundColor: colors.borderLight },
+              selectedSection?.id === section.id && { backgroundColor: colors.primary },
               !section.is_active && styles.tabChipInactive,
             ]}
             onPress={() => setSelectedSection(section)}
@@ -412,7 +414,8 @@ export default function AdminLandingScreen() {
             <Text
               style={[
                 styles.tabChipText,
-                selectedSection?.id === section.id && styles.tabChipTextActive,
+                { color: colors.textSecondary },
+                selectedSection?.id === section.id && { color: '#FFFFFF' },
               ]}
             >
               {section.section_key}
@@ -423,53 +426,53 @@ export default function AdminLandingScreen() {
 
       {/* 선택된 섹션 정보 */}
       {selectedSection && (
-        <View style={styles.sectionInfo}>
+        <View style={[styles.sectionInfo, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
           {isEditingSection ? (
             <View>
               <TextInput
-                style={styles.sectionInput}
+                style={[styles.sectionInput, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, color: colors.textPrimary }]}
                 value={sectionForm.title}
                 onChangeText={(v) => setSectionForm(prev => ({ ...prev, title: v }))}
                 placeholder="섹션 제목"
-                placeholderTextColor={COLORS.GRAY_400}
+                placeholderTextColor={colors.textDisabled}
                 maxLength={200}
               />
               <TextInput
-                style={[styles.sectionInput, { marginTop: 8 }]}
+                style={[styles.sectionInput, { marginTop: 8, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, color: colors.textPrimary }]}
                 value={sectionForm.subtitle}
                 onChangeText={(v) => setSectionForm(prev => ({ ...prev, subtitle: v }))}
                 placeholder="섹션 부제목"
-                placeholderTextColor={COLORS.GRAY_400}
+                placeholderTextColor={colors.textDisabled}
                 maxLength={500}
                 multiline
               />
               {selectedSection?.section_key === 'video' && (
                 <TextInput
-                  style={[styles.sectionInput, { marginTop: 8 }]}
+                  style={[styles.sectionInput, { marginTop: 8, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, color: colors.textPrimary }]}
                   value={sectionForm.videoUrl}
                   onChangeText={(v) => setSectionForm(prev => ({ ...prev, videoUrl: v }))}
                   placeholder="동영상 URL (YouTube embed 등)"
-                  placeholderTextColor={COLORS.GRAY_400}
+                  placeholderTextColor={colors.textDisabled}
                   autoCapitalize="none"
                   keyboardType="url"
                 />
               )}
               <View style={styles.sectionEditActions}>
                 <Pressable
-                  style={styles.sectionEditBtn}
+                  style={[styles.sectionEditBtn, { backgroundColor: colors.borderLight }]}
                   onPress={() => setIsEditingSection(false)}
                 >
-                  <Text style={styles.sectionEditBtnText}>취소</Text>
+                  <Text style={[styles.sectionEditBtnText, { color: colors.textSecondary }]}>취소</Text>
                 </Pressable>
                 <Pressable
-                  style={[styles.sectionEditBtn, styles.sectionEditBtnPrimary]}
+                  style={[styles.sectionEditBtn, { backgroundColor: colors.primary }]}
                   onPress={handleSaveSection}
                   disabled={isSavingSection}
                 >
                   {isSavingSection ? (
-                    <ActivityIndicator size="small" color={COLORS.WHITE} />
+                    <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
-                    <Text style={[styles.sectionEditBtnText, { color: COLORS.WHITE }]}>저장</Text>
+                    <Text style={[styles.sectionEditBtnText, { color: '#FFFFFF' }]}>저장</Text>
                   )}
                 </Pressable>
               </View>
@@ -477,22 +480,22 @@ export default function AdminLandingScreen() {
           ) : (
             <View style={styles.sectionHeader}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.sectionTitle}>
+                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
                   {selectedSection.title || selectedSection.section_key}
                 </Text>
                 {selectedSection.subtitle && (
-                  <Text style={styles.sectionSubtitle}>{selectedSection.subtitle}</Text>
+                  <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>{selectedSection.subtitle}</Text>
                 )}
               </View>
               <View style={styles.sectionActions}>
                 <Pressable onPress={handleStartEditSection} hitSlop={8}>
-                  <Ionicons name="create-outline" size={20} color={COLORS.PRIMARY} />
+                  <Ionicons name="create-outline" size={20} color={colors.primary} />
                 </Pressable>
                 <Pressable onPress={() => handleToggleSection(selectedSection)} hitSlop={8}>
                   <Ionicons
                     name={selectedSection.is_active ? 'eye' : 'eye-off'}
                     size={20}
-                    color={selectedSection.is_active ? COLORS.SUCCESS : COLORS.GRAY_400}
+                    color={selectedSection.is_active ? colors.success : colors.textDisabled}
                   />
                 </Pressable>
               </View>
@@ -503,36 +506,36 @@ export default function AdminLandingScreen() {
 
       {/* 아이템 툴바 */}
       {selectedSection && !isEditingSection && (
-        <View style={styles.toolbar}>
-          <Pressable style={styles.toolbarBtn} onPress={handleOpenCreateItem}>
-            <Ionicons name="add-circle-outline" size={18} color={COLORS.PRIMARY} />
-            <Text style={styles.toolbarBtnText}>추가</Text>
+        <View style={[styles.toolbar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+          <Pressable style={[styles.toolbarBtn, { backgroundColor: colors.surfaceSecondary }]} onPress={handleOpenCreateItem}>
+            <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
+            <Text style={[styles.toolbarBtnText, { color: colors.primary }]}>추가</Text>
           </Pressable>
           {items.length > 1 && (
             isReorderMode ? (
               <View style={styles.toolbarRow}>
                 <Pressable
-                  style={styles.toolbarBtn}
+                  style={[styles.toolbarBtn, { backgroundColor: colors.surfaceSecondary }]}
                   onPress={() => { setIsReorderMode(false); if (selectedSection) fetchItems(selectedSection.id); }}
                 >
-                  <Text style={styles.toolbarBtnText}>취소</Text>
+                  <Text style={[styles.toolbarBtnText, { color: colors.primary }]}>취소</Text>
                 </Pressable>
                 <Pressable
-                  style={[styles.toolbarBtn, styles.toolbarBtnPrimary]}
+                  style={[styles.toolbarBtn, { backgroundColor: colors.primary }]}
                   onPress={handleSaveOrder}
                   disabled={isSavingOrder}
                 >
                   {isSavingOrder ? (
-                    <ActivityIndicator size="small" color={COLORS.WHITE} />
+                    <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
-                    <Text style={[styles.toolbarBtnText, { color: COLORS.WHITE }]}>순서 저장</Text>
+                    <Text style={[styles.toolbarBtnText, { color: '#FFFFFF' }]}>순서 저장</Text>
                   )}
                 </Pressable>
               </View>
             ) : (
-              <Pressable style={styles.toolbarBtn} onPress={() => setIsReorderMode(true)}>
-                <Ionicons name="swap-vertical-outline" size={18} color={COLORS.PRIMARY} />
-                <Text style={styles.toolbarBtnText}>순서 변경</Text>
+              <Pressable style={[styles.toolbarBtn, { backgroundColor: colors.surfaceSecondary }]} onPress={() => setIsReorderMode(true)}>
+                <Ionicons name="swap-vertical-outline" size={18} color={colors.primary} />
+                <Text style={[styles.toolbarBtnText, { color: colors.primary }]}>순서 변경</Text>
               </Pressable>
             )
           )}
@@ -542,23 +545,23 @@ export default function AdminLandingScreen() {
       {/* 아이템 목록 */}
       {error ? (
         <View style={styles.center}>
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
         </View>
       ) : isItemsLoading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
         <ScrollView
           contentContainerStyle={styles.itemsList}
           refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={COLORS.PRIMARY} />
+            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={colors.primary} />
           }
         >
           {items.map((item, index) => (
             <Pressable
               key={item.id}
-              style={styles.itemCard}
+              style={[styles.itemCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
               onPress={() => handleOpenEditItem(item)}
               disabled={isReorderMode}
             >
@@ -573,7 +576,7 @@ export default function AdminLandingScreen() {
                       <Ionicons
                         name="chevron-up"
                         size={20}
-                        color={index === 0 ? COLORS.GRAY_200 : COLORS.PRIMARY}
+                        color={index === 0 ? colors.border : colors.primary}
                       />
                     </Pressable>
                     <Pressable
@@ -584,7 +587,7 @@ export default function AdminLandingScreen() {
                       <Ionicons
                         name="chevron-down"
                         size={20}
-                        color={index === items.length - 1 ? COLORS.GRAY_200 : COLORS.PRIMARY}
+                        color={index === items.length - 1 ? colors.border : colors.primary}
                       />
                     </Pressable>
                   </View>
@@ -592,20 +595,20 @@ export default function AdminLandingScreen() {
                   item.icon ? <Text style={styles.itemIcon}>{item.icon}</Text> : null
                 )}
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.itemTitle}>{item.title}</Text>
+                  <Text style={[styles.itemTitle, { color: colors.textPrimary }]}>{item.title}</Text>
                   {item.description && (
-                    <Text style={styles.itemDesc} numberOfLines={2}>{item.description}</Text>
+                    <Text style={[styles.itemDesc, { color: colors.textSecondary }]} numberOfLines={2}>{item.description}</Text>
                   )}
                 </View>
                 {!isReorderMode && (
                   <Pressable onPress={() => handleDeleteItem(item.id)} hitSlop={8}>
-                    <Ionicons name="trash-outline" size={18} color={COLORS.ERROR} />
+                    <Ionicons name="trash-outline" size={18} color={colors.error} />
                   </Pressable>
                 )}
               </View>
-              <View style={styles.itemMeta}>
-                <Text style={styles.itemMetaText}>순서: {item.sort_order}</Text>
-                <Text style={[styles.itemMetaText, !item.is_active && { color: COLORS.ERROR }]}>
+              <View style={[styles.itemMeta, { borderTopColor: colors.borderLight }]}>
+                <Text style={[styles.itemMetaText, { color: colors.textDisabled }]}>순서: {item.sort_order}</Text>
+                <Text style={[styles.itemMetaText, { color: colors.textDisabled }, !item.is_active && { color: colors.error }]}>
                   {item.is_active ? '활성' : '비활성'}
                 </Text>
               </View>
@@ -613,7 +616,7 @@ export default function AdminLandingScreen() {
           ))}
           {items.length === 0 && (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>아이템이 없습니다</Text>
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>아이템이 없습니다</Text>
             </View>
           )}
         </ScrollView>
@@ -627,100 +630,100 @@ export default function AdminLandingScreen() {
         onRequestClose={() => setItemModalVisible(false)}
       >
         <KeyboardAvoidingView
-          style={styles.modalOverlay}
+          style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <ScrollView
             contentContainerStyle={styles.modalScrollContent}
             keyboardShouldPersistTaps="handled"
           >
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>
+            <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
                 {editingItem ? '아이템 수정' : '아이템 추가'}
               </Text>
-              <Text style={styles.modalSubtitle}>
+              <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
                 {selectedSection?.section_key} 섹션의 아이템을 {editingItem ? '수정' : '추가'}합니다.
               </Text>
 
-              <Text style={styles.inputLabel}>제목 *</Text>
+              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>제목 *</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, color: colors.textPrimary }]}
                 value={itemForm.title}
                 onChangeText={(v) => setItemForm(prev => ({ ...prev, title: v }))}
                 placeholder="아이템 제목"
-                placeholderTextColor={COLORS.GRAY_400}
+                placeholderTextColor={colors.textDisabled}
                 maxLength={200}
               />
 
-              <Text style={styles.inputLabel}>설명</Text>
+              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>설명</Text>
               <TextInput
-                style={[styles.input, styles.inputMultiline]}
+                style={[styles.input, styles.inputMultiline, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, color: colors.textPrimary }]}
                 value={itemForm.description}
                 onChangeText={(v) => setItemForm(prev => ({ ...prev, description: v }))}
                 placeholder="아이템 설명"
-                placeholderTextColor={COLORS.GRAY_400}
+                placeholderTextColor={colors.textDisabled}
                 maxLength={2000}
                 multiline
                 numberOfLines={3}
               />
 
-              <Text style={styles.inputLabel}>아이콘 (이름 또는 이모지)</Text>
+              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>아이콘 (이름 또는 이모지)</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, color: colors.textPrimary }]}
                 value={itemForm.icon}
                 onChangeText={(v) => setItemForm(prev => ({ ...prev, icon: v }))}
-                placeholder="예: Clock, PencilLine, 🎯"
-                placeholderTextColor={COLORS.GRAY_400}
+                placeholder="예: Clock, PencilLine, &x1F3AF;"
+                placeholderTextColor={colors.textDisabled}
                 maxLength={50}
               />
 
-              <Text style={styles.inputLabel}>이미지 URL</Text>
+              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>이미지 URL</Text>
               <View style={styles.uploadRow}>
                 <TextInput
-                  style={[styles.input, { flex: 1 }]}
+                  style={[styles.input, { flex: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, color: colors.textPrimary }]}
                   value={itemForm.image_url}
                   onChangeText={(v) => setItemForm(prev => ({ ...prev, image_url: v }))}
                   placeholder="https://example.com/image.png"
-                  placeholderTextColor={COLORS.GRAY_400}
+                  placeholderTextColor={colors.textDisabled}
                   autoCapitalize="none"
                   keyboardType="url"
                 />
                 {Platform.OS === 'web' && (
                   <Pressable
-                    style={[styles.uploadBtn, isUploading === 'image' && styles.uploadBtnDisabled]}
+                    style={[styles.uploadBtn, { backgroundColor: colors.primary }, isUploading === 'image' && styles.uploadBtnDisabled]}
                     onPress={() => handleFileUpload('image')}
                     disabled={isUploading !== null}
                   >
                     {isUploading === 'image' ? (
-                      <ActivityIndicator size="small" color={COLORS.WHITE} />
+                      <ActivityIndicator size="small" color="#FFFFFF" />
                     ) : (
-                      <Ionicons name="cloud-upload-outline" size={18} color={COLORS.WHITE} />
+                      <Ionicons name="cloud-upload-outline" size={18} color="#FFFFFF" />
                     )}
                   </Pressable>
                 )}
               </View>
 
-              <Text style={styles.inputLabel}>동영상 URL</Text>
+              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>동영상 URL</Text>
               <View style={styles.uploadRow}>
                 <TextInput
-                  style={[styles.input, { flex: 1 }]}
+                  style={[styles.input, { flex: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, color: colors.textPrimary }]}
                   value={itemForm.video_url}
                   onChangeText={(v) => setItemForm(prev => ({ ...prev, video_url: v }))}
                   placeholder="https://www.youtube.com/embed/..."
-                  placeholderTextColor={COLORS.GRAY_400}
+                  placeholderTextColor={colors.textDisabled}
                   autoCapitalize="none"
                   keyboardType="url"
                 />
                 {Platform.OS === 'web' && (
                   <Pressable
-                    style={[styles.uploadBtn, isUploading === 'video' && styles.uploadBtnDisabled]}
+                    style={[styles.uploadBtn, { backgroundColor: colors.primary }, isUploading === 'video' && styles.uploadBtnDisabled]}
                     onPress={() => handleFileUpload('video')}
                     disabled={isUploading !== null}
                   >
                     {isUploading === 'video' ? (
-                      <ActivityIndicator size="small" color={COLORS.WHITE} />
+                      <ActivityIndicator size="small" color="#FFFFFF" />
                     ) : (
-                      <Ionicons name="cloud-upload-outline" size={18} color={COLORS.WHITE} />
+                      <Ionicons name="cloud-upload-outline" size={18} color="#FFFFFF" />
                     )}
                   </Pressable>
                 )}
@@ -729,166 +732,88 @@ export default function AdminLandingScreen() {
               {/* 섹션별 메타데이터 필드 */}
               {selectedSection?.section_key === 'stats' && (
                 <>
-                  <Text style={styles.metaSectionLabel}>통계 메타데이터</Text>
-                  <Text style={styles.inputLabel}>숫자 값</Text>
+                  <Text style={[styles.metaSectionLabel, { color: colors.primary, borderTopColor: colors.borderLight }]}>통계 메타데이터</Text>
+                  <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>숫자 값</Text>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, color: colors.textPrimary }]}
                     value={itemForm.meta_value}
                     onChangeText={(v) => setItemForm(prev => ({ ...prev, meta_value: v }))}
                     placeholder="예: 336"
-                    placeholderTextColor={COLORS.GRAY_400}
+                    placeholderTextColor={colors.textDisabled}
                     keyboardType="number-pad"
                   />
-                  <Text style={styles.inputLabel}>접미사</Text>
+                  <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>접미사</Text>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, color: colors.textPrimary }]}
                     value={itemForm.meta_suffix}
                     onChangeText={(v) => setItemForm(prev => ({ ...prev, meta_suffix: v }))}
                     placeholder="예: +, 개, 종, 분"
-                    placeholderTextColor={COLORS.GRAY_400}
+                    placeholderTextColor={colors.textDisabled}
                   />
                 </>
               )}
 
               {selectedSection?.section_key === 'pricing' && (
                 <>
-                  <Text style={styles.metaSectionLabel}>요금제 메타데이터</Text>
-                  <Text style={styles.inputLabel}>가격</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={itemForm.meta_price}
-                    onChangeText={(v) => setItemForm(prev => ({ ...prev, meta_price: v }))}
-                    placeholder="예: ₩29,900"
-                    placeholderTextColor={COLORS.GRAY_400}
-                  />
-                  <Text style={styles.inputLabel}>기간</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={itemForm.meta_period}
-                    onChangeText={(v) => setItemForm(prev => ({ ...prev, meta_period: v }))}
-                    placeholder="예: /월"
-                    placeholderTextColor={COLORS.GRAY_400}
-                  />
-                  <Text style={styles.inputLabel}>기능 목록 (줄바꿈 구분)</Text>
-                  <TextInput
-                    style={[styles.input, styles.inputMultiline]}
-                    value={itemForm.meta_features}
-                    onChangeText={(v) => setItemForm(prev => ({ ...prev, meta_features: v }))}
-                    placeholder="학생 5명 연결&#10;스크립트 작성·관리"
-                    placeholderTextColor={COLORS.GRAY_400}
-                    multiline
-                    numberOfLines={4}
-                  />
-                  <Text style={styles.inputLabel}>CTA 버튼 텍스트</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={itemForm.meta_cta}
-                    onChangeText={(v) => setItemForm(prev => ({ ...prev, meta_cta: v }))}
-                    placeholder="예: 무료로 시작"
-                    placeholderTextColor={COLORS.GRAY_400}
-                  />
+                  <Text style={[styles.metaSectionLabel, { color: colors.primary, borderTopColor: colors.borderLight }]}>요금제 메타데이터</Text>
+                  <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>가격</Text>
+                  <TextInput style={[styles.input, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, color: colors.textPrimary }]} value={itemForm.meta_price} onChangeText={(v) => setItemForm(prev => ({ ...prev, meta_price: v }))} placeholder="예: ₩29,900" placeholderTextColor={colors.textDisabled} />
+                  <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>기간</Text>
+                  <TextInput style={[styles.input, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, color: colors.textPrimary }]} value={itemForm.meta_period} onChangeText={(v) => setItemForm(prev => ({ ...prev, meta_period: v }))} placeholder="예: /월" placeholderTextColor={colors.textDisabled} />
+                  <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>기능 목록 (줄바꿈 구분)</Text>
+                  <TextInput style={[styles.input, styles.inputMultiline, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, color: colors.textPrimary }]} value={itemForm.meta_features} onChangeText={(v) => setItemForm(prev => ({ ...prev, meta_features: v }))} placeholder={"학생 5명 연결\n스크립트 작성·관리"} placeholderTextColor={colors.textDisabled} multiline numberOfLines={4} />
+                  <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>CTA 버튼 텍스트</Text>
+                  <TextInput style={[styles.input, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, color: colors.textPrimary }]} value={itemForm.meta_cta} onChangeText={(v) => setItemForm(prev => ({ ...prev, meta_cta: v }))} placeholder="예: 무료로 시작" placeholderTextColor={colors.textDisabled} />
                   <View style={styles.switchRow}>
-                    <Text style={styles.switchLabel}>추천 플랜</Text>
-                    <Switch
-                      value={itemForm.meta_highlighted}
-                      onValueChange={(v) => setItemForm(prev => ({ ...prev, meta_highlighted: v }))}
-                      trackColor={{ false: COLORS.GRAY_200, true: COLORS.PRIMARY }}
-                    />
+                    <Text style={[styles.switchLabel, { color: colors.textPrimary }]}>추천 플랜</Text>
+                    <Switch value={itemForm.meta_highlighted} onValueChange={(v) => setItemForm(prev => ({ ...prev, meta_highlighted: v }))} trackColor={{ false: colors.border, true: colors.primary }} />
                   </View>
                 </>
               )}
 
               {selectedSection?.section_key === 'roadmap' && (
                 <>
-                  <Text style={styles.metaSectionLabel}>로드맵 메타데이터</Text>
-                  <Text style={styles.inputLabel}>Phase</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={itemForm.meta_phase}
-                    onChangeText={(v) => setItemForm(prev => ({ ...prev, meta_phase: v }))}
-                    placeholder="예: Phase 1"
-                    placeholderTextColor={COLORS.GRAY_400}
-                  />
-                  <Text style={styles.inputLabel}>상태</Text>
+                  <Text style={[styles.metaSectionLabel, { color: colors.primary, borderTopColor: colors.borderLight }]}>로드맵 메타데이터</Text>
+                  <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>Phase</Text>
+                  <TextInput style={[styles.input, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, color: colors.textPrimary }]} value={itemForm.meta_phase} onChangeText={(v) => setItemForm(prev => ({ ...prev, meta_phase: v }))} placeholder="예: Phase 1" placeholderTextColor={colors.textDisabled} />
+                  <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>상태</Text>
                   <View style={styles.statusRow}>
                     {(['live', 'next', 'planned'] as const).map((status) => (
-                      <Pressable
-                        key={status}
-                        style={[
-                          styles.statusChip,
-                          itemForm.meta_status === status && styles.statusChipActive,
-                        ]}
-                        onPress={() => setItemForm(prev => ({ ...prev, meta_status: status }))}
-                      >
-                        <Text style={[
-                          styles.statusChipText,
-                          itemForm.meta_status === status && styles.statusChipTextActive,
-                        ]}>
+                      <Pressable key={status} style={[styles.statusChip, { backgroundColor: colors.borderLight }, itemForm.meta_status === status && { backgroundColor: colors.primary }]} onPress={() => setItemForm(prev => ({ ...prev, meta_status: status }))}>
+                        <Text style={[styles.statusChipText, { color: colors.textSecondary }, itemForm.meta_status === status && { color: '#FFFFFF' }]}>
                           {status === 'live' ? '사용 가능' : status === 'next' ? '개발 중' : '예정'}
                         </Text>
                       </Pressable>
                     ))}
                   </View>
-                  <Text style={styles.inputLabel}>항목 목록 (줄바꿈 구분)</Text>
-                  <TextInput
-                    style={[styles.input, styles.inputMultiline]}
-                    value={itemForm.meta_items}
-                    onChangeText={(v) => setItemForm(prev => ({ ...prev, meta_items: v }))}
-                    placeholder="강사-학생 연결 시스템&#10;맞춤 스크립트 작성"
-                    placeholderTextColor={COLORS.GRAY_400}
-                    multiline
-                    numberOfLines={4}
-                  />
+                  <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>항목 목록 (줄바꿈 구분)</Text>
+                  <TextInput style={[styles.input, styles.inputMultiline, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, color: colors.textPrimary }]} value={itemForm.meta_items} onChangeText={(v) => setItemForm(prev => ({ ...prev, meta_items: v }))} placeholder={"강사-학생 연결 시스템\n맞춤 스크립트 작성"} placeholderTextColor={colors.textDisabled} multiline numberOfLines={4} />
                 </>
               )}
 
               {selectedSection?.section_key === 'steps' && (
                 <>
-                  <Text style={styles.metaSectionLabel}>단계 메타데이터</Text>
-                  <Text style={styles.inputLabel}>단계 번호</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={itemForm.meta_num}
-                    onChangeText={(v) => setItemForm(prev => ({ ...prev, meta_num: v }))}
-                    placeholder="예: 01"
-                    placeholderTextColor={COLORS.GRAY_400}
-                  />
+                  <Text style={[styles.metaSectionLabel, { color: colors.primary, borderTopColor: colors.borderLight }]}>단계 메타데이터</Text>
+                  <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>단계 번호</Text>
+                  <TextInput style={[styles.input, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, color: colors.textPrimary }]} value={itemForm.meta_num} onChangeText={(v) => setItemForm(prev => ({ ...prev, meta_num: v }))} placeholder="예: 01" placeholderTextColor={colors.textDisabled} />
                 </>
               )}
 
-              <Text style={styles.inputLabel}>정렬 순서</Text>
-              <TextInput
-                style={styles.input}
-                value={itemForm.sort_order}
-                onChangeText={(v) => setItemForm(prev => ({ ...prev, sort_order: v }))}
-                placeholder="0"
-                placeholderTextColor={COLORS.GRAY_400}
-                keyboardType="number-pad"
-              />
+              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>정렬 순서</Text>
+              <TextInput style={[styles.input, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, color: colors.textPrimary }]} value={itemForm.sort_order} onChangeText={(v) => setItemForm(prev => ({ ...prev, sort_order: v }))} placeholder="0" placeholderTextColor={colors.textDisabled} keyboardType="number-pad" />
 
               <View style={styles.switchRow}>
-                <Text style={styles.switchLabel}>활성</Text>
-                <Switch
-                  value={itemForm.is_active}
-                  onValueChange={(v) => setItemForm(prev => ({ ...prev, is_active: v }))}
-                  trackColor={{ false: COLORS.GRAY_200, true: COLORS.PRIMARY }}
-                />
+                <Text style={[styles.switchLabel, { color: colors.textPrimary }]}>활성</Text>
+                <Switch value={itemForm.is_active} onValueChange={(v) => setItemForm(prev => ({ ...prev, is_active: v }))} trackColor={{ false: colors.border, true: colors.primary }} />
               </View>
 
               <View style={styles.modalActions}>
-                <Pressable
-                  style={styles.modalCancel}
-                  onPress={() => setItemModalVisible(false)}
-                >
-                  <Text style={styles.modalCancelText}>취소</Text>
+                <Pressable style={[styles.modalCancel, { backgroundColor: colors.borderLight }]} onPress={() => setItemModalVisible(false)}>
+                  <Text style={[styles.modalCancelText, { color: colors.textSecondary }]}>취소</Text>
                 </Pressable>
-                <Pressable
-                  style={[styles.modalSubmit, (isItemSaving || !itemForm.title.trim()) && styles.modalSubmitDisabled]}
-                  onPress={handleSaveItem}
-                  disabled={isItemSaving || !itemForm.title.trim()}
-                >
+                <Pressable style={[styles.modalSubmit, { backgroundColor: colors.primary }, (isItemSaving || !itemForm.title.trim()) && styles.modalSubmitDisabled]} onPress={handleSaveItem} disabled={isItemSaving || !itemForm.title.trim()}>
                   {isItemSaving ? (
-                    <ActivityIndicator size="small" color={COLORS.WHITE} />
+                    <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
                     <Text style={styles.modalSubmitText}>저장</Text>
                   )}
@@ -903,163 +828,71 @@ export default function AdminLandingScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.BACKGROUND_SECONDARY },
+  container: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  errorText: { color: COLORS.ERROR, fontSize: 14, fontFamily: 'Pretendard-Medium' },
+  errorText: { fontSize: 14, fontFamily: 'Pretendard-Medium' },
 
   // 섹션 탭
-  tabRow: { maxHeight: 48, borderBottomWidth: 1, borderBottomColor: COLORS.BORDER, backgroundColor: COLORS.WHITE },
+  tabRow: { maxHeight: 48, borderBottomWidth: 1 },
   tabContent: { paddingHorizontal: 16, gap: 8, alignItems: 'center' },
-  tabChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: COLORS.GRAY_100,
-  },
-  tabChipActive: { backgroundColor: COLORS.PRIMARY },
+  tabChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
   tabChipInactive: { opacity: 0.5 },
-  tabChipText: { fontSize: 12, fontFamily: 'Pretendard-Medium', color: COLORS.TEXT_SECONDARY },
-  tabChipTextActive: { color: COLORS.WHITE },
+  tabChipText: { fontSize: 12, fontFamily: 'Pretendard-Medium' },
 
   // 섹션 정보
-  sectionInfo: {
-    backgroundColor: COLORS.WHITE,
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.BORDER,
-  },
+  sectionInfo: { padding: 16, borderBottomWidth: 1 },
   sectionHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  sectionTitle: { fontSize: 16, fontFamily: 'Pretendard-Bold', color: COLORS.TEXT_PRIMARY },
-  sectionSubtitle: { fontSize: 13, fontFamily: 'Pretendard-Regular', color: COLORS.TEXT_SECONDARY, marginTop: 4 },
+  sectionTitle: { fontSize: 16, fontFamily: 'Pretendard-Bold' },
+  sectionSubtitle: { fontSize: 13, fontFamily: 'Pretendard-Regular', marginTop: 4 },
   sectionActions: { flexDirection: 'row', gap: 12, alignItems: 'center' },
-  sectionInput: {
-    backgroundColor: COLORS.GRAY_50,
-    borderWidth: 1,
-    borderColor: COLORS.BORDER,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 14,
-    fontFamily: 'Pretendard-Regular',
-    color: COLORS.TEXT_PRIMARY,
-  },
+  sectionInput: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, fontFamily: 'Pretendard-Regular' },
   sectionEditActions: { flexDirection: 'row', gap: 8, marginTop: 12, justifyContent: 'flex-end' },
-  sectionEditBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: COLORS.GRAY_100,
-  },
-  sectionEditBtnPrimary: { backgroundColor: COLORS.PRIMARY },
-  sectionEditBtnText: { fontSize: 13, fontFamily: 'Pretendard-Medium', color: COLORS.TEXT_SECONDARY },
+  sectionEditBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
+  sectionEditBtnText: { fontSize: 13, fontFamily: 'Pretendard-Medium' },
 
   // 툴바
-  toolbar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: COLORS.WHITE,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.BORDER,
-  },
+  toolbar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1 },
   toolbarRow: { flexDirection: 'row', gap: 8 },
-  toolbarBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: COLORS.GRAY_50,
-  },
-  toolbarBtnPrimary: { backgroundColor: COLORS.PRIMARY },
-  toolbarBtnText: { fontSize: 13, fontFamily: 'Pretendard-Medium', color: COLORS.PRIMARY },
+  toolbarBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+  toolbarBtnText: { fontSize: 13, fontFamily: 'Pretendard-Medium' },
 
   // 아이템
   itemsList: { padding: 16 },
-  itemCard: {
-    backgroundColor: COLORS.WHITE,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: COLORS.BORDER,
-  },
+  itemCard: { borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1 },
   itemMain: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   itemIcon: { fontSize: 20, marginTop: 2 },
-  itemTitle: { fontSize: 14, fontFamily: 'Pretendard-SemiBold', color: COLORS.TEXT_PRIMARY },
-  itemDesc: { fontSize: 12, fontFamily: 'Pretendard-Regular', color: COLORS.TEXT_SECONDARY, marginTop: 2 },
-  itemMeta: { flexDirection: 'row', gap: 16, marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: COLORS.GRAY_100 },
-  itemMetaText: { fontSize: 11, fontFamily: 'Pretendard-Regular', color: COLORS.GRAY_400 },
+  itemTitle: { fontSize: 14, fontFamily: 'Pretendard-SemiBold' },
+  itemDesc: { fontSize: 12, fontFamily: 'Pretendard-Regular', marginTop: 2 },
+  itemMeta: { flexDirection: 'row', gap: 16, marginTop: 10, paddingTop: 8, borderTopWidth: 1 },
+  itemMetaText: { fontSize: 11, fontFamily: 'Pretendard-Regular' },
   emptyState: { alignItems: 'center', paddingTop: 40 },
-  emptyText: { fontSize: 14, fontFamily: 'Pretendard-Medium', color: COLORS.TEXT_SECONDARY },
+  emptyText: { fontSize: 14, fontFamily: 'Pretendard-Medium' },
 
   // 순서 변경
   reorderButtons: { gap: 2, alignItems: 'center', justifyContent: 'center' },
 
   // 모달
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center' },
+  modalOverlay: { flex: 1, justifyContent: 'center' },
   modalScrollContent: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24 },
-  modalContent: { backgroundColor: COLORS.WHITE, borderRadius: 16, padding: 24 },
-  modalTitle: { fontSize: 18, fontFamily: 'Pretendard-Bold', color: COLORS.TEXT_PRIMARY, marginBottom: 4 },
-  modalSubtitle: { fontSize: 14, fontFamily: 'Pretendard-Regular', color: COLORS.TEXT_SECONDARY, marginBottom: 16 },
-  inputLabel: { fontSize: 13, fontFamily: 'Pretendard-Medium', color: COLORS.TEXT_PRIMARY, marginBottom: 6, marginTop: 12 },
-  input: {
-    backgroundColor: COLORS.GRAY_50,
-    borderWidth: 1,
-    borderColor: COLORS.BORDER,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    fontFamily: 'Pretendard-Regular',
-    color: COLORS.TEXT_PRIMARY,
-  },
+  modalContent: { borderRadius: 16, padding: 24 },
+  modalTitle: { fontSize: 18, fontFamily: 'Pretendard-Bold', marginBottom: 4 },
+  modalSubtitle: { fontSize: 14, fontFamily: 'Pretendard-Regular', marginBottom: 16 },
+  inputLabel: { fontSize: 13, fontFamily: 'Pretendard-Medium', marginBottom: 6, marginTop: 12 },
+  input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, fontFamily: 'Pretendard-Regular' },
   inputMultiline: { minHeight: 80, textAlignVertical: 'top' },
-  switchRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 16,
-    paddingVertical: 4,
-  },
-  switchLabel: { fontSize: 14, fontFamily: 'Pretendard-Medium', color: COLORS.TEXT_PRIMARY },
-  metaSectionLabel: {
-    fontSize: 14,
-    fontFamily: 'Pretendard-Bold',
-    color: COLORS.PRIMARY,
-    marginTop: 20,
-    marginBottom: 4,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.GRAY_100,
-  },
+  switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, paddingVertical: 4 },
+  switchLabel: { fontSize: 14, fontFamily: 'Pretendard-Medium' },
+  metaSectionLabel: { fontSize: 14, fontFamily: 'Pretendard-Bold', marginTop: 20, marginBottom: 4, paddingTop: 16, borderTopWidth: 1 },
   statusRow: { flexDirection: 'row', gap: 8, marginTop: 4, marginBottom: 4 },
-  statusChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: COLORS.GRAY_100,
-  },
-  statusChipActive: { backgroundColor: COLORS.PRIMARY },
-  statusChipText: { fontSize: 13, fontFamily: 'Pretendard-Medium', color: COLORS.TEXT_SECONDARY },
-  statusChipTextActive: { color: COLORS.WHITE },
+  statusChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
+  statusChipText: { fontSize: 13, fontFamily: 'Pretendard-Medium' },
   uploadRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  uploadBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    backgroundColor: COLORS.PRIMARY,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  uploadBtn: { width: 44, height: 44, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   uploadBtnDisabled: { opacity: 0.5 },
   modalActions: { flexDirection: 'row', gap: 12, marginTop: 24 },
-  modalCancel: { flex: 1, paddingVertical: 14, borderRadius: 10, alignItems: 'center', backgroundColor: COLORS.GRAY_100 },
-  modalCancelText: { fontSize: 15, fontFamily: 'Pretendard-Medium', color: COLORS.TEXT_SECONDARY },
-  modalSubmit: { flex: 1, paddingVertical: 14, borderRadius: 10, alignItems: 'center', backgroundColor: COLORS.PRIMARY },
+  modalCancel: { flex: 1, paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
+  modalCancelText: { fontSize: 15, fontFamily: 'Pretendard-Medium' },
+  modalSubmit: { flex: 1, paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
   modalSubmitDisabled: { opacity: 0.5 },
-  modalSubmitText: { fontSize: 15, fontFamily: 'Pretendard-SemiBold', color: COLORS.WHITE },
+  modalSubmitText: { fontSize: 15, fontFamily: 'Pretendard-SemiBold', color: '#FFFFFF' },
 });

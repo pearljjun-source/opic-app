@@ -1,13 +1,14 @@
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert, ScrollView } from 'react-native';
 import { useState, useEffect, useCallback } from 'react';
 
-import { COLORS, APP_CONFIG, ORG_ROLE_LABELS } from '@/lib/constants';
+import { APP_CONFIG, ORG_ROLE_LABELS } from '@/lib/constants';
 import { createInvite, getActiveInvite, deleteInvite } from '@/services/invites';
 import { InviteCodeCard } from '@/components/teacher';
 import { useAuth } from '@/hooks/useAuth';
 import { canInviteTeacher } from '@/lib/permissions';
 import type { Invite, OrgRole } from '@/lib/types';
 import { getUserMessage } from '@/lib/errors';
+import { useThemeColors } from '@/hooks/useTheme';
 
 /**
  * 초대 화면
@@ -21,6 +22,7 @@ import { getUserMessage } from '@/lib/errors';
  */
 export default function InviteScreen() {
   const { orgRole } = useAuth();
+  const colors = useThemeColors();
   const canInviteTeachers = canInviteTeacher(orgRole);
 
   const [studentInvite, setStudentInvite] = useState<Invite | null>(null);
@@ -122,9 +124,9 @@ export default function InviteScreen() {
   // 로딩 중
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={COLORS.PRIMARY} />
-        <Text style={styles.loadingText}>로딩 중...</Text>
+      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>로딩 중...</Text>
       </View>
     );
   }
@@ -146,20 +148,20 @@ export default function InviteScreen() {
     }
 
     return (
-      <View style={styles.createSection}>
-        <Text style={styles.createDescription}>
+      <View style={[styles.createSection, { backgroundColor: colors.surface }]}>
+        <Text style={[styles.createDescription, { color: colors.textSecondary }]}>
           {role === 'teacher'
             ? '새 초대 코드를 생성하여 강사를 초대하세요.'
             : '새 초대 코드를 생성하여 학생을 초대하세요.'}
           {'\n'}코드는 {APP_CONFIG.INVITE_EXPIRE_DAYS}일간 유효합니다.
         </Text>
         <Pressable
-          style={[styles.button, isCreating && styles.buttonDisabled]}
+          style={[styles.button, { backgroundColor: colors.primary }, isCreating && styles.buttonDisabled]}
           onPress={() => handleCreateInvite(role)}
           disabled={isCreating}
         >
           {isCreating ? (
-            <ActivityIndicator size="small" color={COLORS.WHITE} />
+            <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
             <Text style={styles.buttonText}>{roleLabel} 초대 코드 생성</Text>
           )}
@@ -171,10 +173,10 @@ export default function InviteScreen() {
   // owner가 아닌 teacher: 학생 초대만 표시 (기존과 유사한 단일 화면)
   if (!canInviteTeachers) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}>
         {error && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
+          <View style={[styles.errorContainer, { backgroundColor: colors.accentRedBg }]}>
+            <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
           </View>
         )}
 
@@ -186,18 +188,18 @@ export default function InviteScreen() {
           />
         ) : (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyTitle}>활성 초대 코드가 없습니다</Text>
-            <Text style={styles.emptyDescription}>
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>활성 초대 코드가 없습니다</Text>
+            <Text style={[styles.emptyDescription, { color: colors.textSecondary }]}>
               새 초대 코드를 생성하여 학생을 초대하세요.{'\n'}
               코드는 {APP_CONFIG.INVITE_EXPIRE_DAYS}일간 유효합니다.
             </Text>
             <Pressable
-              style={[styles.button, creatingRole === 'student' && styles.buttonDisabled]}
+              style={[styles.button, { backgroundColor: colors.primary }, creatingRole === 'student' && styles.buttonDisabled]}
               onPress={() => handleCreateInvite('student')}
               disabled={creatingRole === 'student'}
             >
               {creatingRole === 'student' ? (
-                <ActivityIndicator size="small" color={COLORS.WHITE} />
+                <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
                 <Text style={styles.buttonText}>학생 초대 코드 생성</Text>
               )}
@@ -210,22 +212,22 @@ export default function InviteScreen() {
 
   // owner: 학생 + 강사 초대를 독립적으로 관리
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.surfaceSecondary }]} contentContainerStyle={styles.scrollContent}>
       {error && (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
+        <View style={[styles.errorContainer, { backgroundColor: colors.accentRedBg }]}>
+          <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
         </View>
       )}
 
       {/* 학생 초대 섹션 */}
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>{ORG_ROLE_LABELS.student} 초대</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{ORG_ROLE_LABELS.student} 초대</Text>
         {renderInviteSection('student')}
       </View>
 
       {/* 강사 초대 섹션 */}
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>{ORG_ROLE_LABELS.teacher} 초대</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{ORG_ROLE_LABELS.teacher} 초대</Text>
         {renderInviteSection('teacher')}
       </View>
     </ScrollView>
@@ -235,7 +237,6 @@ export default function InviteScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
   },
   scrollContent: {
     padding: 24,
@@ -245,22 +246,18 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
   },
   loadingText: {
     marginTop: 16,
-    color: COLORS.TEXT_SECONDARY,
     fontSize: 14,
     textAlign: 'center',
   },
   errorContainer: {
-    backgroundColor: '#FEE2E2',
     padding: 16,
     borderRadius: 12,
     marginBottom: 16,
   },
   errorText: {
-    color: COLORS.ERROR,
     fontSize: 14,
     textAlign: 'center',
   },
@@ -273,12 +270,10 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
     marginBottom: 8,
   },
   emptyDescription: {
     fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 24,
@@ -289,15 +284,13 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
     marginBottom: 12,
   },
   createSection: {
-    backgroundColor: COLORS.WHITE,
     borderRadius: 16,
     padding: 24,
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -305,13 +298,11 @@ const styles = StyleSheet.create({
   },
   createDescription: {
     fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 20,
   },
   button: {
-    backgroundColor: COLORS.PRIMARY,
     paddingHorizontal: 32,
     paddingVertical: 16,
     borderRadius: 12,
@@ -322,7 +313,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   buttonText: {
-    color: COLORS.WHITE,
+    color: '#FFFFFF',
     fontFamily: 'Pretendard-SemiBold',
     fontSize: 16,
   },

@@ -1,7 +1,14 @@
 import { supabase } from '@/lib/supabase';
 import { AppError, classifyError, classifyRpcError } from '@/lib/errors';
 import { safeParse } from 'valibot';
-import { RoleChangeSchema, OwnerInviteCreateSchema, OwnerInviteDeleteSchema } from '@/lib/validations';
+import {
+  RoleChangeSchema,
+  OwnerInviteCreateSchema,
+  OwnerInviteDeleteSchema,
+  OrgUpdateSchema,
+  OrgDeleteSchema,
+  AdminSubUpdateSchema,
+} from '@/lib/validations';
 import type {
   AdminDashboardStats,
   AdminUserListItem,
@@ -64,12 +71,11 @@ export async function listUsers(params: {
 
   if (error) return { data: null, error: classifyError(error, { resource: 'user' }) };
 
-  // RPC가 JSON 배열을 반환
   if (data?.error) {
     return { data: null, error: classifyRpcError(data.error, { resource: 'user' }) };
   }
 
-  return { data: (data as AdminUserListItem[]) || [], error: null };
+  return { data: (data?.users as AdminUserListItem[]) || [], error: null };
 }
 
 /** 사용자 역할 변경 */
@@ -238,7 +244,7 @@ export async function getOrganizationDetail(orgId: string): Promise<{
       .order('created_at', { ascending: true }),
     supabase
       .from('subscriptions')
-      .select('id, status, current_period_end, subscription_plans(name)')
+      .select('id, status, current_period_end, plan_id, cancel_at_period_end, canceled_at, subscription_plans(name, plan_key)')
       .eq('organization_id', orgId)
       .in('status', ['active', 'trialing', 'past_due'])
       .limit(1)
@@ -265,11 +271,114 @@ export async function getOrganizationDetail(orgId: string): Promise<{
       id: sub.id,
       status: sub.status,
       plan_name: sub.subscription_plans?.name || '(알 수 없음)',
+      plan_key: sub.subscription_plans?.plan_key || '',
+      plan_id: sub.plan_id,
       current_period_end: sub.current_period_end,
+      cancel_at_period_end: sub.cancel_at_period_end || false,
+      canceled_at: sub.canceled_at || null,
     };
   }
 
   return { data: { members, subscription }, error: null };
+}
+
+/** 학원 이름 수정 */
+export async function updateOrganization(
+  orgId: string,
+  updates: { name: string }
+): Promise<{ data: { success: boolean } | null; error: Error | null }> {
+  const validation = safeParse(OrgUpdateSchema, { orgId, name: updates.name });
+  if (!validation.success) {
+    return { data: null, error: new AppError('VAL_FAILED') };
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: new AppError('AUTH_REQUIRED') };
+
+  const { data, error } = await (supabase.rpc as CallableFunction)(
+    'admin_update_organization',
+    { p_org_id: orgId, p_updates: { name: updates.name } }
+  );
+
+  if (error) return { data: null, error: classifyError(error, { resource: 'organization' }) };
+  if (data?.error) {
+    return { data: null, error: classifyRpcError(data.error, { resource: 'organization' }) };
+  }
+
+  return { data: { success: true }, error: null };
+}
+
+/** 학원 삭제 (cascade soft-delete) */
+export async function deleteOrganization(
+  orgId: string,
+  reason?: string
+): Promise<{ data: { success: boolean } | null; error: Error | null }> {
+  const validation = safeParse(OrgDeleteSchema, { orgId });
+  if (!validation.success) {
+    return { data: null, error: new AppError('VAL_FAILED') };
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: new AppError('AUTH_REQUIRED') };
+
+  const { data, error } = await (supabase.rpc as CallableFunction)(
+    'admin_delete_organization',
+    { p_org_id: orgId, p_reason: reason || null }
+  );
+
+  if (error) return { data: null, error: classifyError(error, { resource: 'organization' }) };
+  if (data?.error) {
+    return { data: null, error: classifyRpcError(data.error, { resource: 'organization' }) };
+  }
+
+  return { data: { success: true }, error: null };
+}
+
+/** 학원 구독 플랜 변경/생성 */
+export async function adminUpdateSubscription(
+  orgId: string,
+  planKey: string
+): Promise<{ data: { success: boolean; action?: string } | null; error: Error | null }> {
+  const validation = safeParse(AdminSubUpdateSchema, { orgId, planKey });
+  if (!validation.success) {
+    return { data: null, error: new AppError('VAL_FAILED') };
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: new AppError('AUTH_REQUIRED') };
+
+  const { data, error } = await (supabase.rpc as CallableFunction)(
+    'admin_update_subscription',
+    { p_org_id: orgId, p_plan_key: planKey }
+  );
+
+  if (error) return { data: null, error: classifyError(error, { resource: 'subscription' }) };
+  if (data?.error) {
+    return { data: null, error: classifyRpcError(data.error, { resource: 'subscription' }) };
+  }
+
+  return { data: { success: true, action: data?.action }, error: null };
+}
+
+/** 학원 구독 취소 */
+export async function adminCancelSubscription(
+  orgId: string,
+  immediate: boolean
+): Promise<{ data: { success: boolean } | null; error: Error | null }> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: new AppError('AUTH_REQUIRED') };
+
+  const { data, error } = await (supabase.rpc as CallableFunction)(
+    'admin_cancel_subscription',
+    { p_org_id: orgId, p_immediate: immediate }
+  );
+
+  if (error) return { data: null, error: classifyError(error, { resource: 'subscription' }) };
+  if (data?.error) {
+    return { data: null, error: classifyRpcError(data.error, { resource: 'subscription' }) };
+  }
+
+  return { data: { success: true }, error: null };
 }
 
 /** 학원 결제 이력 조회 */

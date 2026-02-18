@@ -11,7 +11,8 @@ import { useState, useEffect, useRef } from 'react';
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
+import { NOTIFICATION_TYPES } from '@/lib/constants';
 import { getStudentScript, StudentScriptDetail } from '@/services/scripts';
 import {
   createPractice,
@@ -22,7 +23,6 @@ import {
   generateQuestionAudio,
 } from '@/services/practices';
 import { notifyAction, deliverNotification } from '@/services/notifications';
-import { NOTIFICATION_TYPES } from '@/lib/constants';
 import { getUserMessage } from '@/lib/errors';
 
 type PracticeState = 'loading' | 'ready' | 'playing' | 'recording' | 'processing';
@@ -37,6 +37,7 @@ const STEP_LABELS: Record<ProcessingStep, string> = {
 };
 
 export default function PracticeScreen() {
+  const colors = useThemeColors();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [script, setScript] = useState<StudentScriptDetail | null>(null);
@@ -277,19 +278,19 @@ export default function PracticeScreen() {
 
   if (practiceState === 'loading') {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={COLORS.PRIMARY} />
-        <Text style={styles.loadingText}>준비 중...</Text>
+      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>준비 중...</Text>
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.centerContainer}>
-        <Ionicons name="alert-circle-outline" size={48} color={COLORS.ERROR} />
-        <Text style={styles.errorText}>{error}</Text>
-        <Pressable style={styles.retryButton} onPress={() => router.back()}>
+      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
+        <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+        <Pressable style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={() => router.back()}>
           <Text style={styles.retryButtonText}>뒤로 가기</Text>
         </Pressable>
       </View>
@@ -298,26 +299,26 @@ export default function PracticeScreen() {
 
   if (practiceState === 'processing') {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={COLORS.PRIMARY} />
-        <Text style={styles.processingTitle}>{STEP_LABELS[processingStep]}</Text>
-        <Text style={styles.processingHint}>잠시만 기다려주세요.</Text>
+      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.processingTitle, { color: colors.textPrimary }]}>{STEP_LABELS[processingStep]}</Text>
+        <Text style={[styles.processingHint, { color: colors.textSecondary }]}>잠시만 기다려주세요.</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}>
       {/* 질문 표시 */}
-      <View style={styles.questionSection}>
-        <Text style={styles.questionLabel}>질문</Text>
-        <Text style={styles.questionText}>{script?.question.question_text}</Text>
+      <View style={[styles.questionSection, { backgroundColor: colors.surface }]}>
+        <Text style={[styles.questionLabel, { color: colors.textSecondary }]}>질문</Text>
+        <Text style={[styles.questionText, { color: colors.primary }]}>{script?.question.question_text}</Text>
       </View>
 
       {/* 안내 */}
-      <View style={styles.hintSection}>
-        <Ionicons name="bulb-outline" size={20} color={COLORS.WARNING} />
-        <Text style={styles.hintText}>
+      <View style={[styles.hintSection, { backgroundColor: colors.warning + '15' }]}>
+        <Ionicons name="bulb-outline" size={20} color={colors.warning} />
+        <Text style={[styles.hintText, { color: colors.textSecondary }]}>
           질문을 듣고, 스크립트를 보지 않고 답변해보세요!
         </Text>
       </View>
@@ -327,7 +328,8 @@ export default function PracticeScreen() {
         <Pressable
           style={[
             styles.playButton,
-            practiceState === 'playing' && styles.playButtonActive,
+            { backgroundColor: colors.primary + '15' },
+            practiceState === 'playing' && { backgroundColor: colors.primary },
           ]}
           onPress={handlePlayQuestion}
           disabled={practiceState !== 'ready'}
@@ -335,12 +337,13 @@ export default function PracticeScreen() {
           <Ionicons
             name={practiceState === 'playing' ? 'volume-high' : 'play'}
             size={24}
-            color={practiceState === 'playing' ? COLORS.WHITE : COLORS.PRIMARY}
+            color={practiceState === 'playing' ? '#FFFFFF' : colors.primary}
           />
           <Text
             style={[
               styles.playButtonText,
-              practiceState === 'playing' && styles.playButtonTextActive,
+              { color: colors.primary },
+              practiceState === 'playing' && { color: '#FFFFFF' },
             ]}
           >
             {practiceState === 'playing' ? '재생 중...' : '질문 듣기'}
@@ -350,30 +353,30 @@ export default function PracticeScreen() {
 
       {/* 녹음 섹션 */}
       <View style={styles.recordSection}>
-        <Text style={styles.timer}>{formatTime(recordingTime)}</Text>
+        <Text style={[styles.timer, { color: colors.textPrimary }]}>{formatTime(recordingTime)}</Text>
 
         {practiceState === 'recording' ? (
           <>
             <View style={styles.recordingIndicator}>
-              <View style={styles.recordingDot} />
-              <Text style={styles.recordingText}>녹음 중</Text>
+              <View style={[styles.recordingDot, { backgroundColor: colors.error }]} />
+              <Text style={[styles.recordingText, { color: colors.error }]}>녹음 중</Text>
             </View>
 
-            <Pressable style={styles.stopButton} onPress={handleStopRecording}>
-              <Ionicons name="stop" size={32} color={COLORS.WHITE} />
+            <Pressable style={[styles.stopButton, { backgroundColor: colors.gray600 }]} onPress={handleStopRecording}>
+              <Ionicons name="stop" size={32} color="#FFFFFF" />
             </Pressable>
-            <Text style={styles.stopHint}>탭하여 녹음 종료</Text>
+            <Text style={[styles.stopHint, { color: colors.textSecondary }]}>탭하여 녹음 종료</Text>
           </>
         ) : (
           <>
             <Pressable
-              style={styles.recordButton}
+              style={[styles.recordButton, { backgroundColor: colors.error, shadowColor: colors.error }]}
               onPress={handleStartRecording}
               disabled={practiceState !== 'ready'}
             >
-              <Ionicons name="mic" size={40} color={COLORS.WHITE} />
+              <Ionicons name="mic" size={40} color="#FFFFFF" />
             </Pressable>
-            <Text style={styles.recordHint}>탭하여 녹음 시작</Text>
+            <Text style={[styles.recordHint, { color: colors.textSecondary }]}>탭하여 녹음 시작</Text>
           </>
         )}
       </View>
@@ -384,7 +387,7 @@ export default function PracticeScreen() {
         onPress={() => router.back()}
         disabled={practiceState === 'recording'}
       >
-        <Text style={styles.cancelButtonText}>취소</Text>
+        <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>취소</Text>
       </Pressable>
     </View>
   );
@@ -393,73 +396,62 @@ export default function PracticeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
     padding: 16,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
     padding: 24,
   },
   loadingText: {
     marginTop: 12,
     fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
   },
   errorText: {
     marginTop: 12,
     fontSize: 16,
-    color: COLORS.ERROR,
     textAlign: 'center',
   },
   retryButton: {
     marginTop: 16,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: COLORS.PRIMARY,
     borderRadius: 12,
   },
   retryButtonText: {
     fontSize: 14,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.WHITE,
+    color: '#FFFFFF',
   },
   processingTitle: {
     marginTop: 16,
     fontSize: 20,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
   },
   processingHint: {
     marginTop: 8,
     fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
     textAlign: 'center',
     lineHeight: 20,
   },
   questionSection: {
-    backgroundColor: COLORS.WHITE,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
   },
   questionLabel: {
     fontSize: 12,
-    color: COLORS.TEXT_SECONDARY,
     marginBottom: 8,
   },
   questionText: {
     fontSize: 17,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.PRIMARY,
     lineHeight: 24,
   },
   hintSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.WARNING + '15',
     borderRadius: 8,
     padding: 12,
     marginBottom: 24,
@@ -468,7 +460,6 @@ const styles = StyleSheet.create({
   hintText: {
     flex: 1,
     fontSize: 13,
-    color: COLORS.TEXT_SECONDARY,
   },
   audioSection: {
     alignItems: 'center',
@@ -477,22 +468,14 @@ const styles = StyleSheet.create({
   playButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.PRIMARY + '15',
     paddingHorizontal: 24,
     paddingVertical: 14,
     borderRadius: 12,
     gap: 8,
   },
-  playButtonActive: {
-    backgroundColor: COLORS.PRIMARY,
-  },
   playButtonText: {
     fontSize: 16,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.PRIMARY,
-  },
-  playButtonTextActive: {
-    color: COLORS.WHITE,
   },
   recordSection: {
     flex: 1,
@@ -502,7 +485,6 @@ const styles = StyleSheet.create({
   timer: {
     fontSize: 56,
     fontWeight: '300',
-    color: COLORS.TEXT_PRIMARY,
     marginBottom: 24,
     fontVariant: ['tabular-nums'],
   },
@@ -516,21 +498,17 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: COLORS.ERROR,
   },
   recordingText: {
     fontSize: 16,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.ERROR,
   },
   recordButton: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: COLORS.ERROR,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: COLORS.ERROR,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -540,19 +518,16 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: COLORS.GRAY_600,
     justifyContent: 'center',
     alignItems: 'center',
   },
   recordHint: {
     marginTop: 16,
     fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
   },
   stopHint: {
     marginTop: 16,
     fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
   },
   cancelButton: {
     paddingVertical: 16,
@@ -560,6 +535,5 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: 16,
-    color: COLORS.TEXT_SECONDARY,
   },
 });

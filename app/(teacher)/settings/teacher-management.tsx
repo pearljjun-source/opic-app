@@ -11,14 +11,16 @@ import { useState, useEffect, useCallback } from 'react';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS, ORG_ROLE_LABELS } from '@/lib/constants';
+import { ORG_ROLE_LABELS } from '@/lib/constants';
 import { useAuth } from '@/hooks/useAuth';
 import { canManageOrg } from '@/lib/permissions';
 import { getOrgTeachers, removeOrgMember, changeMemberRole } from '@/services/organizations';
 import { getUserMessage } from '@/lib/errors';
 import type { OrgTeacherItem, OrgRole } from '@/lib/types';
+import { useThemeColors } from '@/hooks/useTheme';
 
 export default function TeacherManagementScreen() {
+  const colors = useThemeColors();
   const { currentOrg, orgRole, refreshUser } = useAuth();
   const [teachers, setTeachers] = useState<OrgTeacherItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -99,60 +101,60 @@ export default function TeacherManagementScreen() {
 
   if (!currentOrg || !canManageOrg(orgRole)) {
     return (
-      <View style={styles.centerContainer}>
-        <Ionicons name="lock-closed-outline" size={48} color={COLORS.GRAY_300} />
-        <Text style={styles.guardText}>접근 권한이 없습니다</Text>
+      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <Ionicons name="lock-closed-outline" size={48} color={colors.gray300} />
+        <Text style={[styles.guardText, { color: colors.textSecondary }]}>접근 권한이 없습니다</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.surfaceSecondary }]} contentContainerStyle={styles.contentContainer}>
       {/* 헤더: 강사 수 + 초대 버튼 */}
       <View style={styles.headerRow}>
-        <Text style={styles.countText}>{teachers.length}명</Text>
+        <Text style={[styles.countText, { color: colors.textSecondary }]}>{teachers.length}명</Text>
         <Pressable
-          style={({ pressed }) => [styles.inviteButton, pressed && styles.inviteButtonPressed]}
+          style={({ pressed }) => [styles.inviteButton, { backgroundColor: colors.primaryLight }, pressed && styles.inviteButtonPressed]}
           onPress={() => router.push('/(teacher)/(tabs)/invite' as any)}
         >
-          <Ionicons name="person-add-outline" size={16} color={COLORS.PRIMARY} />
-          <Text style={styles.inviteButtonText}>강사 초대</Text>
+          <Ionicons name="person-add-outline" size={16} color={colors.primary} />
+          <Text style={[styles.inviteButtonText, { color: colors.primary }]}>강사 초대</Text>
         </Pressable>
       </View>
 
       {error && (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
+        <View style={[styles.errorContainer, { backgroundColor: colors.accentRedBg }]}>
+          <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
         </View>
       )}
 
       {isLoading ? (
-        <ActivityIndicator size="large" color={COLORS.PRIMARY} style={styles.loader} />
+        <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
       ) : teachers.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="people-outline" size={48} color={COLORS.GRAY_300} />
-          <Text style={styles.emptyText}>소속 강사가 없습니다</Text>
-          <Text style={styles.emptySubtext}>초대 탭에서 강사를 초대하세요</Text>
+          <Ionicons name="people-outline" size={48} color={colors.gray300} />
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>소속 강사가 없습니다</Text>
+          <Text style={[styles.emptySubtext, { color: colors.textDisabled }]}>초대 탭에서 강사를 초대하세요</Text>
         </View>
       ) : (
         teachers.map((teacher) => (
-          <View key={teacher.id} style={styles.teacherCard}>
+          <View key={teacher.id} style={[styles.teacherCard, { backgroundColor: colors.surface }]}>
             <View style={styles.teacherInfo}>
               <View style={styles.teacherNameRow}>
-                <Text style={styles.teacherName}>{teacher.name}</Text>
+                <Text style={[styles.teacherName, { color: colors.textPrimary }]}>{teacher.name}</Text>
                 <Pressable
                   onPress={() => handleRoleChange(teacher)}
                   hitSlop={6}
                 >
-                  <View style={[styles.roleBadge, teacher.role === 'owner' && styles.ownerBadge]}>
-                    <Text style={[styles.roleBadgeText, teacher.role === 'owner' && styles.ownerBadgeText]}>
+                  <View style={[styles.roleBadge, { backgroundColor: colors.borderLight }, teacher.role === 'owner' && { backgroundColor: colors.primaryLight }]}>
+                    <Text style={[styles.roleBadgeText, { color: colors.textSecondary }, teacher.role === 'owner' && { color: colors.primary }]}>
                       {ORG_ROLE_LABELS[teacher.role]}
                     </Text>
                   </View>
                 </Pressable>
               </View>
-              <Text style={styles.teacherEmail}>{teacher.email}</Text>
-              <Text style={styles.teacherStats}>학생 {teacher.students_count}명</Text>
+              <Text style={[styles.teacherEmail, { color: colors.textSecondary }]}>{teacher.email}</Text>
+              <Text style={[styles.teacherStats, { color: colors.textDisabled }]}>학생 {teacher.students_count}명</Text>
             </View>
             {teacher.role !== 'owner' && (
               <Pressable
@@ -160,7 +162,7 @@ export default function TeacherManagementScreen() {
                 onPress={() => handleRemoveMember(teacher)}
                 hitSlop={8}
               >
-                <Ionicons name="close-circle-outline" size={22} color={COLORS.GRAY_400} />
+                <Ionicons name="close-circle-outline" size={22} color={colors.textDisabled} />
               </Pressable>
             )}
           </View>
@@ -173,7 +175,6 @@ export default function TeacherManagementScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
   },
   contentContainer: {
     padding: 20,
@@ -184,12 +185,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
   },
   guardText: {
     fontSize: 16,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.TEXT_SECONDARY,
     marginTop: 12,
   },
   headerRow: {
@@ -201,7 +200,6 @@ const styles = StyleSheet.create({
   countText: {
     fontSize: 14,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.TEXT_SECONDARY,
   },
   inviteButton: {
     flexDirection: 'row',
@@ -209,7 +207,6 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: COLORS.PRIMARY_LIGHT,
     borderRadius: 12,
   },
   inviteButtonPressed: {
@@ -218,16 +215,13 @@ const styles = StyleSheet.create({
   inviteButtonText: {
     fontSize: 13,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.PRIMARY,
   },
   errorContainer: {
-    backgroundColor: '#FEE2E2',
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
   },
   errorText: {
-    color: COLORS.ERROR,
     fontSize: 14,
     textAlign: 'center',
   },
@@ -241,16 +235,13 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.TEXT_SECONDARY,
     marginTop: 12,
   },
   emptySubtext: {
     fontSize: 14,
-    color: COLORS.GRAY_400,
     marginTop: 4,
   },
   teacherCard: {
-    backgroundColor: COLORS.WHITE,
     borderRadius: 16,
     padding: 16,
     marginBottom: 8,
@@ -269,33 +260,22 @@ const styles = StyleSheet.create({
   teacherName: {
     fontSize: 16,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
   },
   roleBadge: {
-    backgroundColor: COLORS.GRAY_100,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
   },
-  ownerBadge: {
-    backgroundColor: COLORS.PRIMARY_LIGHT,
-  },
   roleBadgeText: {
     fontSize: 11,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.TEXT_SECONDARY,
-  },
-  ownerBadgeText: {
-    color: COLORS.PRIMARY,
   },
   teacherEmail: {
     fontSize: 13,
-    color: COLORS.TEXT_SECONDARY,
     marginBottom: 2,
   },
   teacherStats: {
     fontSize: 12,
-    color: COLORS.GRAY_400,
   },
   removeButton: {
     padding: 4,

@@ -234,7 +234,17 @@ export async function adminGetSubscriptionStats(): Promise<{
     return { data: null, error: classifyRpcError(data.error, { resource: 'subscription' }) };
   }
 
-  return { data: data as SubscriptionStats, error: null };
+  // RPC 필드명 → TypeScript 타입 매핑
+  const mrr = data.mrr ?? 0;
+  const stats: SubscriptionStats = {
+    total_subscribers: data.total_active ?? 0,
+    mrr,
+    arr: mrr * 12,
+    churn_rate: 0, // RPC에서 미제공 — 추후 RPC에 추가 시 매핑
+    plan_distribution: Array.isArray(data.plans_distribution) ? data.plans_distribution : [],
+  };
+
+  return { data: stats, error: null };
 }
 
 /** 플랜 수정 */

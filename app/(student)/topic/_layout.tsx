@@ -1,23 +1,24 @@
 import { Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 
 export default function TopicLayout() {
   const insets = useSafeAreaInsets();
+  const colors = useThemeColors();
 
   return (
     <Stack
       screenOptions={{
         headerShown: true,
         headerBackTitle: '뒤로',
-        headerTintColor: COLORS.PRIMARY,
-        headerStyle: { backgroundColor: COLORS.BACKGROUND_SECONDARY },
+        headerTintColor: colors.primary,
+        headerStyle: { backgroundColor: colors.surfaceSecondary },
         headerShadowVisible: false,
         headerTitleStyle: {
           fontFamily: 'Pretendard-SemiBold',
           fontSize: 17,
-          color: COLORS.TEXT_PRIMARY,
+          color: colors.textPrimary,
         },
         contentStyle: { paddingBottom: insets.bottom },
       }}

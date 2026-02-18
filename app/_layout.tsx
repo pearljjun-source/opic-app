@@ -9,10 +9,12 @@ import { Platform } from 'react-native';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { useColorScheme } from '@/components/useColorScheme';
+import { useColorScheme } from 'nativewind';
 import { AuthProvider } from '@/hooks/useAuth';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { loadThemePreference } from '@/hooks/useTheme';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -59,13 +61,20 @@ function NotificationSetup() {
 }
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme();
+  const { colorScheme, setColorScheme } = useColorScheme();
+
+  useEffect(() => {
+    loadThemePreference().then((pref) => {
+      setColorScheme(pref);
+    });
+  }, [setColorScheme]);
 
   return (
     <SafeAreaProvider>
       <AuthProvider>
         {Platform.OS !== 'web' && <NotificationSetup />}
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="test" options={{ title: '컴포넌트 테스트' }} />

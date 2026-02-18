@@ -14,11 +14,12 @@ import { ScreenContainer } from '@/components/layout/SafeAreaView';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/hooks/useAuth';
-import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 import { classifyAuthError } from '@/lib/errors';
 
 export default function SignupScreen() {
   const { signUp, isLoading } = useAuth();
+  const colors = useThemeColors();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -90,7 +91,7 @@ export default function SignupScreen() {
     return (
       <ScreenContainer>
         <View className="flex-1 justify-center items-center">
-          <Text className="text-gray-500">로딩 중...</Text>
+          <Text className="text-gray-500 dark:text-gray-400">로딩 중...</Text>
         </View>
       </ScreenContainer>
     );
@@ -98,15 +99,15 @@ export default function SignupScreen() {
 
   if (success) {
     return (
-      <ScreenContainer backgroundColor={COLORS.GRAY_50}>
+      <ScreenContainer backgroundColor={colors.surfaceSecondary}>
         <View className="flex-1 justify-center items-center px-6">
           <View className="w-20 h-20 bg-green-100 rounded-full items-center justify-center mb-6">
-            <Ionicons name="checkmark-circle" size={48} color={COLORS.SUCCESS} />
+            <Ionicons name="checkmark-circle" size={48} color={colors.success} />
           </View>
-          <Text className="text-2xl font-bold text-gray-900 mb-2 text-center">
+          <Text className="text-2xl font-bold text-gray-900 dark:text-gray-50 mb-2 text-center">
             회원가입 완료!
           </Text>
-          <Text className="text-base text-gray-500 text-center mb-8">
+          <Text className="text-base text-gray-500 dark:text-gray-400 text-center mb-8">
             이메일 인증 후 로그인해주세요.{'\n'}
             메일함을 확인해주세요.
           </Text>
@@ -121,7 +122,7 @@ export default function SignupScreen() {
   }
 
   return (
-    <ScreenContainer backgroundColor={COLORS.GRAY_50}>
+    <ScreenContainer backgroundColor={colors.surfaceSecondary}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
@@ -136,14 +137,14 @@ export default function SignupScreen() {
             <View className="flex-row items-center mb-6">
               <Link href="/(auth)/login" asChild>
                 <TouchableOpacity className="p-2 -ml-2">
-                  <Ionicons name="arrow-back" size={24} color={COLORS.GRAY_900} />
+                  <Ionicons name="arrow-back" size={24} color={colors.gray900} />
                 </TouchableOpacity>
               </Link>
-              <Text className="text-2xl font-bold text-gray-900 ml-2">회원가입</Text>
+              <Text className="text-2xl font-bold text-gray-900 dark:text-gray-50 ml-2">회원가입</Text>
             </View>
 
             {/* Form Card */}
-            <View className="bg-white rounded-2xl p-6 shadow-sm">
+            <View className="bg-white dark:bg-neutral-900 rounded-2xl p-6 shadow-sm">
               {error && (
                 <View className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
                   <Text className="text-red-600 text-sm">{error}</Text>
@@ -157,7 +158,7 @@ export default function SignupScreen() {
                 onChangeText={setName}
                 autoComplete="name"
                 leftIcon={
-                  <Ionicons name="person-outline" size={20} color={COLORS.GRAY_400} />
+                  <Ionicons name="person-outline" size={20} color={colors.textDisabled} />
                 }
               />
 
@@ -170,7 +171,7 @@ export default function SignupScreen() {
                 autoCapitalize="none"
                 autoComplete="email"
                 leftIcon={
-                  <Ionicons name="mail-outline" size={20} color={COLORS.GRAY_400} />
+                  <Ionicons name="mail-outline" size={20} color={colors.textDisabled} />
                 }
               />
 
@@ -182,7 +183,7 @@ export default function SignupScreen() {
                 isPassword
                 autoComplete="new-password"
                 leftIcon={
-                  <Ionicons name="lock-closed-outline" size={20} color={COLORS.GRAY_400} />
+                  <Ionicons name="lock-closed-outline" size={20} color={colors.textDisabled} />
                 }
               />
 
@@ -194,7 +195,7 @@ export default function SignupScreen() {
                 isPassword
                 autoComplete="new-password"
                 leftIcon={
-                  <Ionicons name="lock-closed-outline" size={20} color={COLORS.GRAY_400} />
+                  <Ionicons name="lock-closed-outline" size={20} color={colors.textDisabled} />
                 }
               />
 
@@ -212,7 +213,7 @@ export default function SignupScreen() {
 
             {/* Login Link */}
             <View className="flex-row justify-center items-center mt-6">
-              <Text className="text-gray-500">이미 계정이 있으신가요? </Text>
+              <Text className="text-gray-500 dark:text-gray-400">이미 계정이 있으신가요? </Text>
               <Link href="/(auth)/login" asChild>
                 <TouchableOpacity>
                   <Text className="text-primary font-semibold">로그인</Text>

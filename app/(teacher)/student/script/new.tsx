@@ -13,12 +13,14 @@ import {
 import { useLocalSearchParams, router } from 'expo-router';
 import { useState } from 'react';
 
-import { COLORS, NOTIFICATION_TYPES } from '@/lib/constants';
+import { NOTIFICATION_TYPES } from '@/lib/constants';
 import { createScript } from '@/services/scripts';
 import { notifyAction, deliverNotification } from '@/services/notifications';
 import { getUserMessage } from '@/lib/errors';
+import { useThemeColors } from '@/hooks/useTheme';
 
 export default function NewScriptScreen() {
+  const colors = useThemeColors();
   const { questionId, studentId } = useLocalSearchParams<{
     questionId: string;
     studentId: string;
@@ -77,7 +79,7 @@ export default function NewScriptScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={100}
     >
@@ -86,49 +88,49 @@ export default function NewScriptScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.title}>스크립트 작성</Text>
-        <Text style={styles.subtitle}>학생이 연습할 영어 스크립트를 작성하세요</Text>
+        <Text style={[styles.title, { color: colors.textPrimary }]}>스크립트 작성</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>학생이 연습할 영어 스크립트를 작성하세요</Text>
 
-        <Text style={styles.label}>스크립트 내용 *</Text>
+        <Text style={[styles.label, { color: colors.textPrimary }]}>스크립트 내용 *</Text>
         <TextInput
-          style={styles.textArea}
+          style={[styles.textArea, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.textPrimary }]}
           multiline
           numberOfLines={10}
           value={content}
           onChangeText={setContent}
           placeholder="영어 스크립트를 작성하세요...&#10;&#10;예: Hello, my name is John. I'm a college student majoring in computer science..."
-          placeholderTextColor={COLORS.GRAY_300}
+          placeholderTextColor={colors.gray300}
           textAlignVertical="top"
         />
 
-        <Text style={styles.label}>강사 코멘트/팁 (선택)</Text>
+        <Text style={[styles.label, { color: colors.textPrimary }]}>강사 코멘트/팁 (선택)</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.textPrimary }]}
           value={comment}
           onChangeText={setComment}
           placeholder="학생에게 전달할 발음 팁이나 주의사항"
-          placeholderTextColor={COLORS.GRAY_300}
+          placeholderTextColor={colors.gray300}
           multiline
           numberOfLines={3}
           textAlignVertical="top"
         />
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
         <Pressable
-          style={styles.cancelButton}
+          style={[styles.cancelButton, { backgroundColor: colors.borderLight }]}
           onPress={() => router.back()}
           disabled={isSaving}
         >
-          <Text style={styles.cancelButtonText}>취소</Text>
+          <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>취소</Text>
         </Pressable>
         <Pressable
-          style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+          style={[styles.saveButton, { backgroundColor: colors.primary }, isSaving && styles.saveButtonDisabled]}
           onPress={handleSave}
           disabled={isSaving}
         >
           {isSaving ? (
-            <ActivityIndicator size="small" color={COLORS.WHITE} />
+            <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
             <Text style={styles.saveButtonText}>저장</Text>
           )}
@@ -141,7 +143,6 @@ export default function NewScriptScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
   },
   scrollView: {
     flex: 1,
@@ -153,68 +154,54 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontFamily: 'Pretendard-Bold',
-    color: COLORS.TEXT_PRIMARY,
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
     marginBottom: 24,
   },
   label: {
     fontSize: 14,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.TEXT_PRIMARY,
     marginBottom: 8,
   },
   textArea: {
-    backgroundColor: COLORS.WHITE,
     borderWidth: 1,
-    borderColor: COLORS.BORDER,
     borderRadius: 12,
     padding: 16,
     fontSize: 15,
     lineHeight: 22,
     minHeight: 200,
     marginBottom: 20,
-    color: COLORS.TEXT_PRIMARY,
   },
   input: {
-    backgroundColor: COLORS.WHITE,
     borderWidth: 1,
-    borderColor: COLORS.BORDER,
     borderRadius: 12,
     padding: 16,
     fontSize: 15,
     lineHeight: 22,
     minHeight: 80,
-    color: COLORS.TEXT_PRIMARY,
   },
   footer: {
     flexDirection: 'row',
     padding: 16,
-    backgroundColor: COLORS.WHITE,
     borderTopWidth: 1,
-    borderTopColor: COLORS.BORDER,
     gap: 12,
   },
   cancelButton: {
     flex: 1,
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: COLORS.GRAY_100,
     alignItems: 'center',
   },
   cancelButtonText: {
     fontSize: 16,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_SECONDARY,
   },
   saveButton: {
     flex: 2,
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: COLORS.PRIMARY,
     alignItems: 'center',
   },
   saveButtonDisabled: {
@@ -223,6 +210,6 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 16,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.WHITE,
+    color: '#FFFFFF',
   },
 });

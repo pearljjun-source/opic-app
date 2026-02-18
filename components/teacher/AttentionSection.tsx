@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 import type { AttentionItem } from '@/lib/types';
 
 interface AttentionSectionProps {
@@ -17,15 +17,17 @@ interface AttentionSectionProps {
  * - warning (노란색): 7일+ 미연습 또는 스크립트 배정 후 연습 없음
  */
 export function AttentionSection({ items, onStudentPress }: AttentionSectionProps) {
+  const colors = useThemeColors();
+
   if (items.length === 0) return null;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.surface, shadowColor: '#000000' }]}>
       <View style={styles.header}>
-        <Ionicons name="alert-circle" size={18} color={COLORS.SECONDARY} />
-        <Text style={styles.title}>관심 필요</Text>
-        <View style={styles.countBadge}>
-          <Text style={styles.countText}>{items.length}</Text>
+        <Ionicons name="alert-circle" size={18} color={colors.secondary} />
+        <Text style={[styles.title, { color: colors.textPrimary }]}>관심 필요</Text>
+        <View style={[styles.countBadge, { backgroundColor: colors.secondaryLight }]}>
+          <Text style={[styles.countText, { color: colors.secondary }]}>{items.length}</Text>
         </View>
       </View>
 
@@ -35,27 +37,27 @@ export function AttentionSection({ items, onStudentPress }: AttentionSectionProp
         return (
           <Pressable
             key={item.student.id}
-            style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}
+            style={({ pressed }) => [styles.item, { borderTopColor: colors.borderLight }, pressed && styles.itemPressed]}
             onPress={() => onStudentPress(item.student.id)}
           >
             <View
               style={[
                 styles.indicator,
-                { backgroundColor: isDanger ? COLORS.ERROR : COLORS.WARNING },
+                { backgroundColor: isDanger ? colors.error : colors.warning },
               ]}
             />
             <View style={styles.itemContent}>
-              <Text style={styles.studentName}>{item.student.name}</Text>
+              <Text style={[styles.studentName, { color: colors.textPrimary }]}>{item.student.name}</Text>
               <Text
                 style={[
                   styles.message,
-                  { color: isDanger ? COLORS.ERROR : COLORS.SECONDARY },
+                  { color: isDanger ? colors.error : colors.secondary },
                 ]}
               >
                 {item.message}
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={16} color={COLORS.GRAY_300} />
+            <Ionicons name="chevron-forward" size={16} color={colors.gray300} />
           </Pressable>
         );
       })}
@@ -67,10 +69,8 @@ const styles = StyleSheet.create({
   container: {
     marginHorizontal: 16,
     marginBottom: 16,
-    backgroundColor: COLORS.WHITE,
     borderRadius: 16,
     padding: 16,
-    shadowColor: COLORS.BLACK,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -84,12 +84,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 15,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
     marginLeft: 6,
     flex: 1,
   },
   countBadge: {
-    backgroundColor: COLORS.SECONDARY_LIGHT,
     borderRadius: 10,
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -97,14 +95,12 @@ const styles = StyleSheet.create({
   countText: {
     fontSize: 12,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.SECONDARY,
   },
   item: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
     borderTopWidth: 1,
-    borderTopColor: COLORS.GRAY_100,
   },
   itemPressed: {
     opacity: 0.7,
@@ -121,7 +117,6 @@ const styles = StyleSheet.create({
   studentName: {
     fontSize: 14,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.TEXT_PRIMARY,
     marginBottom: 2,
   },
   message: {

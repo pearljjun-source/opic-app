@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 import { getUserMessage } from '@/lib/errors';
 import { listUsers } from '@/services/admin';
 import type { AdminUserListItem, UserRole } from '@/lib/types';
@@ -19,41 +19,43 @@ const ROLE_LABELS: Record<string, string> = {
 
 const ROLE_BADGE_COLORS: Record<string, string> = {
   admin: '#7C3AED',
-  teacher: COLORS.PRIMARY,
-  student: COLORS.INFO,
+  teacher: '#D4707F',
+  student: '#E88B9A',
 };
 
-function UserCard({ user }: { user: AdminUserListItem }) {
-  return (
-    <Pressable
-      style={styles.userCard}
-      onPress={() => router.push(`/(admin)/user/${user.id}`)}
-    >
-      <View style={styles.userInfo}>
-        <View style={styles.userNameRow}>
-          <Text style={styles.userName}>{user.name}</Text>
-          <View style={[styles.roleBadge, { backgroundColor: ROLE_BADGE_COLORS[user.role] || COLORS.GRAY_400 }]}>
-            <Text style={styles.roleBadgeText}>{ROLE_LABELS[user.role] || user.role}</Text>
+export default function AdminUsersScreen() {
+  const colors = useThemeColors();
+
+  function UserCard({ user }: { user: AdminUserListItem }) {
+    return (
+      <Pressable
+        style={[styles.userCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        onPress={() => router.push(`/(admin)/user/${user.id}`)}
+      >
+        <View style={styles.userInfo}>
+          <View style={styles.userNameRow}>
+            <Text style={[styles.userName, { color: colors.textPrimary }]}>{user.name}</Text>
+            <View style={[styles.roleBadge, { backgroundColor: ROLE_BADGE_COLORS[user.role] || colors.textDisabled }]}>
+              <Text style={styles.roleBadgeText}>{ROLE_LABELS[user.role] || user.role}</Text>
+            </View>
+          </View>
+          <Text style={[styles.userEmail, { color: colors.textSecondary }]}>{user.email}</Text>
+          <View style={styles.userMeta}>
+            <Text style={[styles.userMetaText, { color: colors.textDisabled }]}>
+              가입: {new Date(user.created_at).toLocaleDateString('ko-KR')}
+            </Text>
+            {user.subscription_plan && (
+              <Text style={[styles.userMetaText, { color: colors.textDisabled }]}>
+                플랜: {user.subscription_plan}
+              </Text>
+            )}
           </View>
         </View>
-        <Text style={styles.userEmail}>{user.email}</Text>
-        <View style={styles.userMeta}>
-          <Text style={styles.userMetaText}>
-            가입: {new Date(user.created_at).toLocaleDateString('ko-KR')}
-          </Text>
-          {user.subscription_plan && (
-            <Text style={styles.userMetaText}>
-              플랜: {user.subscription_plan}
-            </Text>
-          )}
-        </View>
-      </View>
-      <Ionicons name="chevron-forward" size={18} color={COLORS.GRAY_400} />
-    </Pressable>
-  );
-}
+        <Ionicons name="chevron-forward" size={18} color={colors.textDisabled} />
+      </Pressable>
+    );
+  }
 
-export default function AdminUsersScreen() {
   const [users, setUsers] = useState<AdminUserListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -90,20 +92,20 @@ export default function AdminUsersScreen() {
   }, [fetchUsers]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}>
       {/* 검색바 */}
-      <View style={styles.searchBar}>
-        <Ionicons name="search" size={18} color={COLORS.GRAY_400} />
+      <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Ionicons name="search" size={18} color={colors.textDisabled} />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: colors.textPrimary }]}
           placeholder="이름 또는 이메일 검색..."
-          placeholderTextColor={COLORS.GRAY_400}
+          placeholderTextColor={colors.textDisabled}
           value={search}
           onChangeText={setSearch}
         />
         {search.length > 0 && (
           <Pressable onPress={() => setSearch('')}>
-            <Ionicons name="close-circle" size={18} color={COLORS.GRAY_400} />
+            <Ionicons name="close-circle" size={18} color={colors.textDisabled} />
           </Pressable>
         )}
       </View>
@@ -113,10 +115,14 @@ export default function AdminUsersScreen() {
         {(['all', 'admin', 'teacher', 'student'] as FilterRole[]).map((role) => (
           <Pressable
             key={role}
-            style={[styles.filterChip, filter === role && styles.filterChipActive]}
+            style={[
+              styles.filterChip,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              filter === role && { backgroundColor: colors.primary, borderColor: colors.primary },
+            ]}
             onPress={() => setFilter(role)}
           >
-            <Text style={[styles.filterChipText, filter === role && styles.filterChipTextActive]}>
+            <Text style={[styles.filterChipText, { color: colors.textSecondary }, filter === role && { color: '#FFFFFF' }]}>
               {ROLE_LABELS[role]}
             </Text>
           </Pressable>
@@ -126,26 +132,26 @@ export default function AdminUsersScreen() {
       {/* 목록 */}
       {isLoading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : error ? (
         <View style={styles.center}>
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
         </View>
       ) : (
         <ScrollView
           contentContainerStyle={styles.listContent}
           refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={COLORS.PRIMARY} />
+            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={colors.primary} />
           }
         >
-          <Text style={styles.countText}>{users.length}명</Text>
+          <Text style={[styles.countText, { color: colors.textSecondary }]}>{users.length}명</Text>
           {users.map((user) => (
             <UserCard key={user.id} user={user} />
           ))}
           {users.length === 0 && (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>사용자가 없습니다</Text>
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>사용자가 없습니다</Text>
             </View>
           )}
         </ScrollView>
@@ -155,17 +161,15 @@ export default function AdminUsersScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.BACKGROUND_SECONDARY },
+  container: { flex: 1 },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.WHITE,
     margin: 16,
     marginBottom: 0,
     paddingHorizontal: 12,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: COLORS.BORDER,
     height: 44,
     gap: 8,
   },
@@ -173,7 +177,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontFamily: 'Pretendard-Regular',
-    color: COLORS.TEXT_PRIMARY,
   },
   filterRow: { maxHeight: 44, marginTop: 12 },
   filterContent: { paddingHorizontal: 16, gap: 8 },
@@ -181,47 +184,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: COLORS.WHITE,
     borderWidth: 1,
-    borderColor: COLORS.BORDER,
-  },
-  filterChipActive: {
-    backgroundColor: COLORS.PRIMARY,
-    borderColor: COLORS.PRIMARY,
   },
   filterChipText: {
     fontSize: 13,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.TEXT_SECONDARY,
   },
-  filterChipTextActive: { color: COLORS.WHITE },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  errorText: { color: COLORS.ERROR, fontSize: 14, fontFamily: 'Pretendard-Medium' },
+  errorText: { fontSize: 14, fontFamily: 'Pretendard-Medium' },
   listContent: { padding: 16 },
   countText: {
     fontSize: 12,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.TEXT_SECONDARY,
     marginBottom: 8,
   },
   userCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.WHITE,
     borderRadius: 12,
     padding: 14,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: COLORS.BORDER,
   },
   userInfo: { flex: 1 },
   userNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  userName: { fontSize: 15, fontFamily: 'Pretendard-SemiBold', color: COLORS.TEXT_PRIMARY },
+  userName: { fontSize: 15, fontFamily: 'Pretendard-SemiBold' },
   roleBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
-  roleBadgeText: { fontSize: 10, fontFamily: 'Pretendard-Bold', color: COLORS.WHITE },
-  userEmail: { fontSize: 13, fontFamily: 'Pretendard-Regular', color: COLORS.TEXT_SECONDARY, marginBottom: 4 },
+  roleBadgeText: { fontSize: 10, fontFamily: 'Pretendard-Bold', color: '#FFFFFF' },
+  userEmail: { fontSize: 13, fontFamily: 'Pretendard-Regular', marginBottom: 4 },
   userMeta: { flexDirection: 'row', gap: 12 },
-  userMetaText: { fontSize: 11, fontFamily: 'Pretendard-Regular', color: COLORS.GRAY_400 },
+  userMetaText: { fontSize: 11, fontFamily: 'Pretendard-Regular' },
   emptyState: { alignItems: 'center', paddingTop: 40 },
-  emptyText: { fontSize: 14, fontFamily: 'Pretendard-Medium', color: COLORS.TEXT_SECONDARY },
+  emptyText: { fontSize: 14, fontFamily: 'Pretendard-Medium' },
 });

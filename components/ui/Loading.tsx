@@ -1,6 +1,7 @@
 import { View, Text, ActivityIndicator } from 'react-native';
 
 import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 import { STRINGS } from '@/lib/strings';
 
 export type LoadingSize = 'small' | 'large';
@@ -32,12 +33,13 @@ export interface SkeletonProps {
 // Simple spinner
 export function LoadingSpinner({
   size = 'large',
-  color = COLORS.PRIMARY,
+  color,
   className = '',
 }: LoadingSpinnerProps) {
+  const colors = useThemeColors();
   return (
     <View className={`items-center justify-center ${className}`}>
-      <ActivityIndicator size={size} color={color} />
+      <ActivityIndicator size={size} color={color ?? colors.primary} />
     </View>
   );
 }
@@ -48,16 +50,17 @@ export function LoadingOverlay({
   message,
   className = '',
 }: LoadingOverlayProps) {
+  const colors = useThemeColors();
   if (!visible) return null;
 
   return (
     <View
       className={`absolute inset-0 bg-black/30 items-center justify-center z-50 ${className}`}
     >
-      <View className="bg-white rounded-2xl px-8 py-6 items-center shadow-lg">
-        <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+      <View className="bg-white dark:bg-neutral-900 rounded-2xl px-8 py-6 items-center shadow-lg">
+        <ActivityIndicator size="large" color={colors.primary} />
         {message && (
-          <Text className="text-base text-gray-700 mt-3">{message}</Text>
+          <Text className="text-base text-gray-700 dark:text-gray-300 mt-3">{message}</Text>
         )}
       </View>
     </View>
@@ -69,10 +72,11 @@ export function LoadingScreen({
   message = STRINGS.common.loading,
   className = '',
 }: LoadingScreenProps) {
+  const colors = useThemeColors();
   return (
-    <View className={`flex-1 items-center justify-center bg-white ${className}`}>
-      <ActivityIndicator size="large" color={COLORS.PRIMARY} />
-      <Text className="text-base text-gray-500 mt-4">{message}</Text>
+    <View className={`flex-1 items-center justify-center bg-white dark:bg-neutral-900 ${className}`}>
+      <ActivityIndicator size="large" color={colors.primary} />
+      <Text className="text-base text-gray-500 dark:text-gray-400 mt-4">{message}</Text>
     </View>
   );
 }
@@ -89,7 +93,7 @@ export function Skeleton({
 
   return (
     <View
-      className={`bg-gray-200 animate-pulse ${className}`}
+      className={`bg-gray-200 dark:bg-neutral-700 animate-pulse ${className}`}
       style={[
         widthStyle,
         heightStyle,
@@ -104,7 +108,7 @@ export function Skeleton({
 // Skeleton group for common patterns
 export function SkeletonCard({ className = '' }: { className?: string }) {
   return (
-    <View className={`bg-white rounded-xl p-4 ${className}`}>
+    <View className={`bg-white dark:bg-neutral-900 rounded-xl p-4 ${className}`}>
       <View className="flex-row items-center mb-3">
         <Skeleton width={40} height={40} borderRadius={20} />
         <View className="ml-3 flex-1">

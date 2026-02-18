@@ -145,6 +145,38 @@ export const OwnerInviteDeleteSchema = v.object({
 export type OwnerInviteDeleteInput = v.InferOutput<typeof OwnerInviteDeleteSchema>;
 
 // ============================================================================
+// 학원 관리 (Super Admin — CRUD)
+// ============================================================================
+
+/** 학원 이름 수정 */
+export const OrgUpdateSchema = v.object({
+  orgId: v.pipe(v.string(), v.uuid('유효하지 않은 학원 ID입니다')),
+  name: v.pipe(
+    v.string(),
+    v.trim(),
+    v.minLength(1, '학원 이름을 입력해주세요'),
+    v.maxLength(100, '학원 이름은 100자 이내여야 합니다'),
+  ),
+});
+
+export type OrgUpdateInput = v.InferOutput<typeof OrgUpdateSchema>;
+
+/** 학원 삭제 */
+export const OrgDeleteSchema = v.object({
+  orgId: v.pipe(v.string(), v.uuid('유효하지 않은 학원 ID입니다')),
+});
+
+export type OrgDeleteInput = v.InferOutput<typeof OrgDeleteSchema>;
+
+/** 학원 구독 플랜 변경 */
+export const AdminSubUpdateSchema = v.object({
+  orgId: v.pipe(v.string(), v.uuid('유효하지 않은 학원 ID입니다')),
+  planKey: v.picklist(['free', 'solo', 'pro', 'academy'], '유효하지 않은 플랜입니다'),
+});
+
+export type AdminSubUpdateInput = v.InferOutput<typeof AdminSubUpdateSchema>;
+
+// ============================================================================
 // 유틸리티
 // ============================================================================
 

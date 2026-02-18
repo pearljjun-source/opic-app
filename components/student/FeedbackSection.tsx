@@ -1,18 +1,12 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 import type { AIFeedback } from '@/lib/types';
 
 interface Props {
   feedback: AIFeedback;
 }
-
-const EVAL_COLORS = {
-  positive: COLORS.SECONDARY,
-  neutral: COLORS.TEXT_SECONDARY,
-  negative: COLORS.ERROR,
-} as const;
 
 const EVAL_ICONS = {
   positive: 'checkmark-circle-outline',
@@ -33,6 +27,14 @@ const ERROR_TYPE_LABELS: Record<string, string> = {
  * - v2 필드가 없으면 기존 v1 UI 폴백
  */
 export default function FeedbackSection({ feedback }: Props) {
+  const colors = useThemeColors();
+
+  const EVAL_COLORS = {
+    positive: colors.secondary,
+    neutral: colors.textSecondary,
+    negative: colors.error,
+  } as const;
+
   const hasV2 = !!(
     feedback.creative_additions?.length ||
     feedback.error_analysis?.length ||
@@ -42,21 +44,21 @@ export default function FeedbackSection({ feedback }: Props) {
   );
 
   return (
-    <View style={styles.feedbackBox}>
+    <View style={[styles.feedbackBox, { backgroundColor: colors.warning + '15' }]}>
       {/* 요약 */}
-      <Text style={styles.feedbackSummary}>{feedback.summary}</Text>
+      <Text style={[styles.feedbackSummary, { color: colors.textPrimary }]}>{feedback.summary}</Text>
 
       {/* === v2: 강점 === */}
       {hasV2 && feedback.strengths && feedback.strengths.length > 0 && (
         <View style={styles.feedbackSection}>
           <View style={styles.feedbackLabelRow}>
-            <Ionicons name="star-outline" size={16} color={COLORS.SECONDARY} />
-            <Text style={[styles.feedbackLabel, { color: COLORS.SECONDARY }]}>
+            <Ionicons name="star-outline" size={16} color={colors.secondary} />
+            <Text style={[styles.feedbackLabel, { color: colors.secondary }]}>
               잘한 점
             </Text>
           </View>
           {feedback.strengths.map((s, i) => (
-            <Text key={i} style={styles.feedbackItem}>• {s}</Text>
+            <Text key={i} style={[styles.feedbackItem, { color: colors.textSecondary }]}>• {s}</Text>
           ))}
         </View>
       )}
@@ -65,13 +67,13 @@ export default function FeedbackSection({ feedback }: Props) {
       {feedback.missed_phrases && feedback.missed_phrases.length > 0 && (
         <View style={styles.feedbackSection}>
           <View style={styles.feedbackLabelRow}>
-            <Ionicons name="remove-circle-outline" size={16} color={COLORS.ERROR} />
-            <Text style={[styles.feedbackLabel, { color: COLORS.ERROR }]}>
+            <Ionicons name="remove-circle-outline" size={16} color={colors.error} />
+            <Text style={[styles.feedbackLabel, { color: colors.error }]}>
               빠뜨린 표현
             </Text>
           </View>
           {feedback.missed_phrases.map((phrase, i) => (
-            <Text key={i} style={styles.feedbackItem}>• {phrase}</Text>
+            <Text key={i} style={[styles.feedbackItem, { color: colors.textSecondary }]}>• {phrase}</Text>
           ))}
         </View>
       )}
@@ -80,8 +82,8 @@ export default function FeedbackSection({ feedback }: Props) {
       {hasV2 && feedback.creative_additions && feedback.creative_additions.length > 0 ? (
         <View style={styles.feedbackSection}>
           <View style={styles.feedbackLabelRow}>
-            <Ionicons name="add-circle-outline" size={16} color={COLORS.SECONDARY} />
-            <Text style={[styles.feedbackLabel, { color: COLORS.SECONDARY }]}>
+            <Ionicons name="add-circle-outline" size={16} color={colors.secondary} />
+            <Text style={[styles.feedbackLabel, { color: colors.secondary }]}>
               추가된 표현
             </Text>
           </View>
@@ -97,7 +99,7 @@ export default function FeedbackSection({ feedback }: Props) {
                   "{item.phrase}"
                 </Text>
               </View>
-              <Text style={styles.creativeComment}>{item.comment}</Text>
+              <Text style={[styles.creativeComment, { color: colors.textSecondary }]}>{item.comment}</Text>
             </View>
           ))}
         </View>
@@ -106,13 +108,13 @@ export default function FeedbackSection({ feedback }: Props) {
         feedback.extra_phrases && feedback.extra_phrases.length > 0 && (
           <View style={styles.feedbackSection}>
             <View style={styles.feedbackLabelRow}>
-              <Ionicons name="add-circle-outline" size={16} color={COLORS.SECONDARY} />
-              <Text style={[styles.feedbackLabel, { color: COLORS.SECONDARY }]}>
+              <Ionicons name="add-circle-outline" size={16} color={colors.secondary} />
+              <Text style={[styles.feedbackLabel, { color: colors.secondary }]}>
                 추가된 표현
               </Text>
             </View>
             {feedback.extra_phrases.map((phrase, i) => (
-              <Text key={i} style={styles.feedbackItem}>• {phrase}</Text>
+              <Text key={i} style={[styles.feedbackItem, { color: colors.textSecondary }]}>• {phrase}</Text>
             ))}
           </View>
         )
@@ -122,26 +124,26 @@ export default function FeedbackSection({ feedback }: Props) {
       {hasV2 && feedback.error_analysis && feedback.error_analysis.length > 0 ? (
         <View style={styles.feedbackSection}>
           <View style={styles.feedbackLabelRow}>
-            <Ionicons name="create-outline" size={16} color={COLORS.WARNING} />
-            <Text style={[styles.feedbackLabel, { color: COLORS.WARNING }]}>
+            <Ionicons name="create-outline" size={16} color={colors.warning} />
+            <Text style={[styles.feedbackLabel, { color: colors.warning }]}>
               교정 사항
             </Text>
           </View>
           {feedback.error_analysis.map((item, i) => (
             <View key={i} style={styles.errorItem}>
               <View style={styles.errorTypeRow}>
-                <View style={styles.errorTypeBadge}>
-                  <Text style={styles.errorTypeText}>
+                <View style={[styles.errorTypeBadge, { backgroundColor: colors.warning + '30' }]}>
+                  <Text style={[styles.errorTypeText, { color: colors.warning }]}>
                     {ERROR_TYPE_LABELS[item.type] || item.type}
                   </Text>
                 </View>
               </View>
-              <Text style={styles.errorOriginal}>
-                <Text style={styles.strikethrough}>{item.original}</Text>
+              <Text style={[styles.errorOriginal, { color: colors.textPrimary }]}>
+                <Text style={[styles.strikethrough, { color: colors.error }]}>{item.original}</Text>
                 {'  '}
-                <Text style={styles.errorCorrected}>→ {item.corrected}</Text>
+                <Text style={[styles.errorCorrected, { color: colors.secondary }]}>→ {item.corrected}</Text>
               </Text>
-              <Text style={styles.errorExplanation}>{item.explanation}</Text>
+              <Text style={[styles.errorExplanation, { color: colors.textSecondary }]}>{item.explanation}</Text>
             </View>
           ))}
         </View>
@@ -151,22 +153,22 @@ export default function FeedbackSection({ feedback }: Props) {
           {feedback.pronunciation_tips && feedback.pronunciation_tips.length > 0 && (
             <View style={styles.feedbackSection}>
               <View style={styles.feedbackLabelRow}>
-                <Ionicons name="mic-outline" size={16} color={COLORS.PRIMARY} />
-                <Text style={[styles.feedbackLabel, { color: COLORS.PRIMARY }]}>발음 팁</Text>
+                <Ionicons name="mic-outline" size={16} color={colors.primary} />
+                <Text style={[styles.feedbackLabel, { color: colors.primary }]}>발음 팁</Text>
               </View>
               {feedback.pronunciation_tips.map((tip, i) => (
-                <Text key={i} style={styles.feedbackItem}>• {tip}</Text>
+                <Text key={i} style={[styles.feedbackItem, { color: colors.textSecondary }]}>• {tip}</Text>
               ))}
             </View>
           )}
           {feedback.grammar_issues && feedback.grammar_issues.length > 0 && (
             <View style={styles.feedbackSection}>
               <View style={styles.feedbackLabelRow}>
-                <Ionicons name="create-outline" size={16} color={COLORS.WARNING} />
-                <Text style={[styles.feedbackLabel, { color: COLORS.WARNING }]}>문법 교정</Text>
+                <Ionicons name="create-outline" size={16} color={colors.warning} />
+                <Text style={[styles.feedbackLabel, { color: colors.warning }]}>문법 교정</Text>
               </View>
               {feedback.grammar_issues.map((issue, i) => (
-                <Text key={i} style={styles.feedbackItem}>• {issue}</Text>
+                <Text key={i} style={[styles.feedbackItem, { color: colors.textSecondary }]}>• {issue}</Text>
               ))}
             </View>
           )}
@@ -177,15 +179,15 @@ export default function FeedbackSection({ feedback }: Props) {
       {hasV2 && feedback.priority_improvements && feedback.priority_improvements.length > 0 ? (
         <View style={styles.feedbackSection}>
           <View style={styles.feedbackLabelRow}>
-            <Ionicons name="bulb-outline" size={16} color={COLORS.PRIMARY} />
-            <Text style={[styles.feedbackLabel, { color: COLORS.PRIMARY }]}>
+            <Ionicons name="bulb-outline" size={16} color={colors.primary} />
+            <Text style={[styles.feedbackLabel, { color: colors.primary }]}>
               우선 개선 사항
             </Text>
           </View>
           {feedback.priority_improvements.map((item, i) => (
             <View key={i} style={styles.improvementItem}>
-              <Text style={styles.improvementArea}>{i + 1}. {item.area}</Text>
-              <Text style={styles.improvementTip}>{item.tip}</Text>
+              <Text style={[styles.improvementArea, { color: colors.textPrimary }]}>{i + 1}. {item.area}</Text>
+              <Text style={[styles.improvementTip, { color: colors.textSecondary }]}>{item.tip}</Text>
             </View>
           ))}
         </View>
@@ -194,11 +196,11 @@ export default function FeedbackSection({ feedback }: Props) {
         feedback.suggestions && feedback.suggestions.length > 0 && (
           <View style={styles.feedbackSection}>
             <View style={styles.feedbackLabelRow}>
-              <Ionicons name="bulb-outline" size={16} color={COLORS.PRIMARY} />
-              <Text style={[styles.feedbackLabel, { color: COLORS.PRIMARY }]}>개선 제안</Text>
+              <Ionicons name="bulb-outline" size={16} color={colors.primary} />
+              <Text style={[styles.feedbackLabel, { color: colors.primary }]}>개선 제안</Text>
             </View>
             {feedback.suggestions.map((suggestion, i) => (
-              <Text key={i} style={styles.feedbackItem}>• {suggestion}</Text>
+              <Text key={i} style={[styles.feedbackItem, { color: colors.textSecondary }]}>• {suggestion}</Text>
             ))}
           </View>
         )
@@ -206,8 +208,8 @@ export default function FeedbackSection({ feedback }: Props) {
 
       {/* === v2: 격려 메시지 === */}
       {hasV2 && feedback.encouragement && (
-        <View style={styles.encouragementBox}>
-          <Text style={styles.encouragementText}>{feedback.encouragement}</Text>
+        <View style={[styles.encouragementBox, { borderTopColor: colors.warning + '40' }]}>
+          <Text style={[styles.encouragementText, { color: colors.primary }]}>{feedback.encouragement}</Text>
         </View>
       )}
     </View>
@@ -216,14 +218,12 @@ export default function FeedbackSection({ feedback }: Props) {
 
 const styles = StyleSheet.create({
   feedbackBox: {
-    backgroundColor: COLORS.WARNING + '15',
     padding: 16,
     borderRadius: 16,
   },
   feedbackSummary: {
     fontSize: 15,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
     marginBottom: 16,
     lineHeight: 22,
   },
@@ -242,7 +242,6 @@ const styles = StyleSheet.create({
   },
   feedbackItem: {
     fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
     marginLeft: 22,
     marginBottom: 4,
     lineHeight: 20,
@@ -266,7 +265,6 @@ const styles = StyleSheet.create({
   },
   creativeComment: {
     fontSize: 13,
-    color: COLORS.TEXT_SECONDARY,
     marginLeft: 18,
     lineHeight: 18,
   },
@@ -281,7 +279,6 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   errorTypeBadge: {
-    backgroundColor: COLORS.WARNING + '30',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 4,
@@ -289,24 +286,19 @@ const styles = StyleSheet.create({
   errorTypeText: {
     fontSize: 11,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.WARNING,
   },
   errorOriginal: {
     fontSize: 14,
-    color: COLORS.TEXT_PRIMARY,
     lineHeight: 20,
   },
   strikethrough: {
     textDecorationLine: 'line-through',
-    color: COLORS.ERROR,
   },
   errorCorrected: {
-    color: COLORS.SECONDARY,
     fontFamily: 'Pretendard-SemiBold',
   },
   errorExplanation: {
     fontSize: 13,
-    color: COLORS.TEXT_SECONDARY,
     marginTop: 2,
     lineHeight: 18,
   },
@@ -319,12 +311,10 @@ const styles = StyleSheet.create({
   improvementArea: {
     fontSize: 14,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
     marginBottom: 2,
   },
   improvementTip: {
     fontSize: 13,
-    color: COLORS.TEXT_SECONDARY,
     marginLeft: 16,
     lineHeight: 18,
   },
@@ -334,12 +324,10 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: COLORS.WARNING + '40',
   },
   encouragementText: {
     fontSize: 14,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.PRIMARY,
     textAlign: 'center',
     lineHeight: 20,
   },

@@ -11,13 +11,14 @@ import { useState, useEffect, useMemo } from 'react';
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 import { getPracticeResult, PracticeResult } from '@/services/practices';
 import { getUserMessage } from '@/lib/errors';
 import { diffScript } from '@/lib/diff';
 import FeedbackSection from '@/components/student/FeedbackSection';
 
 export default function PracticeDetailScreen() {
+  const colors = useThemeColors();
   const { practiceId } = useLocalSearchParams<{ practiceId: string }>();
 
   const [result, setResult] = useState<PracticeResult | null>(null);
@@ -75,19 +76,19 @@ export default function PracticeDetailScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={COLORS.PRIMARY} />
-        <Text style={styles.loadingText}>결과 불러오는 중...</Text>
+      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>결과 불러오는 중...</Text>
       </View>
     );
   }
 
   if (error || !result) {
     return (
-      <View style={styles.centerContainer}>
-        <Ionicons name="alert-circle-outline" size={48} color={COLORS.ERROR} />
-        <Text style={styles.errorText}>{error || '결과를 불러올 수 없습니다.'}</Text>
-        <Pressable style={styles.backButton} onPress={() => router.back()}>
+      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
+        <Text style={[styles.errorText, { color: colors.error }]}>{error || '결과를 불러올 수 없습니다.'}</Text>
+        <Pressable style={[styles.backButton, { backgroundColor: colors.primary }]} onPress={() => router.back()}>
           <Text style={styles.backButtonText}>뒤로 가기</Text>
         </Pressable>
       </View>
@@ -104,38 +105,38 @@ export default function PracticeDetailScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.surfaceSecondary }]} contentContainerStyle={styles.content}>
       {/* 점수 */}
       <View style={styles.scoreSection}>
-        <View style={styles.scoreBox}>
-          <Text style={styles.scoreLabel}>점수</Text>
-          <Text style={styles.scoreValue}>{result.score ?? '-'}</Text>
+        <View style={[styles.scoreBox, { backgroundColor: colors.primary + '15' }]}>
+          <Text style={[styles.scoreLabel, { color: colors.textSecondary }]}>점수</Text>
+          <Text style={[styles.scoreValue, { color: colors.primary }]}>{result.score ?? '-'}</Text>
         </View>
-        <View style={styles.scoreBox}>
-          <Text style={styles.scoreLabel}>재현율</Text>
-          <Text style={styles.scoreValue}>
+        <View style={[styles.scoreBox, { backgroundColor: colors.primary + '15' }]}>
+          <Text style={[styles.scoreLabel, { color: colors.textSecondary }]}>재현율</Text>
+          <Text style={[styles.scoreValue, { color: colors.primary }]}>
             {result.reproduction_rate != null ? `${result.reproduction_rate}%` : '-'}
           </Text>
         </View>
-        <View style={styles.scoreBox}>
-          <Text style={styles.scoreLabel}>녹음 시간</Text>
-          <Text style={styles.scoreValue}>{formatDuration(result.duration)}</Text>
+        <View style={[styles.scoreBox, { backgroundColor: colors.primary + '15' }]}>
+          <Text style={[styles.scoreLabel, { color: colors.textSecondary }]}>녹음 시간</Text>
+          <Text style={[styles.scoreValue, { color: colors.primary }]}>{formatDuration(result.duration)}</Text>
         </View>
       </View>
 
       {/* 녹음 재생 */}
       {result.audio_url && (
         <Pressable
-          style={[styles.playButton, isPlaying && styles.playButtonActive]}
+          style={[styles.playButton, { backgroundColor: colors.primary + '15' }, isPlaying && { backgroundColor: colors.primary }]}
           onPress={handlePlayAudio}
           disabled={isPlaying}
         >
           <Ionicons
             name={isPlaying ? 'volume-high' : 'play'}
             size={20}
-            color={isPlaying ? COLORS.WHITE : COLORS.PRIMARY}
+            color={isPlaying ? '#FFFFFF' : colors.primary}
           />
-          <Text style={[styles.playButtonText, isPlaying && { color: COLORS.WHITE }]}>
+          <Text style={[styles.playButtonText, { color: colors.primary }, isPlaying && { color: '#FFFFFF' }]}>
             {isPlaying ? '재생 중...' : '내 녹음 듣기'}
           </Text>
         </Pressable>
@@ -143,17 +144,17 @@ export default function PracticeDetailScreen() {
 
       {/* 질문 */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>질문</Text>
-        <View style={styles.questionBox}>
-          <Text style={styles.questionText}>{result.question_text}</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>질문</Text>
+        <View style={[styles.questionBox, { backgroundColor: colors.primary + '10', borderLeftColor: colors.primary }]}>
+          <Text style={[styles.questionText, { color: colors.textPrimary }]}>{result.question_text}</Text>
         </View>
       </View>
 
       {/* 내 답변 */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>내 답변 (음성 인식 결과)</Text>
-        <View style={styles.contentBox}>
-          <Text style={styles.contentText}>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>내 답변 (음성 인식 결과)</Text>
+        <View style={[styles.contentBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.contentText, { color: colors.textPrimary }]}>
             {result.transcription || '음성 인식 결과가 없습니다.'}
           </Text>
         </View>
@@ -161,11 +162,11 @@ export default function PracticeDetailScreen() {
 
       {/* 원본 스크립트 (빠뜨린 단어 빨간색 하이라이트) */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>원본 스크립트</Text>
-        <View style={[styles.contentBox, { backgroundColor: COLORS.GRAY_100 }]}>
-          <Text style={[styles.contentText, { color: COLORS.TEXT_SECONDARY }]}>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>원본 스크립트</Text>
+        <View style={[styles.contentBox, { backgroundColor: colors.borderLight, borderColor: 'transparent' }]}>
+          <Text style={[styles.contentText, { color: colors.textSecondary }]}>
             {scriptDiff.map((item, i) => (
-              <Text key={i} style={!item.matched ? styles.missedWord : undefined}>
+              <Text key={i} style={!item.matched ? { color: colors.error, backgroundColor: colors.error + '15' } : undefined}>
                 {item.word}
                 {i < scriptDiff.length - 1 ? ' ' : ''}
               </Text>
@@ -177,14 +178,14 @@ export default function PracticeDetailScreen() {
       {/* AI 피드백 */}
       {feedback && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>AI 피드백</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>AI 피드백</Text>
           <FeedbackSection feedback={feedback} />
         </View>
       )}
 
       {/* 하단 버튼 */}
       <Pressable style={styles.backNavButton} onPress={() => router.back()}>
-        <Text style={styles.backNavButtonText}>목록으로 돌아가기</Text>
+        <Text style={[styles.backNavButtonText, { color: colors.textSecondary }]}>목록으로 돌아가기</Text>
       </Pressable>
     </ScrollView>
   );
@@ -193,7 +194,6 @@ export default function PracticeDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
   },
   content: {
     padding: 16,
@@ -203,31 +203,27 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
     padding: 24,
   },
   loadingText: {
     marginTop: 12,
     fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
   },
   errorText: {
     marginTop: 12,
     fontSize: 16,
-    color: COLORS.ERROR,
     textAlign: 'center',
   },
   backButton: {
     marginTop: 16,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: COLORS.PRIMARY,
     borderRadius: 12,
   },
   backButtonText: {
     fontSize: 14,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.WHITE,
+    color: '#FFFFFF',
   },
   scoreSection: {
     flexDirection: 'row',
@@ -236,38 +232,30 @@ const styles = StyleSheet.create({
   },
   scoreBox: {
     flex: 1,
-    backgroundColor: COLORS.PRIMARY + '15',
     padding: 16,
     borderRadius: 16,
     alignItems: 'center',
   },
   scoreLabel: {
     fontSize: 12,
-    color: COLORS.TEXT_SECONDARY,
     marginBottom: 4,
   },
   scoreValue: {
     fontSize: 24,
     fontFamily: 'Pretendard-Bold',
-    color: COLORS.PRIMARY,
   },
   playButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.PRIMARY + '15',
     padding: 14,
     borderRadius: 12,
     marginBottom: 20,
     gap: 8,
   },
-  playButtonActive: {
-    backgroundColor: COLORS.PRIMARY,
-  },
   playButtonText: {
     fontSize: 15,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.PRIMARY,
   },
   section: {
     marginBottom: 20,
@@ -275,36 +263,25 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
     marginBottom: 8,
   },
   questionBox: {
-    backgroundColor: COLORS.PRIMARY + '10',
     padding: 16,
     borderRadius: 16,
     borderLeftWidth: 4,
-    borderLeftColor: COLORS.PRIMARY,
   },
   questionText: {
     fontSize: 15,
-    color: COLORS.TEXT_PRIMARY,
     lineHeight: 22,
   },
   contentBox: {
-    backgroundColor: COLORS.WHITE,
     padding: 16,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: COLORS.BORDER,
   },
   contentText: {
     fontSize: 15,
-    color: COLORS.TEXT_PRIMARY,
     lineHeight: 22,
-  },
-  missedWord: {
-    color: COLORS.ERROR,
-    backgroundColor: COLORS.ERROR + '15',
   },
   backNavButton: {
     padding: 16,
@@ -313,6 +290,5 @@ const styles = StyleSheet.create({
   },
   backNavButtonText: {
     fontSize: 16,
-    color: COLORS.TEXT_SECONDARY,
   },
 });

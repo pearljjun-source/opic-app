@@ -14,11 +14,12 @@ import { ScreenContainer } from '@/components/layout/SafeAreaView';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/hooks/useAuth';
-import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 import { classifyAuthError } from '@/lib/errors';
 
 export default function LoginScreen() {
   const { signIn, isLoading } = useAuth();
+  const colors = useThemeColors();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -54,14 +55,14 @@ export default function LoginScreen() {
     return (
       <ScreenContainer>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ color: COLORS.TEXT_SECONDARY, fontSize: 16 }}>로딩 중...</Text>
+          <Text style={{ color: colors.textSecondary, fontSize: 16 }}>로딩 중...</Text>
         </View>
       </ScreenContainer>
     );
   }
 
   return (
-    <ScreenContainer backgroundColor={COLORS.WHITE}>
+    <ScreenContainer backgroundColor={colors.surface}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
@@ -74,7 +75,7 @@ export default function LoginScreen() {
           <View style={{ flex: 1 }}>
             {/* Header — 크림 배경 */}
             <View style={{
-              backgroundColor: '#FFF0F2',
+              backgroundColor: colors.accentPinkBg,
               paddingHorizontal: 24,
               paddingTop: 56,
               paddingBottom: 32,
@@ -85,7 +86,7 @@ export default function LoginScreen() {
               <Text style={{
                 fontSize: 28,
                 fontFamily: 'Pretendard-Bold',
-                color: COLORS.PRIMARY_DARK,
+                color: colors.primaryDark,
                 letterSpacing: -0.5,
               }}>
                 안녕하세요!
@@ -93,7 +94,7 @@ export default function LoginScreen() {
               <Text style={{
                 fontSize: 28,
                 fontFamily: 'Pretendard-Bold',
-                color: COLORS.PRIMARY,
+                color: colors.primary,
                 letterSpacing: -0.5,
               }}>
                 Speaky
@@ -101,7 +102,7 @@ export default function LoginScreen() {
               <Text style={{
                 fontSize: 15,
                 fontFamily: 'Pretendard-Regular',
-                color: COLORS.TEXT_SECONDARY,
+                color: colors.textSecondary,
                 marginTop: 8,
                 lineHeight: 22,
               }}>
@@ -114,12 +115,12 @@ export default function LoginScreen() {
             {/* Error */}
             {error && (
               <View style={{
-                backgroundColor: '#FEF2F2',
+                backgroundColor: colors.accentRedBg,
                 borderRadius: 16,
                 padding: 14,
                 marginBottom: 20,
               }}>
-                <Text style={{ color: COLORS.ERROR, fontSize: 14, fontFamily: 'Pretendard-Medium' }}>
+                <Text style={{ color: colors.error, fontSize: 14, fontFamily: 'Pretendard-Medium' }}>
                   {error}
                 </Text>
               </View>
@@ -131,7 +132,7 @@ export default function LoginScreen() {
                 <Text style={{
                   fontSize: 15,
                   fontFamily: 'Pretendard-SemiBold',
-                  color: COLORS.TEXT_PRIMARY,
+                  color: colors.textPrimary,
                   marginBottom: 8,
                 }}>
                   이메일
@@ -144,7 +145,7 @@ export default function LoginScreen() {
                   autoCapitalize="none"
                   autoComplete="email"
                   leftIcon={
-                    <Ionicons name="mail-outline" size={20} color={COLORS.GRAY_400} />
+                    <Ionicons name="mail-outline" size={20} color={colors.textDisabled} />
                   }
                 />
               </View>
@@ -153,7 +154,7 @@ export default function LoginScreen() {
                 <Text style={{
                   fontSize: 15,
                   fontFamily: 'Pretendard-SemiBold',
-                  color: COLORS.TEXT_PRIMARY,
+                  color: colors.textPrimary,
                   marginBottom: 8,
                 }}>
                   비밀번호
@@ -165,14 +166,14 @@ export default function LoginScreen() {
                   isPassword
                   autoComplete="password"
                   leftIcon={
-                    <Ionicons name="lock-closed-outline" size={20} color={COLORS.GRAY_400} />
+                    <Ionicons name="lock-closed-outline" size={20} color={colors.textDisabled} />
                   }
                 />
               </View>
 
               <Link href="/(auth)/forgot-password" asChild>
                 <TouchableOpacity style={{ alignSelf: 'flex-end', paddingVertical: 4 }}>
-                  <Text style={{ color: COLORS.TEXT_SECONDARY, fontSize: 14 }}>
+                  <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
                     비밀번호를 잊으셨나요?
                   </Text>
                 </TouchableOpacity>
@@ -196,13 +197,13 @@ export default function LoginScreen() {
               alignItems: 'center',
               marginTop: 32,
             }}>
-              <Text style={{ color: COLORS.TEXT_SECONDARY, fontSize: 15, fontFamily: 'Pretendard-Regular' }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 15, fontFamily: 'Pretendard-Regular' }}>
                 계정이 없으신가요?{' '}
               </Text>
               <Link href="/(auth)/signup" asChild>
                 <TouchableOpacity>
                   <Text style={{
-                    color: COLORS.PRIMARY,
+                    color: colors.primary,
                     fontFamily: 'Pretendard-Bold',
                     fontSize: 15,
                   }}>

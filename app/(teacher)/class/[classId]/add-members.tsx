@@ -10,13 +10,14 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS } from '@/lib/constants';
 import { getConnectedStudents } from '@/services/students';
 import { getClassDetail, addClassMember } from '@/services/classes';
 import { getUserMessage } from '@/lib/errors';
 import type { TeacherStudentListItem } from '@/lib/types';
+import { useThemeColors } from '@/hooks/useTheme';
 
 export default function AddMembersScreen() {
+  const colors = useThemeColors();
   const { classId } = useLocalSearchParams<{ classId: string }>();
   const [availableStudents, setAvailableStudents] = useState<TeacherStudentListItem[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -89,34 +90,34 @@ export default function AddMembersScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.TEXT_PRIMARY} />
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </Pressable>
-        <Text style={styles.headerTitle}>학생 추가</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>학생 추가</Text>
         <View style={{ width: 40 }} />
       </View>
 
       {error && (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
+        <View style={[styles.errorContainer, { backgroundColor: colors.accentPinkBg }]}>
+          <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
         </View>
       )}
 
       {availableStudents.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="people-outline" size={48} color={COLORS.GRAY_300} />
-          <Text style={styles.emptyTitle}>추가할 학생이 없습니다</Text>
-          <Text style={styles.emptyHint}>
+          <Ionicons name="people-outline" size={48} color={colors.gray300} />
+          <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>추가할 학생이 없습니다</Text>
+          <Text style={[styles.emptyHint, { color: colors.textSecondary }]}>
             모든 연결된 학생이 이미 이 반에 소속되어 있습니다
           </Text>
         </View>
@@ -131,20 +132,21 @@ export default function AddMembersScreen() {
                 <Pressable
                   style={[
                     styles.studentItem,
-                    isSelected && styles.studentItemSelected,
+                    { backgroundColor: colors.surface },
+                    isSelected && [styles.studentItemSelected, { backgroundColor: colors.primaryLight, borderColor: colors.primary }],
                   ]}
                   onPress={() => toggleStudent(item.id)}
                 >
                   <View style={styles.checkbox}>
                     {isSelected ? (
-                      <Ionicons name="checkbox" size={24} color={COLORS.PRIMARY} />
+                      <Ionicons name="checkbox" size={24} color={colors.primary} />
                     ) : (
-                      <Ionicons name="square-outline" size={24} color={COLORS.GRAY_400} />
+                      <Ionicons name="square-outline" size={24} color={colors.textDisabled} />
                     )}
                   </View>
                   <View style={styles.studentInfo}>
-                    <Text style={styles.studentName}>{item.name}</Text>
-                    <Text style={styles.studentEmail}>{item.email}</Text>
+                    <Text style={[styles.studentName, { color: colors.textPrimary }]}>{item.name}</Text>
+                    <Text style={[styles.studentEmail, { color: colors.textSecondary }]}>{item.email}</Text>
                   </View>
                 </Pressable>
               );
@@ -154,17 +156,18 @@ export default function AddMembersScreen() {
           />
 
           {/* Bottom Button */}
-          <View style={styles.bottomContainer}>
+          <View style={[styles.bottomContainer, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
             <Pressable
               style={[
                 styles.submitButton,
+                { backgroundColor: colors.primary },
                 selectedIds.size === 0 && styles.submitButtonDisabled,
               ]}
               onPress={handleSubmit}
               disabled={selectedIds.size === 0 || isSubmitting}
             >
               {isSubmitting ? (
-                <ActivityIndicator color={COLORS.WHITE} />
+                <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <Text style={styles.submitButtonText}>
                   {selectedIds.size > 0
@@ -183,13 +186,11 @@ export default function AddMembersScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
   },
   header: {
     flexDirection: 'row',
@@ -198,9 +199,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 56,
     paddingBottom: 16,
-    backgroundColor: COLORS.WHITE,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.BORDER,
   },
   backButton: {
     width: 40,
@@ -211,16 +210,13 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
   },
   errorContainer: {
-    backgroundColor: '#FEF2F2',
     margin: 16,
     borderRadius: 16,
     padding: 14,
   },
   errorText: {
-    color: COLORS.ERROR,
     fontSize: 14,
     fontFamily: 'Pretendard-Medium',
   },
@@ -234,13 +230,11 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
     marginTop: 8,
   },
   emptyHint: {
     fontSize: 14,
     fontFamily: 'Pretendard-Regular',
-    color: COLORS.TEXT_SECONDARY,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -250,15 +244,12 @@ const styles = StyleSheet.create({
   studentItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.WHITE,
     borderRadius: 16,
     padding: 16,
     marginBottom: 8,
   },
   studentItemSelected: {
-    backgroundColor: COLORS.PRIMARY_LIGHT,
     borderWidth: 1,
-    borderColor: COLORS.PRIMARY,
   },
   checkbox: {
     marginRight: 12,
@@ -269,22 +260,17 @@ const styles = StyleSheet.create({
   studentName: {
     fontSize: 16,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
   },
   studentEmail: {
     fontSize: 14,
     fontFamily: 'Pretendard-Regular',
-    color: COLORS.TEXT_SECONDARY,
     marginTop: 2,
   },
   bottomContainer: {
     padding: 16,
-    backgroundColor: COLORS.WHITE,
     borderTopWidth: 1,
-    borderTopColor: COLORS.BORDER,
   },
   submitButton: {
-    backgroundColor: COLORS.PRIMARY,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -295,6 +281,6 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontSize: 16,
     fontFamily: 'Pretendard-Bold',
-    color: COLORS.WHITE,
+    color: '#FFFFFF',
   },
 });

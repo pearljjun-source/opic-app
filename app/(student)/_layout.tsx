@@ -1,19 +1,20 @@
 import { Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 
 export default function StudentLayout() {
   const insets = useSafeAreaInsets();
+  const colors = useThemeColors();
 
   const headerOptions = {
     headerShown: true,
-    headerStyle: { backgroundColor: COLORS.BACKGROUND_SECONDARY },
+    headerStyle: { backgroundColor: colors.surfaceSecondary },
     headerShadowVisible: false,
     headerTitleStyle: {
       fontFamily: 'Pretendard-Bold' as const,
       fontSize: 20,
-      color: COLORS.TEXT_PRIMARY,
+      color: colors.textPrimary,
     },
   };
 

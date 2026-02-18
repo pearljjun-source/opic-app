@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, Pressable, LayoutAnimation, Platform, UIManager
 import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 import { estimateOpicLevel, getOpicGradeColor, getTrendDirection } from '@/lib/helpers';
 import { ProgressSummaryCard } from './ProgressSummaryCard';
 import { LearningStatsCard } from './LearningStatsCard';
@@ -25,6 +25,7 @@ interface CompactStatsStripProps {
  * 펼친 상태: 같은 카드 안에서 ProgressSummaryCard + LearningStatsCard 드롭다운
  */
 export function CompactStatsStrip({ stats, currentStreak }: CompactStatsStripProps) {
+  const colors = useThemeColors();
   const [isExpanded, setIsExpanded] = useState(false);
 
   const estimated = estimateOpicLevel(stats.avg_score);
@@ -46,6 +47,7 @@ export function CompactStatsStrip({ stats, currentStreak }: CompactStatsStripPro
       <Pressable
         style={({ pressed }) => [
           styles.card,
+          { backgroundColor: colors.surface, shadowColor: '#000000' },
           pressed && styles.cardPressed,
         ]}
         onPress={toggleExpand}
@@ -59,27 +61,27 @@ export function CompactStatsStrip({ stats, currentStreak }: CompactStatsStripPro
 
           {/* 평균 점수 + 트렌드 */}
           <View style={styles.scoreSection}>
-            <Text style={styles.scoreValue}>{formatScore(stats.avg_score)}</Text>
+            <Text style={[styles.scoreValue, { color: colors.textPrimary }]}>{formatScore(stats.avg_score)}</Text>
             {scoreTrend === 'up' && (
-              <Ionicons name="arrow-up" size={12} color={COLORS.SUCCESS} />
+              <Ionicons name="arrow-up" size={12} color={colors.success} />
             )}
             {scoreTrend === 'down' && (
-              <Ionicons name="arrow-down" size={12} color={COLORS.ERROR} />
+              <Ionicons name="arrow-down" size={12} color={colors.error} />
             )}
           </View>
 
           {/* 구분선 */}
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
           {/* 스트릭 */}
           <View style={styles.streakSection}>
             {currentStreak > 0 ? (
               <>
                 <Text style={styles.fireEmoji}>🔥</Text>
-                <Text style={styles.streakText}>{currentStreak}일</Text>
+                <Text style={[styles.streakText, { color: colors.gray800 }]}>{currentStreak}일</Text>
               </>
             ) : (
-              <Text style={styles.noStreakText}>오늘 시작!</Text>
+              <Text style={[styles.noStreakText, { color: colors.textSecondary }]}>오늘 시작!</Text>
             )}
           </View>
 
@@ -87,13 +89,13 @@ export function CompactStatsStrip({ stats, currentStreak }: CompactStatsStripPro
           <Ionicons
             name={isExpanded ? 'chevron-up' : 'chevron-down'}
             size={16}
-            color={COLORS.TEXT_SECONDARY}
+            color={colors.textSecondary}
           />
         </View>
 
         {/* 펼친 상태: 같은 카드 안에 상세 정보 */}
         {isExpanded && (
-          <View style={styles.expandedContent}>
+          <View style={[styles.expandedContent, { borderTopColor: colors.borderLight }]}>
             <ProgressSummaryCard stats={stats} embedded />
             <LearningStatsCard stats={stats} embedded />
           </View>
@@ -109,9 +111,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   card: {
-    backgroundColor: COLORS.WHITE,
     borderRadius: 12,
-    shadowColor: COLORS.BLACK,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
     shadowRadius: 4,
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
   gradeText: {
     fontSize: 14,
     fontFamily: 'Pretendard-Bold',
-    color: COLORS.WHITE,
+    color: '#FFFFFF',
   },
   scoreSection: {
     flexDirection: 'row',
@@ -146,12 +146,10 @@ const styles = StyleSheet.create({
   scoreValue: {
     fontSize: 15,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
   },
   divider: {
     width: 1,
     height: 20,
-    backgroundColor: COLORS.GRAY_200,
     marginHorizontal: 12,
   },
   streakSection: {
@@ -166,17 +164,14 @@ const styles = StyleSheet.create({
   streakText: {
     fontSize: 14,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.GRAY_800,
   },
   noStreakText: {
     fontSize: 13,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.TEXT_SECONDARY,
   },
   // 펼친 상태
   expandedContent: {
     borderTopWidth: 1,
-    borderTopColor: COLORS.GRAY_100,
     paddingTop: 12,
     paddingBottom: 4,
   },

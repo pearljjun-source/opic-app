@@ -3,9 +3,9 @@ import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS } from '@/lib/constants';
 import { createOrganization } from '@/services/organizations';
 import { useAuth } from '@/hooks/useAuth';
+import { useThemeColors } from '@/hooks/useTheme';
 
 /**
  * 학원 생성 화면
@@ -16,6 +16,7 @@ import { useAuth } from '@/hooks/useAuth';
 export default function CreateAcademyScreen() {
   const router = useRouter();
   const { refreshUser } = useAuth();
+  const colors = useThemeColors();
   const [name, setName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,27 +45,27 @@ export default function CreateAcademyScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.surface }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <Pressable style={styles.backButton} onPress={() => router.back()}>
-        <Ionicons name="arrow-back" size={24} color={COLORS.TEXT_PRIMARY} />
+        <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
       </Pressable>
 
       <View style={styles.content}>
-        <Ionicons name="business" size={56} color={COLORS.PRIMARY} style={styles.icon} />
-        <Text style={styles.title}>학원 만들기</Text>
-        <Text style={styles.subtitle}>
+        <Ionicons name="business" size={56} color={colors.primary} style={styles.icon} />
+        <Text style={[styles.title, { color: colors.textPrimary }]}>학원 만들기</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
           학원을 만들면 원장으로 등록됩니다.{'\n'}
           이후 강사와 학생을 초대할 수 있습니다.
         </Text>
 
         <View style={styles.inputContainer}>
-          <Text style={styles.label}>학원 이름</Text>
+          <Text style={[styles.label, { color: colors.textPrimary }]}>학원 이름</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, color: colors.textPrimary }]}
             placeholder="예: OPIc 영어학원"
-            placeholderTextColor={COLORS.GRAY_400}
+            placeholderTextColor={colors.textDisabled}
             value={name}
             onChangeText={setName}
             maxLength={100}
@@ -73,18 +74,18 @@ export default function CreateAcademyScreen() {
         </View>
 
         {error && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
+          <View style={[styles.errorContainer, { backgroundColor: colors.accentRedBg }]}>
+            <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
           </View>
         )}
 
         <Pressable
-          style={[styles.button, (!name.trim() || isCreating) && styles.buttonDisabled]}
+          style={[styles.button, { backgroundColor: colors.primary }, (!name.trim() || isCreating) && styles.buttonDisabled]}
           onPress={handleCreate}
           disabled={!name.trim() || isCreating}
         >
           {isCreating ? (
-            <ActivityIndicator size="small" color={COLORS.WHITE} />
+            <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
             <Text style={styles.buttonText}>학원 생성</Text>
           )}
@@ -97,7 +98,6 @@ export default function CreateAcademyScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.BACKGROUND,
   },
   backButton: {
     position: 'absolute',
@@ -118,12 +118,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontFamily: 'Pretendard-Bold',
-    color: COLORS.TEXT_PRIMARY,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 32,
@@ -135,34 +133,27 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.TEXT_PRIMARY,
     marginBottom: 8,
   },
   input: {
-    backgroundColor: COLORS.GRAY_50,
     borderWidth: 1,
-    borderColor: COLORS.BORDER,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
     fontFamily: 'Pretendard-Regular',
-    color: COLORS.TEXT_PRIMARY,
   },
   errorContainer: {
-    backgroundColor: '#FEE2E2',
     padding: 12,
     borderRadius: 8,
     marginBottom: 16,
     width: '100%',
   },
   errorText: {
-    color: COLORS.ERROR,
     fontSize: 14,
     textAlign: 'center',
   },
   button: {
-    backgroundColor: COLORS.PRIMARY,
     paddingHorizontal: 48,
     paddingVertical: 16,
     borderRadius: 12,
@@ -173,7 +164,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   buttonText: {
-    color: COLORS.WHITE,
+    color: '#FFFFFF',
     fontFamily: 'Pretendard-SemiBold',
     fontSize: 16,
   },

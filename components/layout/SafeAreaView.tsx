@@ -5,6 +5,8 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
+import { useThemeColors } from '@/hooks/useTheme';
+
 export interface SafeAreaViewProps extends ViewProps {
   children: React.ReactNode;
   edges?: ('top' | 'bottom' | 'left' | 'right')[];
@@ -18,18 +20,21 @@ export const SafeAreaView = forwardRef<View, SafeAreaViewProps>(
       children,
       edges = ['top', 'bottom'],
       className = '',
-      backgroundColor = '#FFFFFF',
+      backgroundColor,
       style,
       ...props
     },
     ref
   ) => {
+    const colors = useThemeColors();
+    const bg = backgroundColor ?? colors.surface;
+
     return (
       <RNSafeAreaView
         ref={ref}
         edges={edges}
         className={`flex-1 ${className}`}
-        style={[{ backgroundColor }, style]}
+        style={[{ backgroundColor: bg }, style]}
         {...props}
       >
         {children}
@@ -53,15 +58,17 @@ export function ScreenContainer({
   children,
   padded = true,
   className = '',
-  backgroundColor = '#FFFFFF',
+  backgroundColor,
   ...props
 }: ScreenContainerProps) {
+  const colors = useThemeColors();
+  const bg = backgroundColor ?? colors.surface;
   const baseClasses = ['flex-1', padded ? 'px-4' : '', className]
     .filter(Boolean)
     .join(' ');
 
   return (
-    <SafeAreaView backgroundColor={backgroundColor}>
+    <SafeAreaView backgroundColor={bg}>
       <View className={baseClasses} {...props}>
         {children}
       </View>

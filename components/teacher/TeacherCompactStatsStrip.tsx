@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, Pressable, LayoutAnimation, Platform, UIManager
 import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 import type { TeacherDashboardStats } from '@/lib/types';
 
 // Android LayoutAnimation 활성화
@@ -21,6 +21,7 @@ interface TeacherCompactStatsStripProps {
  * 펼친 상태: 하나의 카드 안에 4개 지표를 가로 1열로 배치
  */
 export function TeacherCompactStatsStrip({ stats }: TeacherCompactStatsStripProps) {
+  const colors = useThemeColors();
   const [isExpanded, setIsExpanded] = useState(false);
 
   const toggleExpand = () => {
@@ -33,6 +34,7 @@ export function TeacherCompactStatsStrip({ stats }: TeacherCompactStatsStripProp
       <Pressable
         style={({ pressed }) => [
           styles.card,
+          { backgroundColor: colors.surface, shadowColor: '#000000' },
           pressed && styles.cardPressed,
         ]}
         onPress={toggleExpand}
@@ -40,24 +42,25 @@ export function TeacherCompactStatsStrip({ stats }: TeacherCompactStatsStripProp
         {/* 접힌 상태: 가로 1줄 요약 */}
         <View style={styles.strip}>
           <View style={styles.statItem}>
-            <Ionicons name="people" size={14} color={COLORS.PRIMARY} />
-            <Text style={styles.statValue}>{stats.totalStudents}명</Text>
+            <Ionicons name="people" size={14} color={colors.primary} />
+            <Text style={[styles.statValue, { color: colors.textPrimary }]}>{stats.totalStudents}명</Text>
           </View>
 
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
           <View style={styles.statItem}>
-            <Ionicons name="document-text" size={14} color={COLORS.INFO} />
-            <Text style={styles.statValue}>이번주 {stats.thisWeekPractices}회</Text>
+            <Ionicons name="document-text" size={14} color={colors.info} />
+            <Text style={[styles.statValue, { color: colors.textPrimary }]}>이번주 {stats.thisWeekPractices}회</Text>
           </View>
 
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
           <View style={styles.statItem}>
-            <Ionicons name="chatbubble-ellipses" size={14} color={COLORS.SECONDARY} />
+            <Ionicons name="chatbubble-ellipses" size={14} color={colors.secondary} />
             <Text style={[
               styles.statValue,
-              stats.pendingFeedbacks > 0 && styles.statValueHighlight,
+              { color: colors.textPrimary },
+              stats.pendingFeedbacks > 0 && { color: colors.secondary },
             ]}>
               피드백 {stats.pendingFeedbacks}건
             </Text>
@@ -66,7 +69,7 @@ export function TeacherCompactStatsStrip({ stats }: TeacherCompactStatsStripProp
           <Ionicons
             name={isExpanded ? 'chevron-up' : 'chevron-down'}
             size={16}
-            color={COLORS.TEXT_SECONDARY}
+            color={colors.textSecondary}
             style={styles.chevron}
           />
         </View>
@@ -74,40 +77,40 @@ export function TeacherCompactStatsStrip({ stats }: TeacherCompactStatsStripProp
         {/* 펼친 상태: 같은 카드 안에 가로 4열 상세 */}
         {isExpanded && (
           <>
-            <View style={styles.expandDivider} />
+            <View style={[styles.expandDivider, { backgroundColor: colors.borderLight }]} />
             <View style={styles.expandedRow}>
               <View style={styles.expandedItem}>
-                <View style={[styles.iconCircle, { backgroundColor: COLORS.PRIMARY_LIGHT }]}>
-                  <Ionicons name="people-outline" size={18} color={COLORS.PRIMARY} />
+                <View style={[styles.iconCircle, { backgroundColor: colors.primaryLight }]}>
+                  <Ionicons name="people-outline" size={18} color={colors.primary} />
                 </View>
-                <Text style={styles.expandedValue}>{stats.totalStudents}명</Text>
-                <Text style={styles.expandedLabel}>학생</Text>
+                <Text style={[styles.expandedValue, { color: colors.textPrimary }]}>{stats.totalStudents}명</Text>
+                <Text style={[styles.expandedLabel, { color: colors.textSecondary }]}>학생</Text>
               </View>
 
               <View style={styles.expandedItem}>
-                <View style={[styles.iconCircle, { backgroundColor: COLORS.PRIMARY_LIGHT }]}>
-                  <Ionicons name="document-text-outline" size={18} color={COLORS.INFO} />
+                <View style={[styles.iconCircle, { backgroundColor: colors.primaryLight }]}>
+                  <Ionicons name="document-text-outline" size={18} color={colors.info} />
                 </View>
-                <Text style={styles.expandedValue}>{stats.thisWeekPractices}회</Text>
-                <Text style={styles.expandedLabel}>이번주 연습</Text>
+                <Text style={[styles.expandedValue, { color: colors.textPrimary }]}>{stats.thisWeekPractices}회</Text>
+                <Text style={[styles.expandedLabel, { color: colors.textSecondary }]}>이번주 연습</Text>
               </View>
 
               <View style={styles.expandedItem}>
-                <View style={[styles.iconCircle, { backgroundColor: COLORS.SECONDARY_LIGHT }]}>
-                  <Ionicons name="chatbubble-ellipses-outline" size={18} color={COLORS.SECONDARY} />
+                <View style={[styles.iconCircle, { backgroundColor: colors.secondaryLight }]}>
+                  <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.secondary} />
                 </View>
-                <Text style={styles.expandedValue}>{stats.pendingFeedbacks}건</Text>
-                <Text style={styles.expandedLabel}>피드백 대기</Text>
+                <Text style={[styles.expandedValue, { color: colors.textPrimary }]}>{stats.pendingFeedbacks}건</Text>
+                <Text style={[styles.expandedLabel, { color: colors.textSecondary }]}>피드백 대기</Text>
               </View>
 
               <View style={styles.expandedItem}>
-                <View style={[styles.iconCircle, { backgroundColor: COLORS.GRAY_100 }]}>
-                  <Ionicons name="stats-chart-outline" size={18} color={COLORS.SUCCESS} />
+                <View style={[styles.iconCircle, { backgroundColor: colors.borderLight }]}>
+                  <Ionicons name="stats-chart-outline" size={18} color={colors.success} />
                 </View>
-                <Text style={styles.expandedValue}>
+                <Text style={[styles.expandedValue, { color: colors.textPrimary }]}>
                   {stats.avgScore !== null ? `${stats.avgScore}점` : '-'}
                 </Text>
-                <Text style={styles.expandedLabel}>평균 점수</Text>
+                <Text style={[styles.expandedLabel, { color: colors.textSecondary }]}>평균 점수</Text>
               </View>
             </View>
           </>
@@ -123,9 +126,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   card: {
-    backgroundColor: COLORS.WHITE,
     borderRadius: 12,
-    shadowColor: COLORS.BLACK,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
     shadowRadius: 4,
@@ -149,15 +150,10 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 13,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
-  },
-  statValueHighlight: {
-    color: COLORS.SECONDARY,
   },
   divider: {
     width: 1,
     height: 16,
-    backgroundColor: COLORS.GRAY_200,
     marginHorizontal: 10,
   },
   chevron: {
@@ -166,7 +162,6 @@ const styles = StyleSheet.create({
   // 펼친 상태 구분선 + 가로 4열
   expandDivider: {
     height: 1,
-    backgroundColor: COLORS.GRAY_100,
     marginHorizontal: 12,
   },
   expandedRow: {
@@ -189,12 +184,10 @@ const styles = StyleSheet.create({
   expandedValue: {
     fontSize: 16,
     fontFamily: 'Pretendard-Bold',
-    color: COLORS.TEXT_PRIMARY,
     marginBottom: 2,
   },
   expandedLabel: {
     fontSize: 10,
     fontFamily: 'Pretendard-Regular',
-    color: COLORS.TEXT_SECONDARY,
   },
 });

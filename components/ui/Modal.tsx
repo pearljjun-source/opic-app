@@ -15,6 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 import { Button } from './Button';
 
 // ============================================================================
@@ -86,6 +87,7 @@ export const Modal = forwardRef<View, ModalProps>(
   ) => {
     const { width: screenWidth, height: screenHeight } = useWindowDimensions();
     const config = SIZE_CONFIG[size];
+    const colors = useThemeColors();
 
     // 반응형 크기 계산
     const modalWidth = Math.min(screenWidth * config.widthRatio, config.maxWidth);
@@ -118,6 +120,7 @@ export const Modal = forwardRef<View, ModalProps>(
               style={[
                 styles.modalContainer,
                 {
+                  backgroundColor: colors.surface,
                   width: isFullScreen ? '100%' : modalWidth,
                   maxHeight: isFullScreen ? '100%' : modalMaxHeight,
                   borderRadius: isFullScreen ? 0 : 16,
@@ -127,8 +130,8 @@ export const Modal = forwardRef<View, ModalProps>(
             >
               {/* ========== Header (고정) ========== */}
               {(title || showCloseButton) && (
-                <View style={styles.header}>
-                  <Text style={styles.headerTitle} numberOfLines={1}>
+                <View style={[styles.header, { borderBottomColor: colors.borderLight }]}>
+                  <Text style={[styles.headerTitle, { color: colors.textPrimary }]} numberOfLines={1}>
                     {title || ''}
                   </Text>
                   {showCloseButton && (
@@ -139,7 +142,7 @@ export const Modal = forwardRef<View, ModalProps>(
                       accessibilityRole="button"
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                      <Ionicons name="close" size={24} color={COLORS.GRAY_500} />
+                      <Ionicons name="close" size={24} color={colors.textSecondary} />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -161,7 +164,7 @@ export const Modal = forwardRef<View, ModalProps>(
               )}
 
               {/* ========== Footer (고정) ========== */}
-              {footer && <View style={styles.footer}>{footer}</View>}
+              {footer && <View style={[styles.footer, { borderTopColor: colors.borderLight }]}>{footer}</View>}
             </Pressable>
           </Pressable>
         </KeyboardAvoidingView>
@@ -194,6 +197,7 @@ export const ConfirmModal = forwardRef<View, ConfirmModalProps>(
     },
     ref
   ) => {
+    const colors = useThemeColors();
     const handleCancel = () => {
       if (loading) return;
       onCancel?.();
@@ -243,7 +247,7 @@ export const ConfirmModal = forwardRef<View, ConfirmModalProps>(
         scrollable={false}
         {...props}
       >
-        <Text style={styles.confirmMessage}>{message}</Text>
+        <Text style={[styles.confirmMessage, { color: colors.textSecondary }]}>{message}</Text>
       </Modal>
     );
   }
@@ -267,7 +271,6 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   modalContainer: {
-    backgroundColor: 'white',
     overflow: 'hidden', // borderRadius 적용을 위해 필요
   },
   // Header
@@ -278,13 +281,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
     minHeight: 52,
   },
   headerTitle: {
     fontSize: 18,
     fontFamily: 'Pretendard-Bold',
-    color: '#111827',
     flex: 1,
     marginRight: 8,
   },
@@ -306,13 +307,11 @@ const styles = StyleSheet.create({
   // Footer
   footer: {
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
     padding: 16,
   },
   // ConfirmModal specific
   confirmMessage: {
     fontSize: 16,
-    color: '#374151',
     lineHeight: 24,
   },
   confirmFooter: {

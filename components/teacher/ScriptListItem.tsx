@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 
-import { COLORS, QUESTION_TYPE_LABELS } from '@/lib/constants';
+import { QUESTION_TYPE_LABELS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 import type { StudentScriptListItem } from '@/lib/types';
 import { StatusBadge, DifficultyBadge } from '@/components/ui/Badge';
 
@@ -18,6 +19,8 @@ interface ScriptListItemProps {
  * - 연습 통계 표시 (연습 횟수, 최고 점수, 최고 재현율)
  */
 export function ScriptListItem({ script, onPress }: ScriptListItemProps) {
+  const colors = useThemeColors();
+
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString);
     return date.toLocaleDateString('ko-KR', {
@@ -46,7 +49,8 @@ export function ScriptListItem({ script, onPress }: ScriptListItemProps) {
     <Pressable
       style={({ pressed }) => [
         styles.container,
-        pressed && styles.containerPressed,
+        { backgroundColor: colors.surface, shadowColor: '#000000' },
+        pressed && [styles.containerPressed, { backgroundColor: colors.surfaceSecondary }],
       ]}
       onPress={onPress}
     >
@@ -56,7 +60,7 @@ export function ScriptListItem({ script, onPress }: ScriptListItemProps) {
           {script.topic_icon && (
             <Text style={styles.topicIcon}>{script.topic_icon}</Text>
           )}
-          <Text style={styles.topicName}>{script.topic_name_ko}</Text>
+          <Text style={[styles.topicName, { color: colors.textPrimary }]}>{script.topic_name_ko}</Text>
         </View>
         <StatusBadge status={script.status} size="sm" />
       </View>
@@ -64,44 +68,44 @@ export function ScriptListItem({ script, onPress }: ScriptListItemProps) {
       {/* 질문 정보 */}
       <View style={styles.questionContainer}>
         <View style={styles.questionMeta}>
-          <Text style={styles.questionType}>{questionTypeLabel}</Text>
+          <Text style={[styles.questionType, { color: colors.primary }]}>{questionTypeLabel}</Text>
           <DifficultyBadge level={script.difficulty} size="sm" />
         </View>
-        <Text style={styles.questionText} numberOfLines={2}>
+        <Text style={[styles.questionText, { color: colors.textSecondary }]} numberOfLines={2}>
           {script.question_text}
         </Text>
       </View>
 
       {/* 스크립트 미리보기 */}
-      <Text style={styles.contentPreview} numberOfLines={2}>
+      <Text style={[styles.contentPreview, { color: colors.textPrimary, borderTopColor: colors.border }]} numberOfLines={2}>
         {script.content}
       </Text>
 
       {/* 하단: 연습 통계 */}
-      <View style={styles.footer}>
+      <View style={[styles.footer, { borderTopColor: colors.border }]}>
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
-            <Text style={styles.statLabel}>연습</Text>
-            <Text style={styles.statValue}>{script.practices_count}회</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>연습</Text>
+            <Text style={[styles.statValue, { color: colors.textPrimary }]}>{script.practices_count}회</Text>
           </View>
           {script.best_score !== null && (
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>최고점수</Text>
-              <Text style={[styles.statValue, styles.scoreValue]}>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>최고점수</Text>
+              <Text style={[styles.statValue, { color: colors.primary }]}>
                 {script.best_score}점
               </Text>
             </View>
           )}
           {script.best_reproduction_rate !== null && (
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>최고재현율</Text>
-              <Text style={[styles.statValue, styles.rateValue]}>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>최고재현율</Text>
+              <Text style={[styles.statValue, { color: colors.secondary }]}>
                 {script.best_reproduction_rate}%
               </Text>
             </View>
           )}
         </View>
-        <Text style={styles.lastPractice}>
+        <Text style={[styles.lastPractice, { color: colors.textSecondary }]}>
           {formatLastPractice(script.last_practice_at)}
         </Text>
       </View>
@@ -111,11 +115,9 @@ export function ScriptListItem({ script, onPress }: ScriptListItemProps) {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.WHITE,
     borderRadius: 16,
     padding: 14,
     marginBottom: 12,
-    shadowColor: COLORS.BLACK,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -123,7 +125,6 @@ const styles = StyleSheet.create({
   },
   containerPressed: {
     opacity: 0.9,
-    backgroundColor: COLORS.GRAY_50,
   },
   header: {
     flexDirection: 'row',
@@ -142,7 +143,6 @@ const styles = StyleSheet.create({
   topicName: {
     fontSize: 14,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
   },
   questionContainer: {
     marginBottom: 10,
@@ -155,22 +155,18 @@ const styles = StyleSheet.create({
   },
   questionType: {
     fontSize: 12,
-    color: COLORS.PRIMARY,
     fontFamily: 'Pretendard-Medium',
   },
   questionText: {
     fontSize: 13,
-    color: COLORS.TEXT_SECONDARY,
     lineHeight: 18,
   },
   contentPreview: {
     fontSize: 14,
-    color: COLORS.TEXT_PRIMARY,
     lineHeight: 20,
     marginBottom: 12,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: COLORS.BORDER,
   },
   footer: {
     flexDirection: 'row',
@@ -178,7 +174,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: COLORS.BORDER,
   },
   statsRow: {
     flexDirection: 'row',
@@ -191,22 +186,13 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 12,
-    color: COLORS.TEXT_SECONDARY,
   },
   statValue: {
     fontSize: 12,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
-  },
-  scoreValue: {
-    color: COLORS.PRIMARY,
-  },
-  rateValue: {
-    color: COLORS.SECONDARY,
   },
   lastPractice: {
     fontSize: 12,
-    color: COLORS.TEXT_SECONDARY,
   },
 });
 

@@ -9,6 +9,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 
 export interface InputProps extends TextInputProps {
   label?: string;
@@ -40,27 +41,28 @@ export const Input = forwardRef<TextInput, InputProps>(
   ) => {
     const [isFocused, setIsFocused] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const colors = useThemeColors();
 
     const hasError = !!error;
 
     const inputContainerClasses = [
-      'flex-row items-center border rounded-lg px-3 py-3 bg-white',
+      'flex-row items-center border rounded-lg px-3 py-3 bg-white dark:bg-neutral-900',
       isFocused && !hasError ? 'border-primary' : '',
       hasError ? 'border-error' : '',
-      !isFocused && !hasError ? 'border-gray-300' : '',
-      disabled ? 'bg-gray-100 opacity-60' : '',
+      !isFocused && !hasError ? 'border-gray-300 dark:border-neutral-600' : '',
+      disabled ? 'bg-gray-100 dark:bg-neutral-800 opacity-60' : '',
     ]
       .filter(Boolean)
       .join(' ');
 
-    const inputClasses = ['flex-1 text-base text-gray-900', className]
+    const inputClasses = ['flex-1 text-base text-gray-900 dark:text-gray-50', className]
       .filter(Boolean)
       .join(' ');
 
     return (
       <View className={`mb-4 ${containerClassName}`}>
         {label && (
-          <Text className="text-sm font-medium text-gray-700 mb-1.5">
+          <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
             {label}
           </Text>
         )}
@@ -71,7 +73,7 @@ export const Input = forwardRef<TextInput, InputProps>(
           <TextInput
             ref={ref}
             className={inputClasses}
-            placeholderTextColor={COLORS.GRAY_400}
+            placeholderTextColor={colors.textDisabled}
             editable={!disabled}
             secureTextEntry={isPassword && !showPassword}
             onFocus={() => setIsFocused(true)}
@@ -90,7 +92,7 @@ export const Input = forwardRef<TextInput, InputProps>(
               <Ionicons
                 name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                 size={20}
-                color={COLORS.GRAY_500}
+                color={colors.textSecondary}
               />
             </TouchableOpacity>
           )}
@@ -103,7 +105,7 @@ export const Input = forwardRef<TextInput, InputProps>(
         )}
 
         {hint && !error && (
-          <Text className="text-sm text-gray-500 mt-1">{hint}</Text>
+          <Text className="text-sm text-gray-500 dark:text-gray-400 mt-1">{hint}</Text>
         )}
       </View>
     );

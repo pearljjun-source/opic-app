@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 import { getUserMessage } from '@/lib/errors';
 import {
   adminGetSubscriptionStats,
@@ -16,24 +16,26 @@ import {
 } from '@/services/billing';
 import type { SubscriptionStats, SubscriptionPlan, PaymentRecord } from '@/lib/types';
 
-function StatCard({ label, value }: { label: string; value: string | number }) {
-  return (
-    <View style={styles.statCard}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statValue}>{value}</Text>
-    </View>
-  );
-}
-
-const STATUS_LABELS: Record<string, { text: string; color: string }> = {
-  paid: { text: '완료', color: COLORS.SUCCESS },
-  pending: { text: '대기', color: COLORS.WARNING },
-  failed: { text: '실패', color: COLORS.ERROR },
-  refunded: { text: '환불', color: COLORS.GRAY_500 },
-  canceled: { text: '취소', color: COLORS.GRAY_400 },
-};
-
 export default function AdminBillingScreen() {
+  const colors = useThemeColors();
+
+  const STATUS_LABELS: Record<string, { text: string; color: string }> = {
+    paid: { text: '완료', color: colors.success },
+    pending: { text: '대기', color: colors.warning },
+    failed: { text: '실패', color: colors.error },
+    refunded: { text: '환불', color: colors.gray500 },
+    canceled: { text: '취소', color: colors.gray400 },
+  };
+
+  function StatCard({ label, value }: { label: string; value: string | number }) {
+    return (
+      <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{label}</Text>
+        <Text style={[styles.statValue, { color: colors.textPrimary }]}>{value}</Text>
+      </View>
+    );
+  }
+
   const [stats, setStats] = useState<SubscriptionStats | null>(null);
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
@@ -141,24 +143,24 @@ export default function AdminBillingScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+      <View style={[styles.center, { backgroundColor: colors.surfaceSecondary }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}>
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={COLORS.PRIMARY} />
+          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={colors.primary} />
         }
       >
-        {error && <Text style={styles.errorText}>{error}</Text>}
+        {error && <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>}
 
         {/* 구독 통계 */}
-        <Text style={styles.sectionTitle}>구독 통계</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>구독 통계</Text>
         <View style={styles.statRow}>
           <StatCard label="MRR" value={formatCurrency(stats?.mrr ?? 0)} />
           <StatCard label="구독자" value={stats?.total_subscribers ?? 0} />
@@ -169,37 +171,37 @@ export default function AdminBillingScreen() {
         </View>
 
         {/* 플랜 관리 */}
-        <Text style={styles.sectionTitle}>플랜 관리</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>플랜 관리</Text>
         {plans.map((plan) => (
-          <View key={plan.id} style={styles.planCard}>
+          <View key={plan.id} style={[styles.planCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.planHeader}>
-              <Text style={styles.planName}>{plan.name}</Text>
+              <Text style={[styles.planName, { color: colors.textPrimary }]}>{plan.name}</Text>
               <View style={styles.planHeaderRight}>
-                <Text style={styles.planPrice}>{formatCurrency(plan.price_monthly)}/월</Text>
+                <Text style={[styles.planPrice, { color: colors.primary }]}>{formatCurrency(plan.price_monthly)}/월</Text>
                 <Pressable onPress={() => handleOpenEdit(plan)} hitSlop={8}>
-                  <Ionicons name="create-outline" size={18} color={COLORS.PRIMARY} />
+                  <Ionicons name="create-outline" size={18} color={colors.primary} />
                 </Pressable>
               </View>
             </View>
             <View style={styles.planDetails}>
-              <Text style={styles.planDetail}>학생 {plan.max_students}명</Text>
-              <Text style={styles.planDetail}>스크립트 {plan.max_scripts >= 9999 ? '무제한' : `${plan.max_scripts}개`}</Text>
-              {plan.ai_feedback_enabled && <Text style={styles.planDetail}>AI 피드백</Text>}
-              {plan.tts_enabled && <Text style={styles.planDetail}>TTS</Text>}
+              <Text style={[styles.planDetail, { color: colors.textSecondary, backgroundColor: colors.gray100 }]}>학생 {plan.max_students}명</Text>
+              <Text style={[styles.planDetail, { color: colors.textSecondary, backgroundColor: colors.gray100 }]}>스크립트 {plan.max_scripts >= 9999 ? '무제한' : `${plan.max_scripts}개`}</Text>
+              {plan.ai_feedback_enabled && <Text style={[styles.planDetail, { color: colors.textSecondary, backgroundColor: colors.gray100 }]}>AI 피드백</Text>}
+              {plan.tts_enabled && <Text style={[styles.planDetail, { color: colors.textSecondary, backgroundColor: colors.gray100 }]}>TTS</Text>}
             </View>
           </View>
         ))}
 
         {/* 최근 결제 */}
-        <Text style={styles.sectionTitle}>최근 결제</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>최근 결제</Text>
         {payments.map((payment) => {
-          const status = STATUS_LABELS[payment.status] || { text: payment.status, color: COLORS.GRAY_400 };
+          const status = STATUS_LABELS[payment.status] || { text: payment.status, color: colors.gray400 };
           return (
-            <View key={payment.id} style={styles.paymentCard}>
+            <View key={payment.id} style={[styles.paymentCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={styles.paymentMain}>
                 <View>
-                  <Text style={styles.paymentAmount}>{formatCurrency(payment.amount)}</Text>
-                  <Text style={styles.paymentDate}>
+                  <Text style={[styles.paymentAmount, { color: colors.textPrimary }]}>{formatCurrency(payment.amount)}</Text>
+                  <Text style={[styles.paymentDate, { color: colors.gray400 }]}>
                     {new Date(payment.created_at).toLocaleDateString('ko-KR')}
                   </Text>
                 </View>
@@ -208,17 +210,17 @@ export default function AdminBillingScreen() {
                 </View>
               </View>
               {payment.card_last4 && (
-                <Text style={styles.paymentMeta}>**** {payment.card_last4}</Text>
+                <Text style={[styles.paymentMeta, { color: colors.gray400 }]}>**** {payment.card_last4}</Text>
               )}
               {payment.failure_reason && (
-                <Text style={styles.failureText}>{payment.failure_reason}</Text>
+                <Text style={[styles.failureText, { color: colors.error }]}>{payment.failure_reason}</Text>
               )}
             </View>
           );
         })}
         {payments.length === 0 && (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>결제 내역이 없습니다</Text>
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>결제 내역이 없습니다</Text>
           </View>
         )}
       </ScrollView>
@@ -231,101 +233,101 @@ export default function AdminBillingScreen() {
         onRequestClose={() => setEditPlan(null)}
       >
         <KeyboardAvoidingView
-          style={styles.modalOverlay}
+          style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <ScrollView
             contentContainerStyle={styles.modalScrollContent}
             keyboardShouldPersistTaps="handled"
           >
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>플랜 수정</Text>
-              <Text style={styles.modalSubtitle}>
+            <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>플랜 수정</Text>
+              <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
                 {editPlan?.plan_key} 플랜의 설정을 변경합니다.
               </Text>
 
-              <Text style={styles.inputLabel}>플랜 이름</Text>
+              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>플랜 이름</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, color: colors.textPrimary }]}
                 value={editForm.name}
                 onChangeText={(v) => setEditForm(prev => ({ ...prev, name: v }))}
                 placeholder="플랜 이름"
-                placeholderTextColor={COLORS.GRAY_400}
+                placeholderTextColor={colors.textDisabled}
                 maxLength={100}
               />
 
-              <Text style={styles.inputLabel}>월간 가격 (원)</Text>
+              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>월간 가격 (원)</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, color: colors.textPrimary }]}
                 value={editForm.price_monthly}
                 onChangeText={(v) => setEditForm(prev => ({ ...prev, price_monthly: v }))}
                 placeholder="0"
-                placeholderTextColor={COLORS.GRAY_400}
+                placeholderTextColor={colors.textDisabled}
                 keyboardType="number-pad"
               />
 
-              <Text style={styles.inputLabel}>연간 가격 (원)</Text>
+              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>연간 가격 (원)</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, color: colors.textPrimary }]}
                 value={editForm.price_yearly}
                 onChangeText={(v) => setEditForm(prev => ({ ...prev, price_yearly: v }))}
                 placeholder="0"
-                placeholderTextColor={COLORS.GRAY_400}
+                placeholderTextColor={colors.textDisabled}
                 keyboardType="number-pad"
               />
 
-              <Text style={styles.inputLabel}>최대 학생 수</Text>
+              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>최대 학생 수</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, color: colors.textPrimary }]}
                 value={editForm.max_students}
                 onChangeText={(v) => setEditForm(prev => ({ ...prev, max_students: v }))}
                 placeholder="5"
-                placeholderTextColor={COLORS.GRAY_400}
+                placeholderTextColor={colors.textDisabled}
                 keyboardType="number-pad"
               />
 
-              <Text style={styles.inputLabel}>최대 스크립트 수</Text>
+              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>최대 스크립트 수</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, color: colors.textPrimary }]}
                 value={editForm.max_scripts}
                 onChangeText={(v) => setEditForm(prev => ({ ...prev, max_scripts: v }))}
                 placeholder="10"
-                placeholderTextColor={COLORS.GRAY_400}
+                placeholderTextColor={colors.textDisabled}
                 keyboardType="number-pad"
               />
 
               <View style={styles.switchRow}>
-                <Text style={styles.switchLabel}>AI 피드백</Text>
+                <Text style={[styles.switchLabel, { color: colors.textPrimary }]}>AI 피드백</Text>
                 <Switch
                   value={editForm.ai_feedback_enabled}
                   onValueChange={(v) => setEditForm(prev => ({ ...prev, ai_feedback_enabled: v }))}
-                  trackColor={{ false: COLORS.GRAY_200, true: COLORS.PRIMARY }}
+                  trackColor={{ false: colors.gray200, true: colors.primary }}
                 />
               </View>
 
               <View style={styles.switchRow}>
-                <Text style={styles.switchLabel}>TTS</Text>
+                <Text style={[styles.switchLabel, { color: colors.textPrimary }]}>TTS</Text>
                 <Switch
                   value={editForm.tts_enabled}
                   onValueChange={(v) => setEditForm(prev => ({ ...prev, tts_enabled: v }))}
-                  trackColor={{ false: COLORS.GRAY_200, true: COLORS.PRIMARY }}
+                  trackColor={{ false: colors.gray200, true: colors.primary }}
                 />
               </View>
 
               <View style={styles.modalActions}>
                 <Pressable
-                  style={styles.modalCancel}
+                  style={[styles.modalCancel, { backgroundColor: colors.gray100 }]}
                   onPress={() => setEditPlan(null)}
                 >
-                  <Text style={styles.modalCancelText}>취소</Text>
+                  <Text style={[styles.modalCancelText, { color: colors.textSecondary }]}>취소</Text>
                 </Pressable>
                 <Pressable
-                  style={[styles.modalSubmit, isUpdating && styles.modalSubmitDisabled]}
+                  style={[styles.modalSubmit, { backgroundColor: colors.primary }, isUpdating && styles.modalSubmitDisabled]}
                   onPress={handleSavePlan}
                   disabled={isUpdating}
                 >
                   {isUpdating ? (
-                    <ActivityIndicator size="small" color={COLORS.WHITE} />
+                    <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
                     <Text style={styles.modalSubmitText}>저장</Text>
                   )}
@@ -340,85 +342,73 @@ export default function AdminBillingScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.BACKGROUND_SECONDARY },
+  container: { flex: 1 },
   content: { padding: 16, paddingBottom: 40 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.BACKGROUND_SECONDARY },
-  errorText: { color: COLORS.ERROR, fontSize: 14, fontFamily: 'Pretendard-Medium', marginBottom: 12 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  errorText: { fontSize: 14, fontFamily: 'Pretendard-Medium', marginBottom: 12 },
   sectionTitle: {
     fontSize: 16,
     fontFamily: 'Pretendard-Bold',
-    color: COLORS.TEXT_PRIMARY,
     marginTop: 20,
     marginBottom: 12,
   },
   statRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
   statCard: {
     flex: 1,
-    backgroundColor: COLORS.WHITE,
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: COLORS.BORDER,
   },
-  statLabel: { fontSize: 12, fontFamily: 'Pretendard-Medium', color: COLORS.TEXT_SECONDARY, marginBottom: 4 },
-  statValue: { fontSize: 20, fontFamily: 'Pretendard-Bold', color: COLORS.TEXT_PRIMARY },
+  statLabel: { fontSize: 12, fontFamily: 'Pretendard-Medium', marginBottom: 4 },
+  statValue: { fontSize: 20, fontFamily: 'Pretendard-Bold' },
   planCard: {
-    backgroundColor: COLORS.WHITE,
     borderRadius: 12,
     padding: 14,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: COLORS.BORDER,
   },
   planHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   planHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  planName: { fontSize: 15, fontFamily: 'Pretendard-Bold', color: COLORS.TEXT_PRIMARY },
-  planPrice: { fontSize: 14, fontFamily: 'Pretendard-SemiBold', color: COLORS.PRIMARY },
+  planName: { fontSize: 15, fontFamily: 'Pretendard-Bold' },
+  planPrice: { fontSize: 14, fontFamily: 'Pretendard-SemiBold' },
   planDetails: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   planDetail: {
     fontSize: 11,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.TEXT_SECONDARY,
-    backgroundColor: COLORS.GRAY_100,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
   },
   paymentCard: {
-    backgroundColor: COLORS.WHITE,
     borderRadius: 12,
     padding: 14,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: COLORS.BORDER,
   },
   paymentMain: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  paymentAmount: { fontSize: 15, fontFamily: 'Pretendard-Bold', color: COLORS.TEXT_PRIMARY },
-  paymentDate: { fontSize: 11, fontFamily: 'Pretendard-Regular', color: COLORS.GRAY_400, marginTop: 2 },
+  paymentAmount: { fontSize: 15, fontFamily: 'Pretendard-Bold' },
+  paymentDate: { fontSize: 11, fontFamily: 'Pretendard-Regular', marginTop: 2 },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
-  statusText: { fontSize: 10, fontFamily: 'Pretendard-Bold', color: COLORS.WHITE },
-  paymentMeta: { fontSize: 11, fontFamily: 'Pretendard-Regular', color: COLORS.GRAY_400, marginTop: 6 },
-  failureText: { fontSize: 11, fontFamily: 'Pretendard-Regular', color: COLORS.ERROR, marginTop: 4 },
+  statusText: { fontSize: 10, fontFamily: 'Pretendard-Bold', color: '#FFFFFF' },
+  paymentMeta: { fontSize: 11, fontFamily: 'Pretendard-Regular', marginTop: 6 },
+  failureText: { fontSize: 11, fontFamily: 'Pretendard-Regular', marginTop: 4 },
   emptyState: { alignItems: 'center', paddingTop: 40 },
-  emptyText: { fontSize: 14, fontFamily: 'Pretendard-Medium', color: COLORS.TEXT_SECONDARY },
+  emptyText: { fontSize: 14, fontFamily: 'Pretendard-Medium' },
 
   // 모달
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center' },
+  modalOverlay: { flex: 1, justifyContent: 'center' },
   modalScrollContent: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24 },
-  modalContent: { backgroundColor: COLORS.WHITE, borderRadius: 16, padding: 24 },
-  modalTitle: { fontSize: 18, fontFamily: 'Pretendard-Bold', color: COLORS.TEXT_PRIMARY, marginBottom: 4 },
-  modalSubtitle: { fontSize: 14, fontFamily: 'Pretendard-Regular', color: COLORS.TEXT_SECONDARY, marginBottom: 16 },
-  inputLabel: { fontSize: 13, fontFamily: 'Pretendard-Medium', color: COLORS.TEXT_PRIMARY, marginBottom: 6, marginTop: 12 },
+  modalContent: { borderRadius: 16, padding: 24 },
+  modalTitle: { fontSize: 18, fontFamily: 'Pretendard-Bold', marginBottom: 4 },
+  modalSubtitle: { fontSize: 14, fontFamily: 'Pretendard-Regular', marginBottom: 16 },
+  inputLabel: { fontSize: 13, fontFamily: 'Pretendard-Medium', marginBottom: 6, marginTop: 12 },
   input: {
-    backgroundColor: COLORS.GRAY_50,
     borderWidth: 1,
-    borderColor: COLORS.BORDER,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
     fontFamily: 'Pretendard-Regular',
-    color: COLORS.TEXT_PRIMARY,
   },
   switchRow: {
     flexDirection: 'row',
@@ -427,11 +417,11 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingVertical: 4,
   },
-  switchLabel: { fontSize: 14, fontFamily: 'Pretendard-Medium', color: COLORS.TEXT_PRIMARY },
+  switchLabel: { fontSize: 14, fontFamily: 'Pretendard-Medium' },
   modalActions: { flexDirection: 'row', gap: 12, marginTop: 24 },
-  modalCancel: { flex: 1, paddingVertical: 14, borderRadius: 10, alignItems: 'center', backgroundColor: COLORS.GRAY_100 },
-  modalCancelText: { fontSize: 15, fontFamily: 'Pretendard-Medium', color: COLORS.TEXT_SECONDARY },
-  modalSubmit: { flex: 1, paddingVertical: 14, borderRadius: 10, alignItems: 'center', backgroundColor: COLORS.PRIMARY },
+  modalCancel: { flex: 1, paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
+  modalCancelText: { fontSize: 15, fontFamily: 'Pretendard-Medium' },
+  modalSubmit: { flex: 1, paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
   modalSubmitDisabled: { opacity: 0.5 },
-  modalSubmitText: { fontSize: 15, fontFamily: 'Pretendard-SemiBold', color: COLORS.WHITE },
+  modalSubmitText: { fontSize: 15, fontFamily: 'Pretendard-SemiBold', color: '#FFFFFF' },
 });

@@ -3,13 +3,15 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState, useEffect, useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS, TOPIC_CATEGORY_LABELS } from '@/lib/constants';
+import { TOPIC_CATEGORY_LABELS } from '@/lib/constants';
 import { getTopics, TopicListItem } from '@/services/scripts';
 import { getStudentTopicsWithProgress } from '@/services/topics';
 import { getUserMessage } from '@/lib/errors';
 import type { TopicCategory } from '@/lib/types';
+import { useThemeColors } from '@/hooks/useTheme';
 
 export default function SelectTopicScreen() {
+  const colors = useThemeColors();
   const { studentId } = useLocalSearchParams<{ studentId: string }>();
   const [topics, setTopics] = useState<TopicListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -83,18 +85,18 @@ export default function SelectTopicScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={COLORS.PRIMARY} />
-        <Text style={styles.loadingText}>토픽 불러오는 중...</Text>
+      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>토픽 불러오는 중...</Text>
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>{error}</Text>
-        <Pressable style={styles.retryButton} onPress={() => router.back()}>
+      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+        <Pressable style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={() => router.back()}>
           <Text style={styles.retryButtonText}>뒤로 가기</Text>
         </Pressable>
       </View>
@@ -102,7 +104,7 @@ export default function SelectTopicScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}>
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={styles.listContent}
@@ -110,26 +112,27 @@ export default function SelectTopicScreen() {
       >
         {groupedTopics.map((group) => (
           <View key={group.category} style={styles.categorySection}>
-            <Text style={styles.categoryTitle}>{group.label}</Text>
+            <Text style={[styles.categoryTitle, { color: colors.textPrimary }]}>{group.label}</Text>
             {group.topics.map((item) => (
               <Pressable
                 key={item.id}
                 style={({ pressed }) => [
                   styles.topicCard,
+                  { backgroundColor: colors.surface, shadowColor: '#000000' },
                   pressed ? styles.topicCardPressed : null,
                 ]}
                 onPress={() => handleSelectTopic(item.id)}
               >
-                <View style={styles.iconContainer}>
+                <View style={[styles.iconContainer, { backgroundColor: colors.primaryLight }]}>
                   <Ionicons
                     name={(item.icon as keyof typeof Ionicons.glyphMap) || 'document-text-outline'}
                     size={24}
-                    color={COLORS.PRIMARY}
+                    color={colors.primary}
                   />
                 </View>
                 <View style={styles.topicInfo}>
-                  <Text style={styles.topicName}>{item.name_ko}</Text>
-                  <Text style={styles.topicNameEn}>{item.name_en}</Text>
+                  <Text style={[styles.topicName, { color: colors.textPrimary }]}>{item.name_ko}</Text>
+                  <Text style={[styles.topicNameEn, { color: colors.textSecondary }]}>{item.name_en}</Text>
                 </View>
               </Pressable>
             ))}
@@ -143,37 +146,32 @@ export default function SelectTopicScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
     padding: 16,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
     padding: 16,
   },
   loadingText: {
     marginTop: 12,
     fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
   },
   errorText: {
     fontSize: 16,
-    color: COLORS.ERROR,
     textAlign: 'center',
     marginBottom: 16,
   },
   retryButton: {
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: COLORS.PRIMARY,
     borderRadius: 12,
   },
   retryButtonText: {
     fontSize: 14,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.WHITE,
+    color: '#FFFFFF',
   },
   listContent: {
     paddingBottom: 16,
@@ -184,17 +182,14 @@ const styles = StyleSheet.create({
   categoryTitle: {
     fontSize: 15,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
     marginBottom: 10,
   },
   topicCard: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: COLORS.WHITE,
     borderRadius: 16,
     marginBottom: 12,
-    shadowColor: COLORS.BLACK,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -207,7 +202,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: COLORS.PRIMARY_LIGHT,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -218,11 +212,9 @@ const styles = StyleSheet.create({
   topicName: {
     fontSize: 16,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
     marginBottom: 2,
   },
   topicNameEn: {
     fontSize: 13,
-    color: COLORS.TEXT_SECONDARY,
   },
 });

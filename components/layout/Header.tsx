@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 import { useSafeInsets } from './SafeAreaView';
 
 export interface HeaderProps {
@@ -26,6 +27,7 @@ export function Header({
 }: HeaderProps) {
   const router = useRouter();
   const insets = useSafeInsets();
+  const colors = useThemeColors();
 
   const handleBack = () => {
     if (onBack) {
@@ -37,7 +39,7 @@ export function Header({
 
   const containerClasses = [
     'flex-row items-center justify-between px-4 py-3',
-    transparent ? '' : 'bg-white border-b border-gray-100',
+    transparent ? '' : 'bg-white dark:bg-neutral-900 border-b border-gray-100 dark:border-neutral-800',
     className,
   ]
     .filter(Boolean)
@@ -54,7 +56,7 @@ export function Header({
             accessibilityLabel="뒤로 가기"
             accessibilityRole="button"
           >
-            <Ionicons name="chevron-back" size={28} color={COLORS.GRAY_900} />
+            <Ionicons name="chevron-back" size={28} color={colors.textPrimary} />
           </TouchableOpacity>
         )}
         {leftComponent}
@@ -64,7 +66,7 @@ export function Header({
       <View className="flex-1 items-center">
         {title && (
           <Text
-            className="text-lg font-bold text-gray-900"
+            className="text-lg font-bold text-gray-900 dark:text-gray-50"
             numberOfLines={1}
           >
             {title}
@@ -92,9 +94,9 @@ export function SimpleHeader({
 }) {
   return (
     <View
-      className={`flex-row items-center justify-between px-4 py-3 bg-white border-b border-gray-100 ${className}`}
+      className={`flex-row items-center justify-between px-4 py-3 bg-white dark:bg-neutral-900 border-b border-gray-100 dark:border-neutral-800 ${className}`}
     >
-      <Text className="text-xl font-bold text-gray-900">{title}</Text>
+      <Text className="text-xl font-bold text-gray-900 dark:text-gray-50">{title}</Text>
       {rightComponent}
     </View>
   );
@@ -113,12 +115,12 @@ export function LargeHeader({
   className?: string;
 }) {
   return (
-    <View className={`px-4 py-4 bg-white ${className}`}>
+    <View className={`px-4 py-4 bg-white dark:bg-neutral-900 ${className}`}>
       <View className="flex-row items-start justify-between">
         <View className="flex-1">
-          <Text className="text-2xl font-bold text-gray-900">{title}</Text>
+          <Text className="text-2xl font-bold text-gray-900 dark:text-gray-50">{title}</Text>
           {subtitle && (
-            <Text className="text-base text-gray-500 mt-1">{subtitle}</Text>
+            <Text className="text-base text-gray-500 dark:text-gray-400 mt-1">{subtitle}</Text>
           )}
         </View>
         {rightComponent}
@@ -139,6 +141,7 @@ export function HeaderButton({
   badge?: number;
   accessibilityLabel: string;
 }) {
+  const colors = useThemeColors();
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -146,7 +149,7 @@ export function HeaderButton({
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
     >
-      <Ionicons name={icon} size={24} color={COLORS.GRAY_700} />
+      <Ionicons name={icon} size={24} color={colors.textSecondary} />
       {badge !== undefined && badge > 0 && (
         <View className="absolute -top-0.5 -right-0.5 bg-error rounded-full min-w-[18px] h-[18px] items-center justify-center px-1">
           <Text className="text-white text-xs font-bold">

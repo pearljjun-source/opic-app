@@ -3,7 +3,7 @@ import { View, Text, ActivityIndicator } from 'react-native';
 import { Redirect } from 'expo-router';
 
 import { useAuth } from '@/hooks/useAuth';
-import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 import { canTeach } from '@/lib/permissions';
 import type { OrgRole, PlatformRole } from '@/lib/types';
 
@@ -43,13 +43,14 @@ export function RoleGuard({
   redirectTo,
 }: RoleGuardProps) {
   const { isAuthenticated, isLoading, orgRole, platformRole, role } = useAuth();
+  const colors = useThemeColors();
 
   if (isLoading) {
     return (
       fallback || (
-        <View className="flex-1 justify-center items-center bg-white">
-          <ActivityIndicator size="large" color={COLORS.PRIMARY} />
-          <Text className="text-gray-500 mt-4">로딩 중...</Text>
+        <View className="flex-1 justify-center items-center bg-white dark:bg-neutral-900">
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text className="text-gray-500 dark:text-gray-400 mt-4">로딩 중...</Text>
         </View>
       )
     );

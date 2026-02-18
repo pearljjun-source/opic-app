@@ -2,7 +2,8 @@ import { View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator } from 
 import { useState, useCallback } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS, OPIC_GRADES } from '@/lib/constants';
+import { OPIC_GRADES } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 import { updateStudentNotes } from '@/services/students';
 import { getUserMessage } from '@/lib/errors';
 import type { OpicGrade } from '@/lib/types';
@@ -28,6 +29,7 @@ export function StudentNotes({
   initialTargetGrade,
   onSaved,
 }: StudentNotesProps) {
+  const colors = useThemeColors();
   const [notes, setNotes] = useState(initialNotes ?? '');
   const [targetGrade, setTargetGrade] = useState<OpicGrade | null>(initialTargetGrade);
   const [isSaving, setIsSaving] = useState(false);
@@ -60,20 +62,28 @@ export function StudentNotes({
   }, [studentId, notes, targetGrade, hasChanges, isSaving, onSaved]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.surface, shadowColor: '#000000' }]}>
       {/* 목표 등급 선택 */}
-      <Text style={styles.sectionTitle}>목표 등급</Text>
+      <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>목표 등급</Text>
       <View style={styles.gradeRow}>
         {OPIC_GRADES.map((grade) => {
           const isSelected = targetGrade === grade;
           return (
             <Pressable
               key={grade}
-              style={[styles.gradeChip, isSelected && styles.gradeChipSelected]}
+              style={[
+                styles.gradeChip,
+                { backgroundColor: colors.borderLight },
+                isSelected && { backgroundColor: colors.primary },
+              ]}
               onPress={() => setTargetGrade(isSelected ? null : (grade as OpicGrade))}
             >
               <Text
-                style={[styles.gradeChipText, isSelected && styles.gradeChipTextSelected]}
+                style={[
+                  styles.gradeChipText,
+                  { color: colors.textSecondary },
+                  isSelected && { color: '#FFFFFF' },
+                ]}
               >
                 {grade}
               </Text>
@@ -83,18 +93,18 @@ export function StudentNotes({
       </View>
 
       {/* 메모 입력 */}
-      <Text style={styles.sectionTitle}>메모</Text>
+      <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>메모</Text>
       <TextInput
-        style={styles.textInput}
+        style={[styles.textInput, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, color: colors.textPrimary }]}
         value={notes}
         onChangeText={setNotes}
         placeholder="학생에 대한 메모를 입력하세요"
-        placeholderTextColor={COLORS.GRAY_400}
+        placeholderTextColor={colors.gray400}
         multiline
         maxLength={2000}
         textAlignVertical="top"
       />
-      <Text style={styles.charCount}>{notes.length}/2000</Text>
+      <Text style={[styles.charCount, { color: colors.gray400 }]}>{notes.length}/2000</Text>
 
       {/* 저장 버튼 + 상태 메시지 */}
       <View style={styles.footer}>
@@ -102,22 +112,22 @@ export function StudentNotes({
           <Text
             style={[
               styles.saveMessage,
-              { color: saveMessage === '저장 완료' ? COLORS.SUCCESS : COLORS.ERROR },
+              { color: saveMessage === '저장 완료' ? colors.success : colors.error },
             ]}
           >
             {saveMessage}
           </Text>
         )}
         <Pressable
-          style={[styles.saveButton, (!hasChanges || isSaving) && styles.saveButtonDisabled]}
+          style={[styles.saveButton, { backgroundColor: colors.primary }, (!hasChanges || isSaving) && styles.saveButtonDisabled]}
           onPress={handleSave}
           disabled={!hasChanges || isSaving}
         >
           {isSaving ? (
-            <ActivityIndicator size="small" color={COLORS.WHITE} />
+            <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
             <>
-              <Ionicons name="save-outline" size={16} color={COLORS.WHITE} />
+              <Ionicons name="save-outline" size={16} color="#FFFFFF" />
               <Text style={styles.saveButtonText}>저장</Text>
             </>
           )}
@@ -129,11 +139,9 @@ export function StudentNotes({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.WHITE,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
-    shadowColor: COLORS.BLACK,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -142,7 +150,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
     marginBottom: 8,
   },
   gradeRow: {
@@ -155,34 +162,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: COLORS.GRAY_100,
-  },
-  gradeChipSelected: {
-    backgroundColor: COLORS.PRIMARY,
   },
   gradeChipText: {
     fontSize: 13,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.TEXT_SECONDARY,
-  },
-  gradeChipTextSelected: {
-    color: COLORS.WHITE,
   },
   textInput: {
-    backgroundColor: COLORS.GRAY_50,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: COLORS.BORDER,
     padding: 12,
     fontSize: 14,
     fontFamily: 'Pretendard-Regular',
-    color: COLORS.TEXT_PRIMARY,
     minHeight: 100,
   },
   charCount: {
     fontSize: 11,
     fontFamily: 'Pretendard-Regular',
-    color: COLORS.GRAY_400,
     textAlign: 'right',
     marginTop: 4,
     marginBottom: 12,
@@ -201,7 +196,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: COLORS.PRIMARY,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 10,
@@ -212,6 +206,6 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 14,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.WHITE,
+    color: '#FFFFFF',
   },
 });

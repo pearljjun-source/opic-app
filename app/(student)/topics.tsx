@@ -11,12 +11,14 @@ import { useState, useEffect, useMemo } from 'react';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS, TOPIC_CATEGORY_LABELS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
+import { TOPIC_CATEGORY_LABELS } from '@/lib/constants';
 import { supabase } from '@/lib/supabase';
 import { getTopics, TopicListItem } from '@/services/scripts';
 import type { TopicCategory } from '@/lib/types';
 
 export default function TopicsScreen() {
+  const colors = useThemeColors();
   const [allTopics, setAllTopics] = useState<TopicListItem[]>([]);
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -120,17 +122,17 @@ export default function TopicsScreen() {
   if (isLoading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.subtitle}>
+    <View style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
         Background Survey에서 선택한 토픽을 설정하세요.
       </Text>
-      <Text style={styles.selectedCount}>
+      <Text style={[styles.selectedCount, { color: colors.primary }]}>
         {selectedTopics.length}개 선택됨
       </Text>
 
@@ -141,36 +143,40 @@ export default function TopicsScreen() {
       >
         {groupedTopics.map((group) => (
           <View key={group.category} style={styles.categorySection}>
-            <Text style={styles.categoryTitle}>{group.label} ({group.topics.length})</Text>
+            <Text style={[styles.categoryTitle, { color: colors.textPrimary }]}>{group.label} ({group.topics.length})</Text>
             <View style={styles.topicGrid}>
               {group.topics.map((item) => {
                 const isSelected = selectedTopics.includes(item.id);
                 return (
                   <Pressable
                     key={item.id}
-                    style={[styles.topicCard, isSelected && styles.topicCardSelected]}
+                    style={[
+                      styles.topicCard,
+                      { backgroundColor: colors.surface },
+                      isSelected && { backgroundColor: colors.primary + '10', borderColor: colors.primary },
+                    ]}
                     onPress={() => toggleTopic(item.id)}
                   >
                     {isSelected && (
-                      <View style={styles.checkBadge}>
-                        <Ionicons name="checkmark" size={14} color={COLORS.WHITE} />
+                      <View style={[styles.checkBadge, { backgroundColor: colors.primary }]}>
+                        <Ionicons name="checkmark" size={14} color="#FFFFFF" />
                       </View>
                     )}
-                    <View style={styles.iconContainer}>
+                    <View style={[styles.iconContainer, { backgroundColor: colors.borderLight }]}>
                       <Ionicons
                         name={
                           (item.icon as keyof typeof Ionicons.glyphMap) ||
                           'document-text-outline'
                         }
                         size={24}
-                        color={isSelected ? COLORS.PRIMARY : COLORS.GRAY_500}
+                        color={isSelected ? colors.primary : colors.textSecondary}
                       />
                     </View>
-                    <Text style={[styles.topicName, isSelected && styles.topicNameSelected]}>
+                    <Text style={[styles.topicName, { color: colors.textPrimary }, isSelected && { color: colors.primary }]}>
                       {item.name_ko}
                     </Text>
                     {item.name_en && (
-                      <Text style={styles.topicNameEn}>{item.name_en}</Text>
+                      <Text style={[styles.topicNameEn, { color: colors.textDisabled }]}>{item.name_en}</Text>
                     )}
                   </Pressable>
                 );
@@ -181,12 +187,12 @@ export default function TopicsScreen() {
       </ScrollView>
 
       <Pressable
-        style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+        style={[styles.saveButton, { backgroundColor: colors.primary }, isSaving && styles.saveButtonDisabled]}
         onPress={handleSave}
         disabled={isSaving}
       >
         {isSaving ? (
-          <ActivityIndicator color={COLORS.WHITE} size="small" />
+          <ActivityIndicator color="#FFFFFF" size="small" />
         ) : (
           <Text style={styles.saveButtonText}>저장</Text>
         )}
@@ -198,7 +204,6 @@ export default function TopicsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
     padding: 16,
   },
   centerContainer: {
@@ -208,13 +213,11 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
     marginTop: 4,
     marginBottom: 4,
   },
   selectedCount: {
     fontSize: 13,
-    color: COLORS.PRIMARY,
     fontFamily: 'Pretendard-SemiBold',
     marginBottom: 16,
   },
@@ -227,7 +230,6 @@ const styles = StyleSheet.create({
   categoryTitle: {
     fontSize: 15,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
     marginBottom: 10,
   },
   topicGrid: {
@@ -238,15 +240,10 @@ const styles = StyleSheet.create({
   topicCard: {
     width: '48%',
     padding: 16,
-    backgroundColor: COLORS.WHITE,
     borderRadius: 16,
     alignItems: 'center',
     borderWidth: 2,
     borderColor: 'transparent',
-  },
-  topicCardSelected: {
-    backgroundColor: COLORS.PRIMARY + '10',
-    borderColor: COLORS.PRIMARY,
   },
   checkBadge: {
     position: 'absolute',
@@ -255,7 +252,6 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: COLORS.PRIMARY,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -263,7 +259,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: COLORS.GRAY_100,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
@@ -271,20 +266,14 @@ const styles = StyleSheet.create({
   topicName: {
     fontSize: 14,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
     textAlign: 'center',
-  },
-  topicNameSelected: {
-    color: COLORS.PRIMARY,
   },
   topicNameEn: {
     fontSize: 11,
-    color: COLORS.GRAY_400,
     marginTop: 2,
     textAlign: 'center',
   },
   saveButton: {
-    backgroundColor: COLORS.PRIMARY,
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -293,7 +282,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   saveButtonText: {
-    color: COLORS.WHITE,
+    color: '#FFFFFF',
     fontFamily: 'Pretendard-SemiBold',
     fontSize: 16,
   },

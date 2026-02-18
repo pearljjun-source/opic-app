@@ -4,14 +4,15 @@ import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS } from '@/lib/constants';
 import { computeTeacherDashboardStats, computeAttentionItems } from '@/lib/helpers';
 import { getConnectedStudents } from '@/services/students';
 import { StudentCard, AttentionSection, TeacherCompactStatsStrip } from '@/components/teacher';
 import type { TeacherStudentListItem } from '@/lib/types';
 import { getUserMessage } from '@/lib/errors';
+import { useThemeColors } from '@/hooks/useTheme';
 
 export default function TeacherDashboard() {
+  const colors = useThemeColors();
   const [students, setStudents] = useState<TeacherStudentListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,17 +64,17 @@ export default function TeacherDashboard() {
 
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>{error}</Text>
-        <Pressable style={styles.retryButton} onPress={fetchStudents}>
+      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+        <Pressable style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={fetchStudents}>
           <Text style={styles.retryButtonText}>다시 시도</Text>
         </Pressable>
       </View>
@@ -82,15 +83,15 @@ export default function TeacherDashboard() {
 
   if (students.length === 0) {
     return (
-      <View style={styles.emptyContainer}>
-        <Ionicons name="people-outline" size={48} color={COLORS.GRAY_300} />
-        <Text style={styles.emptyTitle}>연결된 학생이 없습니다</Text>
-        <Text style={styles.emptyHint}>
+      <View style={[styles.emptyContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <Ionicons name="people-outline" size={48} color={colors.gray300} />
+        <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>연결된 학생이 없습니다</Text>
+        <Text style={[styles.emptyHint, { color: colors.textSecondary }]}>
           초대 탭에서 초대 코드를 생성하여{'\n'}
           학생들을 초대하세요.
         </Text>
         <Pressable
-          style={styles.actionButton}
+          style={[styles.actionButton, { backgroundColor: colors.primary }]}
           onPress={() => router.push('/invite')}
         >
           <Text style={styles.actionButtonText}>학생 초대하기</Text>
@@ -104,7 +105,7 @@ export default function TeacherDashboard() {
 
   return (
     <ScrollView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
       refreshControl={
@@ -121,13 +122,13 @@ export default function TeacherDashboard() {
       />
 
       {/* 학생 카드 목록 */}
-      <View style={styles.studentListHeader}>
+      <View style={[styles.studentListHeader, { borderTopColor: colors.border }]}>
         <View style={styles.sectionTitleRow}>
-          <Ionicons name="people" size={16} color={COLORS.PRIMARY} />
-          <Text style={styles.sectionTitle}>전체 학생</Text>
+          <Ionicons name="people" size={16} color={colors.primary} />
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>전체 학생</Text>
         </View>
-        <View style={styles.sectionCountBadge}>
-          <Text style={styles.sectionCount}>{students.length}명</Text>
+        <View style={[styles.sectionCountBadge, { backgroundColor: colors.borderLight }]}>
+          <Text style={[styles.sectionCount, { color: colors.textSecondary }]}>{students.length}명</Text>
         </View>
       </View>
       {students.map((item) => (
@@ -145,31 +146,27 @@ export default function TeacherDashboard() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
   },
   errorText: {
     fontSize: 16,
-    color: COLORS.ERROR,
     textAlign: 'center',
     marginBottom: 16,
   },
   retryButton: {
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: COLORS.PRIMARY,
     borderRadius: 12,
   },
   retryButtonText: {
     fontSize: 14,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.WHITE,
+    color: '#FFFFFF',
   },
   emptyContainer: {
     flex: 1,
@@ -177,32 +174,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 32,
     gap: 8,
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
   },
   emptyTitle: {
     fontSize: 16,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
     marginTop: 8,
   },
   emptyHint: {
     fontSize: 14,
     fontFamily: 'Pretendard-Regular',
-    color: COLORS.TEXT_SECONDARY,
     textAlign: 'center',
     lineHeight: 22,
   },
   actionButton: {
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: COLORS.PRIMARY,
     borderRadius: 12,
     marginTop: 8,
   },
   actionButtonText: {
     fontSize: 14,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.WHITE,
+    color: '#FFFFFF',
   },
   scrollContent: {
     paddingTop: 8,
@@ -217,7 +210,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: COLORS.GRAY_200,
   },
   sectionTitleRow: {
     flexDirection: 'row',
@@ -227,11 +219,9 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontFamily: 'Pretendard-Bold',
-    color: COLORS.TEXT_SECONDARY,
     letterSpacing: 0.5,
   },
   sectionCountBadge: {
-    backgroundColor: COLORS.GRAY_100,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
@@ -239,7 +229,6 @@ const styles = StyleSheet.create({
   sectionCount: {
     fontSize: 12,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_SECONDARY,
   },
   studentCardWrapper: {
     marginHorizontal: 16,

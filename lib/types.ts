@@ -438,8 +438,10 @@ export interface AdminDashboardStats {
   total_users: number;
   total_teachers: number;
   total_students: number;
-  active_7d: number;
-  active_30d: number;
+  total_practices: number;
+  total_scripts: number;
+  active_users_7d: number;
+  active_users_30d: number;
   total_subscribers: number;
   mrr: number;
 }
@@ -451,7 +453,7 @@ export interface AdminUserListItem {
   name: string;
   role: UserRole;
   created_at: string;
-  last_sign_in: string | null;
+  push_token: boolean;
   subscription_plan: string | null;
   subscription_status: string | null;
 }
@@ -512,7 +514,11 @@ export interface AdminOrgSubscription {
   id: string;
   status: string;
   plan_name: string;
+  plan_key: string;
+  plan_id: string;
   current_period_end: string;
+  cancel_at_period_end: boolean;
+  canceled_at: string | null;
 }
 
 // ============================================================================

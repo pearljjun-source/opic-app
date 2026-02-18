@@ -16,9 +16,9 @@ export interface PressableCardProps extends Omit<TouchableOpacityProps, 'childre
 }
 
 const variantClasses: Record<CardVariant, string> = {
-  default: 'bg-white rounded-xl p-4',
-  elevated: 'bg-white rounded-xl p-4',
-  outlined: 'bg-white rounded-xl p-4 border border-gray-200',
+  default: 'bg-white dark:bg-neutral-900 rounded-xl p-4',
+  elevated: 'bg-white dark:bg-neutral-900 rounded-xl p-4',
+  outlined: 'bg-white dark:bg-neutral-900 rounded-xl p-4 border border-gray-200 dark:border-neutral-700',
 };
 
 // React Native 그림자 스타일 (iOS + Android)
@@ -100,7 +100,7 @@ CardContent.displayName = 'CardContent';
 
 export const CardFooter = forwardRef<View, ViewProps & { className?: string }>(
   ({ className = '', children, ...props }, ref) => (
-    <View ref={ref} className={`mt-3 pt-3 border-t border-gray-100 ${className}`} {...props}>
+    <View ref={ref} className={`mt-3 pt-3 border-t border-gray-100 dark:border-neutral-800 ${className}`} {...props}>
       {children}
     </View>
   )

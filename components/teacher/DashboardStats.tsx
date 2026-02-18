@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 import type { TeacherDashboardStats } from '@/lib/types';
 
 interface DashboardStatsProps {
@@ -10,8 +10,8 @@ interface DashboardStatsProps {
 
 interface StatCardData {
   icon: keyof typeof Ionicons.glyphMap;
-  iconColor: string;
-  iconBg: string;
+  iconColorKey: 'primary' | 'info' | 'secondary' | 'success';
+  iconBgKey: 'primaryLight' | 'secondaryLight' | 'surfaceSecondary';
   value: string;
   label: string;
 }
@@ -23,32 +23,34 @@ interface StatCardData {
  * 2x2 그리드 레이아웃
  */
 export function DashboardStats({ stats }: DashboardStatsProps) {
+  const colors = useThemeColors();
+
   const cards: StatCardData[] = [
     {
       icon: 'people-outline',
-      iconColor: COLORS.PRIMARY,
-      iconBg: COLORS.PRIMARY_LIGHT,
+      iconColorKey: 'primary',
+      iconBgKey: 'primaryLight',
       value: `${stats.totalStudents}명`,
       label: '학생',
     },
     {
       icon: 'document-text-outline',
-      iconColor: COLORS.INFO,
-      iconBg: COLORS.PRIMARY_LIGHT,
+      iconColorKey: 'info',
+      iconBgKey: 'primaryLight',
       value: `${stats.thisWeekPractices}회`,
       label: '이번주 연습',
     },
     {
       icon: 'chatbubble-ellipses-outline',
-      iconColor: COLORS.SECONDARY,
-      iconBg: COLORS.SECONDARY_LIGHT,
+      iconColorKey: 'secondary',
+      iconBgKey: 'secondaryLight',
       value: `${stats.pendingFeedbacks}건`,
       label: '피드백 대기',
     },
     {
       icon: 'stats-chart-outline',
-      iconColor: COLORS.SUCCESS,
-      iconBg: COLORS.GRAY_50,
+      iconColorKey: 'success',
+      iconBgKey: 'surfaceSecondary',
       value: stats.avgScore !== null ? `${stats.avgScore}점` : '-',
       label: '평균 점수',
     },
@@ -58,23 +60,23 @@ export function DashboardStats({ stats }: DashboardStatsProps) {
     <View style={styles.container}>
       <View style={styles.row}>
         {cards.slice(0, 2).map((card) => (
-          <View key={card.label} style={styles.card}>
-            <View style={[styles.iconContainer, { backgroundColor: card.iconBg }]}>
-              <Ionicons name={card.icon} size={20} color={card.iconColor} />
+          <View key={card.label} style={[styles.card, { backgroundColor: colors.surface, shadowColor: '#000000' }]}>
+            <View style={[styles.iconContainer, { backgroundColor: colors[card.iconBgKey] }]}>
+              <Ionicons name={card.icon} size={20} color={colors[card.iconColorKey]} />
             </View>
-            <Text style={styles.value}>{card.value}</Text>
-            <Text style={styles.label}>{card.label}</Text>
+            <Text style={[styles.value, { color: colors.textPrimary }]}>{card.value}</Text>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>{card.label}</Text>
           </View>
         ))}
       </View>
       <View style={styles.row}>
         {cards.slice(2, 4).map((card) => (
-          <View key={card.label} style={styles.card}>
-            <View style={[styles.iconContainer, { backgroundColor: card.iconBg }]}>
-              <Ionicons name={card.icon} size={20} color={card.iconColor} />
+          <View key={card.label} style={[styles.card, { backgroundColor: colors.surface, shadowColor: '#000000' }]}>
+            <View style={[styles.iconContainer, { backgroundColor: colors[card.iconBgKey] }]}>
+              <Ionicons name={card.icon} size={20} color={colors[card.iconColorKey]} />
             </View>
-            <Text style={styles.value}>{card.value}</Text>
-            <Text style={styles.label}>{card.label}</Text>
+            <Text style={[styles.value, { color: colors.textPrimary }]}>{card.value}</Text>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>{card.label}</Text>
           </View>
         ))}
       </View>
@@ -94,10 +96,8 @@ const styles = StyleSheet.create({
   },
   card: {
     flex: 1,
-    backgroundColor: COLORS.WHITE,
     borderRadius: 16,
     padding: 14,
-    shadowColor: COLORS.BLACK,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -114,12 +114,10 @@ const styles = StyleSheet.create({
   value: {
     fontSize: 20,
     fontFamily: 'Pretendard-Bold',
-    color: COLORS.TEXT_PRIMARY,
     marginBottom: 2,
   },
   label: {
     fontSize: 12,
     fontFamily: 'Pretendard-Regular',
-    color: COLORS.TEXT_SECONDARY,
   },
 });

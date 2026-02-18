@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 
 import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
 export type ButtonSize = 'sm' | 'md' | 'lg';
@@ -78,6 +79,7 @@ export const Button = forwardRef<View, ButtonProps>(
     },
     ref
   ) => {
+    const colors = useThemeColors();
     const isDisabled = disabled || loading;
     const variantStyle = variantStyles[variant];
     const sizeStyle = sizeStyles[size];
@@ -98,7 +100,7 @@ export const Button = forwardRef<View, ButtonProps>(
       .join(' ');
 
     const loaderColor =
-      variant === 'outline' || variant === 'ghost' ? COLORS.PRIMARY : COLORS.WHITE;
+      variant === 'outline' || variant === 'ghost' ? colors.primary : '#FFFFFF';
 
     return (
       <TouchableOpacity

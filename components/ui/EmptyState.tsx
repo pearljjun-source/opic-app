@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 import { Button, ButtonVariant } from './Button';
 
 // ============================================================================
@@ -75,7 +75,7 @@ const SIZE_CONFIG: Record<EmptyStateSize, SizeConfig> = {
 
 export function EmptyState({
   icon = 'folder-open-outline',
-  iconColor = COLORS.GRAY_400,
+  iconColor,
   title,
   description,
   actionLabel,
@@ -86,6 +86,8 @@ export function EmptyState({
   className = '',
 }: EmptyStateProps) {
   const config = SIZE_CONFIG[size];
+  const colors = useThemeColors();
+  const resolvedIconColor = iconColor ?? colors.textDisabled;
 
   return (
     <View
@@ -103,13 +105,14 @@ export function EmptyState({
         style={[
           styles.iconContainer,
           {
+            backgroundColor: colors.surfaceSecondary,
             width: config.iconContainerSize,
             height: config.iconContainerSize,
             borderRadius: config.iconContainerSize / 2,
           },
         ]}
       >
-        <Ionicons name={icon} size={config.iconSize} color={iconColor} />
+        <Ionicons name={icon} size={config.iconSize} color={resolvedIconColor} />
       </View>
 
       {/* Title */}
@@ -117,6 +120,7 @@ export function EmptyState({
         style={[
           styles.title,
           {
+            color: colors.textPrimary,
             fontSize: config.titleSize,
             marginTop: config.gap,
           },
@@ -131,6 +135,7 @@ export function EmptyState({
           style={[
             styles.description,
             {
+              color: colors.textSecondary,
               fontSize: config.descriptionSize,
               marginTop: config.gap / 2,
             },
@@ -169,17 +174,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   iconContainer: {
-    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
   },
   title: {
     fontFamily: 'Pretendard-Bold',
-    color: '#111827',
     textAlign: 'center',
   },
   description: {
-    color: '#6B7280',
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -319,10 +321,11 @@ export function ErrorState({
   size = 'md',
   fillSpace = false,
 }: Partial<EmptyStateProps>) {
+  const colors = useThemeColors();
   return (
     <EmptyState
       icon="alert-circle-outline"
-      iconColor={COLORS.ERROR}
+      iconColor={colors.error}
       title={title}
       description={description}
       actionLabel={actionLabel}
@@ -341,10 +344,11 @@ export function OfflineState({
   size = 'md',
   fillSpace = false,
 }: Partial<EmptyStateProps>) {
+  const colors = useThemeColors();
   return (
     <EmptyState
       icon="cloud-offline-outline"
-      iconColor={COLORS.WARNING}
+      iconColor={colors.warning}
       title={title}
       description={description}
       actionLabel={actionLabel}

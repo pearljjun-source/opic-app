@@ -4,7 +4,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 import { getUserMessage } from '@/lib/errors';
 import { changeUserRole, getAuditLogs } from '@/services/admin';
 import { supabase } from '@/lib/supabase';
@@ -16,9 +16,16 @@ const ROLE_LABELS: Record<string, string> = {
   student: '학생',
 };
 
+const ROLE_BADGE_COLORS: Record<string, string> = {
+  admin: '#7C3AED',
+  teacher: '#D4707F',
+  student: '#E88B9A',
+};
+
 export default function AdminUserDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
+  const colors = useThemeColors();
   const [user, setUser] = useState<User | null>(null);
   const [logs, setLogs] = useState<AdminAuditLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -85,55 +92,55 @@ export default function AdminUserDetailScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+      <View style={[styles.center, { backgroundColor: colors.surfaceSecondary }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   if (error || !user) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error || '사용자를 찾을 수 없습니다'}</Text>
+      <View style={[styles.center, { backgroundColor: colors.surfaceSecondary }]}>
+        <Text style={[styles.errorText, { color: colors.error }]}>{error || '사용자를 찾을 수 없습니다'}</Text>
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { backgroundColor: colors.surfaceSecondary, paddingTop: insets.top }]}>
       {/* 헤더 */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.TEXT_PRIMARY} />
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </Pressable>
-        <Text style={styles.headerTitle}>사용자 상세</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>사용자 상세</Text>
         <View style={{ width: 24 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
         {/* 프로필 */}
-        <View style={styles.profileCard}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{user.name?.charAt(0) || '?'}</Text>
+        <View style={[styles.profileCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={[styles.avatar, { backgroundColor: colors.primaryLight }]}>
+            <Text style={[styles.avatarText, { color: colors.primary }]}>{user.name?.charAt(0) || '?'}</Text>
           </View>
-          <Text style={styles.userName}>{user.name}</Text>
-          <Text style={styles.userEmail}>{user.email}</Text>
-          <View style={[styles.roleBadge, { backgroundColor: user.role === 'admin' ? '#7C3AED' : user.role === 'teacher' ? COLORS.PRIMARY : COLORS.INFO }]}>
+          <Text style={[styles.userName, { color: colors.textPrimary }]}>{user.name}</Text>
+          <Text style={[styles.userEmail, { color: colors.textSecondary }]}>{user.email}</Text>
+          <View style={[styles.roleBadge, { backgroundColor: ROLE_BADGE_COLORS[user.role] || colors.textDisabled }]}>
             <Text style={styles.roleBadgeText}>{ROLE_LABELS[user.role] || user.role}</Text>
           </View>
-          <Text style={styles.joinDate}>
+          <Text style={[styles.joinDate, { color: colors.gray400 }]}>
             가입: {new Date(user.created_at!).toLocaleDateString('ko-KR')}
           </Text>
         </View>
 
         {/* 역할 변경 */}
         {user.role !== 'admin' && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>역할 변경</Text>
+          <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>역할 변경</Text>
             <View style={styles.roleButtons}>
               {user.role !== 'teacher' && (
                 <Pressable
-                  style={[styles.roleButton, { backgroundColor: COLORS.PRIMARY }]}
+                  style={[styles.roleButton, { backgroundColor: colors.primary }]}
                   onPress={() => handleRoleChange('teacher')}
                   disabled={isChangingRole}
                 >
@@ -142,7 +149,7 @@ export default function AdminUserDetailScreen() {
               )}
               {user.role !== 'student' && (
                 <Pressable
-                  style={[styles.roleButton, { backgroundColor: COLORS.WARNING }]}
+                  style={[styles.roleButton, { backgroundColor: colors.warning }]}
                   onPress={() => handleRoleChange('student')}
                   disabled={isChangingRole}
                 >
@@ -150,18 +157,18 @@ export default function AdminUserDetailScreen() {
                 </Pressable>
               )}
             </View>
-            {isChangingRole && <ActivityIndicator style={{ marginTop: 8 }} color={COLORS.PRIMARY} />}
+            {isChangingRole && <ActivityIndicator style={{ marginTop: 8 }} color={colors.primary} />}
           </View>
         )}
 
         {/* Audit Log */}
         {logs.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>변경 이력</Text>
+          <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>변경 이력</Text>
             {logs.map((log) => (
-              <View key={log.id} style={styles.logItem}>
-                <Text style={styles.logAction}>{log.action}</Text>
-                <Text style={styles.logDate}>
+              <View key={log.id} style={[styles.logItem, { borderBottomColor: colors.gray100 }]}>
+                <Text style={[styles.logAction, { color: colors.textPrimary }]}>{log.action}</Text>
+                <Text style={[styles.logDate, { color: colors.gray400 }]}>
                   {new Date(log.created_at).toLocaleDateString('ko-KR', {
                     month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
                   })}
@@ -176,64 +183,56 @@ export default function AdminUserDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.BACKGROUND_SECONDARY },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.BACKGROUND_SECONDARY },
-  errorText: { color: COLORS.ERROR, fontSize: 14, fontFamily: 'Pretendard-Medium' },
+  container: { flex: 1 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  errorText: { fontSize: 14, fontFamily: 'Pretendard-Medium' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: COLORS.WHITE,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.BORDER,
   },
-  headerTitle: { fontSize: 17, fontFamily: 'Pretendard-Bold', color: COLORS.TEXT_PRIMARY },
+  headerTitle: { fontSize: 17, fontFamily: 'Pretendard-Bold' },
   content: { padding: 16, paddingBottom: 40 },
   profileCard: {
-    backgroundColor: COLORS.WHITE,
     borderRadius: 16,
     padding: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.BORDER,
     marginBottom: 20,
   },
   avatar: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: COLORS.PRIMARY_LIGHT,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
   },
-  avatarText: { fontSize: 24, fontFamily: 'Pretendard-Bold', color: COLORS.PRIMARY },
-  userName: { fontSize: 18, fontFamily: 'Pretendard-Bold', color: COLORS.TEXT_PRIMARY, marginBottom: 4 },
-  userEmail: { fontSize: 13, fontFamily: 'Pretendard-Regular', color: COLORS.TEXT_SECONDARY, marginBottom: 10 },
+  avatarText: { fontSize: 24, fontFamily: 'Pretendard-Bold' },
+  userName: { fontSize: 18, fontFamily: 'Pretendard-Bold', marginBottom: 4 },
+  userEmail: { fontSize: 13, fontFamily: 'Pretendard-Regular', marginBottom: 10 },
   roleBadge: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, marginBottom: 10 },
-  roleBadgeText: { fontSize: 12, fontFamily: 'Pretendard-Bold', color: COLORS.WHITE },
-  joinDate: { fontSize: 12, fontFamily: 'Pretendard-Regular', color: COLORS.GRAY_400 },
+  roleBadgeText: { fontSize: 12, fontFamily: 'Pretendard-Bold', color: '#FFFFFF' },
+  joinDate: { fontSize: 12, fontFamily: 'Pretendard-Regular' },
   section: {
-    backgroundColor: COLORS.WHITE,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: COLORS.BORDER,
     marginBottom: 16,
   },
-  sectionTitle: { fontSize: 15, fontFamily: 'Pretendard-Bold', color: COLORS.TEXT_PRIMARY, marginBottom: 12 },
+  sectionTitle: { fontSize: 15, fontFamily: 'Pretendard-Bold', marginBottom: 12 },
   roleButtons: { flexDirection: 'row', gap: 10 },
   roleButton: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
-  roleButtonText: { fontSize: 13, fontFamily: 'Pretendard-Bold', color: COLORS.WHITE },
+  roleButtonText: { fontSize: 13, fontFamily: 'Pretendard-Bold', color: '#FFFFFF' },
   logItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.GRAY_100,
   },
-  logAction: { fontSize: 13, fontFamily: 'Pretendard-Medium', color: COLORS.TEXT_PRIMARY },
-  logDate: { fontSize: 11, fontFamily: 'Pretendard-Regular', color: COLORS.GRAY_400 },
+  logAction: { fontSize: 13, fontFamily: 'Pretendard-Medium' },
+  logDate: { fontSize: 11, fontFamily: 'Pretendard-Regular' },
 });

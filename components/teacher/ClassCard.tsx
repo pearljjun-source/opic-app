@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 import type { TeacherClassListItem } from '@/lib/types';
 
 interface ClassCardProps {
@@ -10,29 +10,32 @@ interface ClassCardProps {
 }
 
 export function ClassCard({ classItem, onPress }: ClassCardProps) {
+  const colors = useThemeColors();
+
   return (
     <Pressable
       style={({ pressed }) => [
         styles.container,
-        pressed && styles.containerPressed,
+        { backgroundColor: colors.surface, shadowColor: '#000000' },
+        pressed && [styles.containerPressed, { backgroundColor: colors.surfaceSecondary }],
       ]}
       onPress={onPress}
     >
       <View style={styles.content}>
         <View style={styles.info}>
-          <Text style={styles.name} numberOfLines={1}>{classItem.name}</Text>
+          <Text style={[styles.name, { color: colors.textPrimary }]} numberOfLines={1}>{classItem.name}</Text>
           {classItem.description ? (
-            <Text style={styles.description} numberOfLines={1}>
+            <Text style={[styles.description, { color: colors.textSecondary }]} numberOfLines={1}>
               {classItem.description}
             </Text>
           ) : null}
         </View>
         <View style={styles.right}>
-          <View style={styles.badge}>
-            <Ionicons name="people-outline" size={14} color={COLORS.PRIMARY} />
-            <Text style={styles.badgeText}>{classItem.member_count}명</Text>
+          <View style={[styles.badge, { backgroundColor: colors.primaryLight }]}>
+            <Ionicons name="people-outline" size={14} color={colors.primary} />
+            <Text style={[styles.badgeText, { color: colors.primaryDark }]}>{classItem.member_count}명</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.GRAY_400} />
+          <Ionicons name="chevron-forward" size={20} color={colors.gray400} />
         </View>
       </View>
     </Pressable>
@@ -41,11 +44,9 @@ export function ClassCard({ classItem, onPress }: ClassCardProps) {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.WHITE,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    shadowColor: COLORS.BLACK,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -53,7 +54,6 @@ const styles = StyleSheet.create({
   },
   containerPressed: {
     opacity: 0.9,
-    backgroundColor: COLORS.GRAY_50,
   },
   content: {
     flexDirection: 'row',
@@ -67,12 +67,10 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 17,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
   },
   description: {
     fontSize: 14,
     fontFamily: 'Pretendard-Regular',
-    color: COLORS.TEXT_SECONDARY,
     marginTop: 4,
   },
   right: {
@@ -84,7 +82,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: COLORS.PRIMARY_LIGHT,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
@@ -92,7 +89,6 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 13,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.PRIMARY_DARK,
   },
 });
 

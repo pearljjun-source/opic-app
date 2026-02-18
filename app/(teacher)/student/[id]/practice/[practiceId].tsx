@@ -15,7 +15,6 @@ import { useState, useEffect, useRef } from 'react';
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS } from '@/lib/constants';
 import {
   getPracticeForTeacher,
   saveTeacherFeedback,
@@ -24,8 +23,10 @@ import {
 import { notifyAction, deliverNotification } from '@/services/notifications';
 import { NOTIFICATION_TYPES } from '@/lib/constants';
 import { getUserMessage } from '@/lib/errors';
+import { useThemeColors } from '@/hooks/useTheme';
 
 export default function TeacherPracticeDetailScreen() {
+  const colors = useThemeColors();
   const { id: studentId, practiceId } = useLocalSearchParams<{
     id: string;
     practiceId: string;
@@ -184,19 +185,19 @@ export default function TeacherPracticeDetailScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={COLORS.PRIMARY} />
-        <Text style={styles.loadingText}>불러오는 중...</Text>
+      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>불러오는 중...</Text>
       </View>
     );
   }
 
   if (error || !practice) {
     return (
-      <View style={styles.centerContainer}>
-        <Ionicons name="alert-circle-outline" size={48} color={COLORS.ERROR} />
-        <Text style={styles.errorText}>{error || '연습 기록을 찾을 수 없습니다.'}</Text>
-        <Pressable style={styles.retryButton} onPress={() => router.back()}>
+      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
+        <Text style={[styles.errorText, { color: colors.error }]}>{error || '연습 기록을 찾을 수 없습니다.'}</Text>
+        <Pressable style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={() => router.back()}>
           <Text style={styles.retryButtonText}>뒤로 가기</Text>
         </Pressable>
       </View>
@@ -207,46 +208,46 @@ export default function TeacherPracticeDetailScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         {/* 학생 정보 */}
-        <View style={styles.studentInfo}>
-          <View style={styles.avatar}>
-            <Ionicons name="person" size={24} color={COLORS.PRIMARY} />
+        <View style={[styles.studentInfo, { backgroundColor: colors.surface }]}>
+          <View style={[styles.avatar, { backgroundColor: colors.primary + '20' }]}>
+            <Ionicons name="person" size={24} color={colors.primary} />
           </View>
           <View style={styles.studentDetails}>
-            <Text style={styles.studentName}>{practice.student.name}</Text>
-            <Text style={styles.studentEmail}>{practice.student.email}</Text>
+            <Text style={[styles.studentName, { color: colors.textPrimary }]}>{practice.student.name}</Text>
+            <Text style={[styles.studentEmail, { color: colors.textSecondary }]}>{practice.student.email}</Text>
           </View>
         </View>
 
         {/* 연습 정보 */}
-        <View style={styles.metaSection}>
+        <View style={[styles.metaSection, { backgroundColor: colors.surface }]}>
           <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>토픽</Text>
-            <Text style={styles.metaValue}>{practice.topic_name_ko}</Text>
+            <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>토픽</Text>
+            <Text style={[styles.metaValue, { color: colors.textPrimary }]}>{practice.topic_name_ko}</Text>
           </View>
           <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>연습 일시</Text>
-            <Text style={styles.metaValue}>{formatDate(practice.created_at)}</Text>
+            <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>연습 일시</Text>
+            <Text style={[styles.metaValue, { color: colors.textPrimary }]}>{formatDate(practice.created_at)}</Text>
           </View>
           <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>녹음 시간</Text>
-            <Text style={styles.metaValue}>{formatDuration(practice.duration)}</Text>
+            <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>녹음 시간</Text>
+            <Text style={[styles.metaValue, { color: colors.textPrimary }]}>{formatDuration(practice.duration)}</Text>
           </View>
         </View>
 
         {/* 점수 섹션 */}
         <View style={styles.scoreSection}>
-          <View style={styles.scoreBox}>
-            <Text style={styles.scoreLabel}>점수</Text>
-            <Text style={styles.scoreValue}>{practice.score ?? '-'}</Text>
+          <View style={[styles.scoreBox, { backgroundColor: colors.primary + '15' }]}>
+            <Text style={[styles.scoreLabel, { color: colors.textSecondary }]}>점수</Text>
+            <Text style={[styles.scoreValue, { color: colors.primary }]}>{practice.score ?? '-'}</Text>
           </View>
-          <View style={styles.scoreBox}>
-            <Text style={styles.scoreLabel}>재현율</Text>
-            <Text style={styles.scoreValue}>
+          <View style={[styles.scoreBox, { backgroundColor: colors.primary + '15' }]}>
+            <Text style={[styles.scoreLabel, { color: colors.textSecondary }]}>재현율</Text>
+            <Text style={[styles.scoreValue, { color: colors.primary }]}>
               {practice.reproduction_rate ? `${practice.reproduction_rate}%` : '-'}
             </Text>
           </View>
@@ -255,15 +256,15 @@ export default function TeacherPracticeDetailScreen() {
         {/* 녹음 재생 */}
         {practice.audio_url && (
           <Pressable
-            style={[styles.audioButton, isPlaying && styles.audioButtonPlaying]}
+            style={[styles.audioButton, { backgroundColor: colors.primary + '15' }, isPlaying && { backgroundColor: colors.error + '15' }]}
             onPress={handleToggleAudio}
           >
             <Ionicons
               name={isPlaying ? 'stop-circle' : 'play-circle'}
               size={24}
-              color={isPlaying ? COLORS.ERROR : COLORS.PRIMARY}
+              color={isPlaying ? colors.error : colors.primary}
             />
-            <Text style={[styles.audioButtonText, isPlaying && styles.audioButtonTextPlaying]}>
+            <Text style={[styles.audioButtonText, { color: colors.primary }, isPlaying && { color: colors.error }]}>
               {isPlaying ? '재생 중지' : '학생 녹음 듣기'}
             </Text>
           </Pressable>
@@ -271,17 +272,17 @@ export default function TeacherPracticeDetailScreen() {
 
         {/* 질문 */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>질문</Text>
-          <View style={styles.questionBox}>
-            <Text style={styles.questionText}>{practice.question_text}</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>질문</Text>
+          <View style={[styles.questionBox, { backgroundColor: colors.primary + '10', borderLeftColor: colors.primary }]}>
+            <Text style={[styles.questionText, { color: colors.textPrimary }]}>{practice.question_text}</Text>
           </View>
         </View>
 
         {/* 학생 답변 (STT 결과) */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>학생 답변 (음성 인식 결과)</Text>
-          <View style={styles.transcriptionBox}>
-            <Text style={styles.transcriptionText}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>학생 답변 (음성 인식 결과)</Text>
+          <View style={[styles.transcriptionBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.transcriptionText, { color: colors.textPrimary }]}>
               {practice.transcription || '음성 인식 결과가 없습니다.'}
             </Text>
           </View>
@@ -289,29 +290,29 @@ export default function TeacherPracticeDetailScreen() {
 
         {/* 원본 스크립트 */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>원본 스크립트</Text>
-          <View style={styles.scriptBox}>
-            <Text style={styles.scriptText}>{practice.script_content}</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>원본 스크립트</Text>
+          <View style={[styles.scriptBox, { backgroundColor: colors.borderLight }]}>
+            <Text style={[styles.scriptText, { color: colors.textSecondary }]}>{practice.script_content}</Text>
           </View>
         </View>
 
         {/* AI 피드백 */}
         {aiFeedback && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>AI 피드백</Text>
-            <View style={styles.aiFeedbackBox}>
-              <Text style={styles.feedbackSummary}>{aiFeedback.summary}</Text>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>AI 피드백</Text>
+            <View style={[styles.aiFeedbackBox, { backgroundColor: colors.warning + '15' }]}>
+              <Text style={[styles.feedbackSummary, { color: colors.textPrimary }]}>{aiFeedback.summary}</Text>
 
               {aiFeedback.missed_phrases && aiFeedback.missed_phrases.length > 0 && (
                 <View style={styles.feedbackSection}>
                   <View style={styles.feedbackLabelRow}>
-                    <Ionicons name="remove-circle-outline" size={16} color={COLORS.ERROR} />
-                    <Text style={[styles.feedbackLabel, { color: COLORS.ERROR }]}>
+                    <Ionicons name="remove-circle-outline" size={16} color={colors.error} />
+                    <Text style={[styles.feedbackLabel, { color: colors.error }]}>
                       빠뜨린 표현
                     </Text>
                   </View>
                   {aiFeedback.missed_phrases.map((phrase, i) => (
-                    <Text key={i} style={styles.feedbackItem}>• {phrase}</Text>
+                    <Text key={i} style={[styles.feedbackItem, { color: colors.textSecondary }]}>• {phrase}</Text>
                   ))}
                 </View>
               )}
@@ -319,13 +320,13 @@ export default function TeacherPracticeDetailScreen() {
               {aiFeedback.suggestions && aiFeedback.suggestions.length > 0 && (
                 <View style={styles.feedbackSection}>
                   <View style={styles.feedbackLabelRow}>
-                    <Ionicons name="bulb-outline" size={16} color={COLORS.PRIMARY} />
-                    <Text style={[styles.feedbackLabel, { color: COLORS.PRIMARY }]}>
+                    <Ionicons name="bulb-outline" size={16} color={colors.primary} />
+                    <Text style={[styles.feedbackLabel, { color: colors.primary }]}>
                       개선 제안
                     </Text>
                   </View>
                   {aiFeedback.suggestions.map((suggestion, i) => (
-                    <Text key={i} style={styles.feedbackItem}>• {suggestion}</Text>
+                    <Text key={i} style={[styles.feedbackItem, { color: colors.textSecondary }]}>• {suggestion}</Text>
                   ))}
                 </View>
               )}
@@ -335,14 +336,14 @@ export default function TeacherPracticeDetailScreen() {
 
         {/* 강사 피드백 작성 */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
             강사 피드백 {practice.teacher_feedback ? '(작성됨)' : '(미작성)'}
           </Text>
-          <View style={styles.teacherFeedbackBox}>
+          <View style={[styles.teacherFeedbackBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <TextInput
-              style={styles.feedbackInput}
+              style={[styles.feedbackInput, { color: colors.textPrimary }]}
               placeholder="학생에게 피드백을 작성해주세요..."
-              placeholderTextColor={COLORS.GRAY_400}
+              placeholderTextColor={colors.textDisabled}
               value={feedbackText}
               onChangeText={(text) => {
                 setFeedbackText(text);
@@ -354,16 +355,17 @@ export default function TeacherPracticeDetailScreen() {
             <Pressable
               style={[
                 styles.saveButton,
-                (!hasChanges || isSaving) && styles.saveButtonDisabled,
+                { backgroundColor: colors.primary },
+                (!hasChanges || isSaving) && { backgroundColor: colors.gray400 },
               ]}
               onPress={handleSaveFeedback}
               disabled={!hasChanges || isSaving}
             >
               {isSaving ? (
-                <ActivityIndicator size="small" color={COLORS.WHITE} />
+                <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
                 <>
-                  <Ionicons name="checkmark" size={20} color={COLORS.WHITE} />
+                  <Ionicons name="checkmark" size={20} color="#FFFFFF" />
                   <Text style={styles.saveButtonText}>피드백 저장</Text>
                 </>
               )}
@@ -378,7 +380,6 @@ export default function TeacherPracticeDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
   },
   scrollView: {
     flex: 1,
@@ -391,36 +392,31 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
     padding: 24,
   },
   loadingText: {
     marginTop: 12,
     fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
   },
   errorText: {
     marginTop: 12,
     fontSize: 16,
-    color: COLORS.ERROR,
     textAlign: 'center',
   },
   retryButton: {
     marginTop: 16,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: COLORS.PRIMARY,
     borderRadius: 12,
   },
   retryButtonText: {
     fontSize: 14,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.WHITE,
+    color: '#FFFFFF',
   },
   studentInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.WHITE,
     padding: 16,
     borderRadius: 16,
     marginBottom: 16,
@@ -430,7 +426,6 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: COLORS.PRIMARY + '20',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -440,15 +435,12 @@ const styles = StyleSheet.create({
   studentName: {
     fontSize: 18,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
   },
   studentEmail: {
     fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
     marginTop: 2,
   },
   metaSection: {
-    backgroundColor: COLORS.WHITE,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
@@ -461,12 +453,10 @@ const styles = StyleSheet.create({
   },
   metaLabel: {
     fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
   },
   metaValue: {
     fontSize: 14,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.TEXT_PRIMARY,
   },
   scoreSection: {
     flexDirection: 'row',
@@ -475,41 +465,30 @@ const styles = StyleSheet.create({
   },
   scoreBox: {
     flex: 1,
-    backgroundColor: COLORS.PRIMARY + '15',
     padding: 20,
     borderRadius: 16,
     alignItems: 'center',
   },
   scoreLabel: {
     fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
     marginBottom: 4,
   },
   scoreValue: {
     fontSize: 32,
     fontFamily: 'Pretendard-Bold',
-    color: COLORS.PRIMARY,
   },
   audioButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.PRIMARY + '15',
     padding: 16,
     borderRadius: 12,
     marginBottom: 16,
     gap: 8,
   },
-  audioButtonPlaying: {
-    backgroundColor: COLORS.ERROR + '15',
-  },
   audioButtonText: {
     fontSize: 16,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.PRIMARY,
-  },
-  audioButtonTextPlaying: {
-    color: COLORS.ERROR,
   },
   section: {
     marginBottom: 16,
@@ -517,52 +496,41 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
     marginBottom: 8,
   },
   questionBox: {
-    backgroundColor: COLORS.PRIMARY + '10',
     padding: 16,
     borderRadius: 16,
     borderLeftWidth: 4,
-    borderLeftColor: COLORS.PRIMARY,
   },
   questionText: {
     fontSize: 15,
-    color: COLORS.TEXT_PRIMARY,
     lineHeight: 22,
   },
   transcriptionBox: {
-    backgroundColor: COLORS.WHITE,
     padding: 16,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: COLORS.BORDER,
   },
   transcriptionText: {
     fontSize: 15,
-    color: COLORS.TEXT_PRIMARY,
     lineHeight: 22,
   },
   scriptBox: {
-    backgroundColor: COLORS.GRAY_100,
     padding: 16,
     borderRadius: 16,
   },
   scriptText: {
     fontSize: 15,
-    color: COLORS.TEXT_SECONDARY,
     lineHeight: 22,
   },
   aiFeedbackBox: {
-    backgroundColor: COLORS.WARNING + '15',
     padding: 16,
     borderRadius: 16,
   },
   feedbackSummary: {
     fontSize: 15,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
     marginBottom: 12,
     lineHeight: 22,
   },
@@ -581,22 +549,18 @@ const styles = StyleSheet.create({
   },
   feedbackItem: {
     fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
     marginLeft: 22,
     marginBottom: 4,
     lineHeight: 20,
   },
   teacherFeedbackBox: {
-    backgroundColor: COLORS.WHITE,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: COLORS.BORDER,
     overflow: 'hidden',
   },
   feedbackInput: {
     padding: 16,
     fontSize: 15,
-    color: COLORS.TEXT_PRIMARY,
     minHeight: 120,
     lineHeight: 22,
   },
@@ -604,16 +568,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.PRIMARY,
     padding: 14,
     gap: 8,
-  },
-  saveButtonDisabled: {
-    backgroundColor: COLORS.GRAY_400,
   },
   saveButtonText: {
     fontSize: 16,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.WHITE,
+    color: '#FFFFFF',
   },
 });

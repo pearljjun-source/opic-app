@@ -3,7 +3,7 @@ import { View, Text, ActivityIndicator } from 'react-native';
 import { Redirect } from 'expo-router';
 
 import { useAuth } from '@/hooks/useAuth';
-import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 
 interface AuthGuardProps {
   children: ReactNode;
@@ -25,13 +25,14 @@ interface AuthGuardProps {
  */
 export function AuthGuard({ children, fallback }: AuthGuardProps) {
   const { isAuthenticated, isLoading } = useAuth();
+  const colors = useThemeColors();
 
   if (isLoading) {
     return (
       fallback || (
-        <View className="flex-1 justify-center items-center bg-white">
-          <ActivityIndicator size="large" color={COLORS.PRIMARY} />
-          <Text className="text-gray-500 mt-4">로딩 중...</Text>
+        <View className="flex-1 justify-center items-center bg-white dark:bg-neutral-900">
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text className="text-gray-500 dark:text-gray-400 mt-4">로딩 중...</Text>
         </View>
       )
     );

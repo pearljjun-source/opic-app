@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 
-import { COLORS, QUESTION_TYPE_LABELS } from '@/lib/constants';
+import { QUESTION_TYPE_LABELS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 import type { StudentPracticeListItem } from '@/lib/types';
 import { ScoreBadge, DifficultyBadge } from '@/components/ui/Badge';
 
@@ -19,6 +20,8 @@ interface PracticeListItemProps {
  * - 녹음 시간 표시
  */
 export function PracticeListItem({ practice, onPress }: PracticeListItemProps) {
+  const colors = useThemeColors();
+
   const formatDateTime = (dateString: string): string => {
     const date = new Date(dateString);
     const now = new Date();
@@ -55,15 +58,16 @@ export function PracticeListItem({ practice, onPress }: PracticeListItemProps) {
     <Pressable
       style={({ pressed }) => [
         styles.container,
-        pressed && styles.containerPressed,
+        { backgroundColor: colors.surface, shadowColor: '#000000' },
+        pressed && [styles.containerPressed, { backgroundColor: colors.surfaceSecondary }],
       ]}
       onPress={onPress}
     >
       {/* 상단: 일시 + 점수 */}
       <View style={styles.header}>
         <View style={styles.dateContainer}>
-          <Text style={styles.date}>{formatDateTime(practice.created_at)}</Text>
-          <Text style={styles.duration}>
+          <Text style={[styles.date, { color: colors.textPrimary }]}>{formatDateTime(practice.created_at)}</Text>
+          <Text style={[styles.duration, { color: colors.textSecondary }]}>
             {formatDuration(practice.duration)}
           </Text>
         </View>
@@ -72,9 +76,9 @@ export function PracticeListItem({ practice, onPress }: PracticeListItemProps) {
             <ScoreBadge score={practice.score} size="sm" />
           )}
           {practice.reproduction_rate !== null && (
-            <View style={styles.rateContainer}>
-              <Text style={styles.rateLabel}>재현</Text>
-              <Text style={styles.rateValue}>{practice.reproduction_rate}%</Text>
+            <View style={[styles.rateContainer, { backgroundColor: colors.secondaryLight }]}>
+              <Text style={[styles.rateLabel, { color: colors.secondary }]}>재현</Text>
+              <Text style={[styles.rateValue, { color: colors.secondary }]}>{practice.reproduction_rate}%</Text>
             </View>
           )}
         </View>
@@ -86,41 +90,41 @@ export function PracticeListItem({ practice, onPress }: PracticeListItemProps) {
           {practice.topic_icon && (
             <Text style={styles.topicIcon}>{practice.topic_icon}</Text>
           )}
-          <Text style={styles.topicName}>{practice.topic_name_ko}</Text>
+          <Text style={[styles.topicName, { color: colors.textPrimary }]}>{practice.topic_name_ko}</Text>
           <View style={styles.metaRow}>
-            <Text style={styles.questionType}>{questionTypeLabel}</Text>
+            <Text style={[styles.questionType, { color: colors.primary }]}>{questionTypeLabel}</Text>
             <DifficultyBadge level={practice.difficulty} size="sm" />
           </View>
         </View>
-        <Text style={styles.questionText} numberOfLines={1}>
+        <Text style={[styles.questionText, { color: colors.textSecondary }]} numberOfLines={1}>
           {practice.question_text}
         </Text>
       </View>
 
       {/* 변환된 텍스트 미리보기 */}
       {practice.transcription && (
-        <View style={styles.transcriptionContainer}>
-          <Text style={styles.transcriptionLabel}>답변:</Text>
-          <Text style={styles.transcription} numberOfLines={2}>
+        <View style={[styles.transcriptionContainer, { backgroundColor: colors.surfaceSecondary }]}>
+          <Text style={[styles.transcriptionLabel, { color: colors.textSecondary }]}>답변:</Text>
+          <Text style={[styles.transcription, { color: colors.textPrimary }]} numberOfLines={2}>
             {practice.transcription}
           </Text>
         </View>
       )}
 
       {/* 하단: 피드백 상태 */}
-      <View style={styles.footer}>
+      <View style={[styles.footer, { borderTopColor: colors.border }]}>
         {hasTeacherFeedback ? (
-          <View style={styles.feedbackBadge}>
-            <Text style={styles.feedbackBadgeText}>피드백 작성됨</Text>
+          <View style={[styles.feedbackBadge, { backgroundColor: colors.secondaryLight }]}>
+            <Text style={[styles.feedbackBadgeText, { color: colors.secondary }]}>피드백 작성됨</Text>
           </View>
         ) : (
-          <View style={[styles.feedbackBadge, styles.feedbackBadgePending]}>
-            <Text style={[styles.feedbackBadgeText, styles.feedbackBadgeTextPending]}>
+          <View style={[styles.feedbackBadge, { backgroundColor: colors.borderLight }]}>
+            <Text style={[styles.feedbackBadgeText, { color: colors.textSecondary }]}>
               피드백 대기
             </Text>
           </View>
         )}
-        <Text style={styles.viewDetail}>상세보기 &gt;</Text>
+        <Text style={[styles.viewDetail, { color: colors.primary }]}>상세보기 &gt;</Text>
       </View>
     </Pressable>
   );
@@ -128,11 +132,9 @@ export function PracticeListItem({ practice, onPress }: PracticeListItemProps) {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.WHITE,
     borderRadius: 16,
     padding: 14,
     marginBottom: 12,
-    shadowColor: COLORS.BLACK,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -140,7 +142,6 @@ const styles = StyleSheet.create({
   },
   containerPressed: {
     opacity: 0.9,
-    backgroundColor: COLORS.GRAY_50,
   },
   header: {
     flexDirection: 'row',
@@ -154,12 +155,10 @@ const styles = StyleSheet.create({
   date: {
     fontSize: 14,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
     marginBottom: 2,
   },
   duration: {
     fontSize: 12,
-    color: COLORS.TEXT_SECONDARY,
   },
   scoreContainer: {
     flexDirection: 'row',
@@ -170,19 +169,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: COLORS.SECONDARY_LIGHT,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
   },
   rateLabel: {
     fontSize: 11,
-    color: COLORS.SECONDARY,
   },
   rateValue: {
     fontSize: 12,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.SECONDARY,
   },
   questionInfo: {
     marginBottom: 10,
@@ -199,7 +195,6 @@ const styles = StyleSheet.create({
   topicName: {
     fontSize: 13,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.TEXT_PRIMARY,
     marginRight: 8,
   },
   metaRow: {
@@ -209,28 +204,23 @@ const styles = StyleSheet.create({
   },
   questionType: {
     fontSize: 11,
-    color: COLORS.PRIMARY,
     fontFamily: 'Pretendard-Medium',
   },
   questionText: {
     fontSize: 12,
-    color: COLORS.TEXT_SECONDARY,
     lineHeight: 16,
   },
   transcriptionContainer: {
-    backgroundColor: COLORS.GRAY_50,
     borderRadius: 8,
     padding: 10,
     marginBottom: 10,
   },
   transcriptionLabel: {
     fontSize: 11,
-    color: COLORS.TEXT_SECONDARY,
     marginBottom: 4,
   },
   transcription: {
     fontSize: 13,
-    color: COLORS.TEXT_PRIMARY,
     lineHeight: 18,
   },
   footer: {
@@ -239,28 +229,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: COLORS.BORDER,
   },
   feedbackBadge: {
-    backgroundColor: COLORS.SECONDARY_LIGHT,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
   },
-  feedbackBadgePending: {
-    backgroundColor: COLORS.GRAY_100,
-  },
   feedbackBadgeText: {
     fontSize: 11,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.SECONDARY,
-  },
-  feedbackBadgeTextPending: {
-    color: COLORS.TEXT_SECONDARY,
   },
   viewDetail: {
     fontSize: 12,
-    color: COLORS.PRIMARY,
     fontFamily: 'Pretendard-Medium',
   },
 });

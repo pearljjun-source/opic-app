@@ -12,7 +12,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 import { getStudentScript, StudentScriptDetail } from '@/services/scripts';
 import { generateScriptAudio } from '@/services/practices';
 import { getUserMessage } from '@/lib/errors';
@@ -26,6 +26,7 @@ function splitSentences(text: string): string[] {
 }
 
 export default function ShadowingScreen() {
+  const colors = useThemeColors();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [script, setScript] = useState<StudentScriptDetail | null>(null);
@@ -266,9 +267,9 @@ export default function ShadowingScreen() {
   // ── 로딩 ──
   if (state === 'loading') {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={COLORS.PRIMARY} />
-        <Text style={styles.loadingText}>준비 중...</Text>
+      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>준비 중...</Text>
       </View>
     );
   }
@@ -276,10 +277,10 @@ export default function ShadowingScreen() {
   // ── 에러 ──
   if (error || !script) {
     return (
-      <View style={styles.centerContainer}>
-        <Ionicons name="alert-circle-outline" size={48} color={COLORS.ERROR} />
-        <Text style={styles.errorText}>{error || '스크립트를 찾을 수 없습니다'}</Text>
-        <Pressable style={styles.retryButton} onPress={() => router.back()}>
+      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
+        <Text style={[styles.errorText, { color: colors.error }]}>{error || '스크립트를 찾을 수 없습니다'}</Text>
+        <Pressable style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={() => router.back()}>
           <Text style={styles.retryButtonText}>뒤로 가기</Text>
         </Pressable>
       </View>
@@ -289,11 +290,11 @@ export default function ShadowingScreen() {
   const isTTSPlaying = state === 'playing_tts';
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}>
       {/* ── 스크립트 (문장별 하이라이트) ── */}
       <ScrollView
         ref={scrollViewRef}
-        style={styles.scriptSection}
+        style={[styles.scriptSection, { backgroundColor: colors.surface }]}
         contentContainerStyle={styles.scriptContentContainer}
         showsVerticalScrollIndicator={false}
         onLayout={(e) => {
@@ -304,24 +305,24 @@ export default function ShadowingScreen() {
         }}
       >
         <View style={styles.scriptHeader}>
-          <Ionicons name="document-text" size={18} color={COLORS.PRIMARY} />
-          <Text style={styles.scriptTitle}>스크립트</Text>
+          <Ionicons name="document-text" size={18} color={colors.primary} />
+          <Text style={[styles.scriptTitle, { color: colors.primary }]}>스크립트</Text>
           {isTTSPlaying && (
-            <View style={styles.playingBadge}>
-              <Ionicons name="volume-high" size={11} color={COLORS.WHITE} />
+            <View style={[styles.playingBadge, { backgroundColor: colors.primary }]}>
+              <Ionicons name="volume-high" size={11} color="#FFFFFF" />
               <Text style={styles.playingBadgeText}>재생 중</Text>
             </View>
           )}
         </View>
-        <Text style={styles.scriptContent}>
+        <Text style={[styles.scriptContent, { color: colors.textPrimary }]}>
           {sentences.map((sentence, i) => (
             <Text
               key={i}
               style={
                 i === activeSentence
-                  ? styles.highlightedSentence
+                  ? { backgroundColor: colors.primary + '20', color: colors.primary }
                   : isTTSPlaying && i < activeSentence
-                    ? styles.completedSentence
+                    ? { color: colors.textSecondary }
                     : undefined
               }
             >
@@ -333,49 +334,49 @@ export default function ShadowingScreen() {
       </ScrollView>
 
       {/* ── 컴팩트 컨트롤 ── */}
-      <View style={styles.controlSection}>
+      <View style={[styles.controlSection, { backgroundColor: colors.surface }]}>
         {/* TTS 듣기 / 중지 */}
         {isTTSPlaying ? (
-          <Pressable style={styles.ttsStopButton} onPress={handleStopTTS}>
-            <Ionicons name="stop-circle" size={20} color={COLORS.ERROR} />
-            <Text style={styles.ttsStopText}>발음 듣기 중지</Text>
+          <Pressable style={[styles.ttsStopButton, { backgroundColor: colors.error + '10' }]} onPress={handleStopTTS}>
+            <Ionicons name="stop-circle" size={20} color={colors.error} />
+            <Text style={[styles.ttsStopText, { color: colors.error }]}>발음 듣기 중지</Text>
           </Pressable>
         ) : (
           <Pressable
-            style={[styles.ttsButton, state !== 'ready' && styles.buttonDisabled]}
+            style={[styles.ttsButton, { backgroundColor: colors.primary + '10' }, state !== 'ready' && styles.buttonDisabled]}
             onPress={handlePlayTTS}
             disabled={state !== 'ready'}
           >
-            <Ionicons name="volume-high" size={20} color={COLORS.PRIMARY} />
-            <Text style={styles.ttsButtonText}>네이티브 발음 듣기</Text>
+            <Ionicons name="volume-high" size={20} color={colors.primary} />
+            <Text style={[styles.ttsButtonText, { color: colors.primary }]}>네이티브 발음 듣기</Text>
           </Pressable>
         )}
 
         {/* 구분선 */}
-        <View style={styles.divider} />
+        <View style={[styles.divider, { backgroundColor: colors.surfaceSecondary }]} />
 
         {/* 녹음 + 내 녹음 듣기 */}
         <View style={styles.recordRow}>
           {state === 'recording' ? (
             <>
               <View style={styles.recordingInfo}>
-                <View style={styles.recordingDot} />
-                <Text style={styles.recordingTimeText}>{formatTime(recordingTime)}</Text>
+                <View style={[styles.recordingDot, { backgroundColor: colors.error }]} />
+                <Text style={[styles.recordingTimeText, { color: colors.error }]}>{formatTime(recordingTime)}</Text>
               </View>
-              <Pressable style={styles.stopRecordBtn} onPress={handleStopRecording}>
-                <Ionicons name="stop" size={22} color={COLORS.WHITE} />
+              <Pressable style={[styles.stopRecordBtn, { backgroundColor: colors.gray600 }]} onPress={handleStopRecording}>
+                <Ionicons name="stop" size={22} color="#FFFFFF" />
               </Pressable>
             </>
           ) : (
             <>
               <Pressable
-                style={[styles.recordBtn, state !== 'ready' && styles.buttonDisabled]}
+                style={[styles.recordBtn, { backgroundColor: colors.error, shadowColor: colors.error }, state !== 'ready' && styles.buttonDisabled]}
                 onPress={handleStartRecording}
                 disabled={state !== 'ready'}
               >
-                <Ionicons name="mic" size={22} color={COLORS.WHITE} />
+                <Ionicons name="mic" size={22} color="#FFFFFF" />
               </Pressable>
-              <Text style={styles.recordHint}>탭하여 녹음</Text>
+              <Text style={[styles.recordHint, { color: colors.textSecondary }]}>탭하여 녹음</Text>
             </>
           )}
 
@@ -383,6 +384,7 @@ export default function ShadowingScreen() {
             <Pressable
               style={[
                 styles.playRecBtn,
+                { backgroundColor: colors.secondary + '10' },
                 state !== 'ready' && state !== 'playing_recording' && styles.buttonDisabled,
               ]}
               onPress={state === 'playing_recording' ? handleStopPlaying : handlePlayRecording}
@@ -391,12 +393,13 @@ export default function ShadowingScreen() {
               <Ionicons
                 name={state === 'playing_recording' ? 'stop-circle' : 'play-circle'}
                 size={20}
-                color={state === 'playing_recording' ? COLORS.ERROR : COLORS.SECONDARY}
+                color={state === 'playing_recording' ? colors.error : colors.secondary}
               />
               <Text
                 style={[
                   styles.playRecText,
-                  state === 'playing_recording' && { color: COLORS.ERROR },
+                  { color: colors.secondary },
+                  state === 'playing_recording' && { color: colors.error },
                 ]}
               >
                 {state === 'playing_recording' ? '중지' : '내 녹음'}
@@ -412,7 +415,7 @@ export default function ShadowingScreen() {
         onPress={() => router.back()}
         disabled={state === 'recording'}
       >
-        <Text style={styles.backButtonText}>스크립트로 돌아가기</Text>
+        <Text style={[styles.backButtonText, { color: colors.textSecondary }]}>스크립트로 돌아가기</Text>
       </Pressable>
     </View>
   );
@@ -421,43 +424,37 @@ export default function ShadowingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
     padding: 24,
   },
   loadingText: {
     marginTop: 12,
     fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
   },
   errorText: {
     marginTop: 12,
     fontSize: 16,
-    color: COLORS.ERROR,
     textAlign: 'center',
   },
   retryButton: {
     marginTop: 16,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: COLORS.PRIMARY,
     borderRadius: 12,
   },
   retryButtonText: {
     fontSize: 14,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.WHITE,
+    color: '#FFFFFF',
   },
 
   // ── 스크립트 영역 ──
   scriptSection: {
     flex: 1,
-    backgroundColor: COLORS.WHITE,
     margin: 12,
     marginBottom: 8,
     borderRadius: 16,
@@ -476,13 +473,11 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.PRIMARY,
   },
   playingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: COLORS.PRIMARY,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,
@@ -490,24 +485,15 @@ const styles = StyleSheet.create({
   playingBadgeText: {
     fontSize: 11,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.WHITE,
+    color: '#FFFFFF',
   },
   scriptContent: {
     fontSize: 17,
     lineHeight: 28,
-    color: COLORS.TEXT_PRIMARY,
-  },
-  highlightedSentence: {
-    backgroundColor: COLORS.PRIMARY + '20',
-    color: COLORS.PRIMARY,
-  },
-  completedSentence: {
-    color: COLORS.TEXT_SECONDARY,
   },
 
   // ── 컨트롤 영역 (컴팩트) ──
   controlSection: {
-    backgroundColor: COLORS.WHITE,
     marginHorizontal: 12,
     marginBottom: 4,
     borderRadius: 16,
@@ -518,7 +504,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.PRIMARY + '10',
     paddingVertical: 11,
     borderRadius: 10,
     gap: 8,
@@ -526,13 +511,11 @@ const styles = StyleSheet.create({
   ttsButtonText: {
     fontSize: 14,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.PRIMARY,
   },
   ttsStopButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.ERROR + '10',
     paddingVertical: 11,
     borderRadius: 10,
     gap: 8,
@@ -540,11 +523,9 @@ const styles = StyleSheet.create({
   ttsStopText: {
     fontSize: 14,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.ERROR,
   },
   divider: {
     height: 1,
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
     marginVertical: 10,
   },
   recordRow: {
@@ -556,10 +537,8 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: COLORS.ERROR,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: COLORS.ERROR,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
@@ -569,13 +548,11 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: COLORS.GRAY_600,
     justifyContent: 'center',
     alignItems: 'center',
   },
   recordHint: {
     fontSize: 13,
-    color: COLORS.TEXT_SECONDARY,
   },
   recordingInfo: {
     flexDirection: 'row',
@@ -587,18 +564,15 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: COLORS.ERROR,
   },
   recordingTimeText: {
     fontSize: 18,
     fontFamily: 'Pretendard-Medium',
-    color: COLORS.ERROR,
     fontVariant: ['tabular-nums'],
   },
   playRecBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.SECONDARY + '10',
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 10,
@@ -608,7 +582,6 @@ const styles = StyleSheet.create({
   playRecText: {
     fontSize: 13,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.SECONDARY,
   },
   buttonDisabled: {
     opacity: 0.5,
@@ -623,6 +596,5 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: 15,
-    color: COLORS.TEXT_SECONDARY,
   },
 });

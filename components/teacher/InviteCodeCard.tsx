@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-nati
 import { useState } from 'react';
 import * as Clipboard from 'expo-clipboard';
 
-import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 import type { Invite } from '@/lib/types';
 
 interface InviteCodeCardProps {
@@ -22,13 +22,14 @@ interface InviteCodeCardProps {
  * - 삭제 기능
  */
 export function InviteCodeCard({ invite, isLoading, onDelete, targetRole }: InviteCodeCardProps) {
+  const colors = useThemeColors();
   const [copied, setCopied] = useState(false);
 
   if (isLoading) {
     return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color={COLORS.PRIMARY} />
-        <Text style={styles.loadingText}>로딩 중...</Text>
+      <View style={[styles.container, { backgroundColor: colors.surface, shadowColor: '#000000' }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>로딩 중...</Text>
       </View>
     );
   }
@@ -59,25 +60,25 @@ export function InviteCodeCard({ invite, isLoading, onDelete, targetRole }: Invi
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.label}>
+    <View style={[styles.container, { backgroundColor: colors.surface, shadowColor: '#000000' }]}>
+      <Text style={[styles.label, { color: colors.textSecondary }]}>
         {targetRole === 'teacher' ? '강사 초대 코드' : '학생 초대 코드'}
       </Text>
 
-      <Pressable onPress={handleCopy} style={styles.codeContainer}>
-        <Text style={styles.code}>{invite.code}</Text>
-        <Text style={styles.copyHint}>
+      <Pressable onPress={handleCopy} style={[styles.codeContainer, { backgroundColor: colors.primaryLight }]}>
+        <Text style={[styles.code, { color: colors.primary }]}>{invite.code}</Text>
+        <Text style={[styles.copyHint, { color: colors.primaryDark }]}>
           {copied ? '복사됨!' : '탭하여 복사'}
         </Text>
       </Pressable>
 
       <View style={styles.infoRow}>
-        <Text style={styles.expiryText}>
+        <Text style={[styles.expiryText, { color: colors.warning }]}>
           {formatExpiryDate(invite.expires_at)}
         </Text>
       </View>
 
-      <Text style={styles.hint}>
+      <Text style={[styles.hint, { color: colors.textSecondary }]}>
         {targetRole === 'teacher'
           ? '강사에게 이 코드를 공유하세요.\n강사가 앱에서 코드를 입력하면 학원에 합류합니다.'
           : '학생에게 이 코드를 공유하세요.\n학생이 앱에서 코드를 입력하면 연결됩니다.'}
@@ -85,7 +86,7 @@ export function InviteCodeCard({ invite, isLoading, onDelete, targetRole }: Invi
 
       {onDelete && (
         <Pressable style={styles.deleteButton} onPress={onDelete}>
-          <Text style={styles.deleteButtonText}>코드 삭제</Text>
+          <Text style={[styles.deleteButtonText, { color: colors.error }]}>코드 삭제</Text>
         </Pressable>
       )}
     </View>
@@ -94,11 +95,9 @@ export function InviteCodeCard({ invite, isLoading, onDelete, targetRole }: Invi
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.WHITE,
     borderRadius: 16,
     padding: 24,
     alignItems: 'center',
-    shadowColor: COLORS.BLACK,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -106,19 +105,16 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    color: COLORS.TEXT_SECONDARY,
     fontSize: 14,
   },
   label: {
     fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
     marginBottom: 8,
   },
   codeContainer: {
     alignItems: 'center',
     paddingVertical: 16,
     paddingHorizontal: 32,
-    backgroundColor: COLORS.PRIMARY_LIGHT,
     borderRadius: 12,
     marginBottom: 16,
   },
@@ -126,12 +122,10 @@ const styles = StyleSheet.create({
     fontSize: 40,
     fontFamily: 'Pretendard-Bold',
     letterSpacing: 6,
-    color: COLORS.PRIMARY,
   },
   copyHint: {
     marginTop: 8,
     fontSize: 12,
-    color: COLORS.PRIMARY_DARK,
   },
   infoRow: {
     flexDirection: 'row',
@@ -140,12 +134,10 @@ const styles = StyleSheet.create({
   },
   expiryText: {
     fontSize: 14,
-    color: COLORS.WARNING,
     fontFamily: 'Pretendard-Medium',
   },
   hint: {
     fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -156,7 +148,6 @@ const styles = StyleSheet.create({
   },
   deleteButtonText: {
     fontSize: 14,
-    color: COLORS.ERROR,
   },
 });
 

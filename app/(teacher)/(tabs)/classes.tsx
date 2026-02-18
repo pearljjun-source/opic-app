@@ -4,13 +4,14 @@ import { router } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS } from '@/lib/constants';
 import { getTeacherClasses } from '@/services/classes';
 import { ClassCard } from '@/components/teacher';
 import type { TeacherClassListItem } from '@/lib/types';
 import { getUserMessage } from '@/lib/errors';
+import { useThemeColors } from '@/hooks/useTheme';
 
 export default function ClassesTab() {
+  const colors = useThemeColors();
   const [classes, setClasses] = useState<TeacherClassListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,17 +52,17 @@ export default function ClassesTab() {
 
   if (isLoading && classes.length === 0) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   if (error && classes.length === 0) {
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>{error}</Text>
-        <Pressable style={styles.retryButton} onPress={fetchClasses}>
+      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+        <Pressable style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={fetchClasses}>
           <Text style={styles.retryButtonText}>다시 시도</Text>
         </Pressable>
       </View>
@@ -69,21 +70,21 @@ export default function ClassesTab() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}>
       {/* 반 만들기 버튼 */}
       <Pressable
-        style={styles.createClassButton}
+        style={[styles.createClassButton, { backgroundColor: colors.surface, borderColor: colors.primary }]}
         onPress={() => router.push('/class/create')}
       >
-        <Ionicons name="add-circle-outline" size={20} color={COLORS.PRIMARY} />
-        <Text style={styles.createClassButtonText}>반 만들기</Text>
+        <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
+        <Text style={[styles.createClassButtonText, { color: colors.primary }]}>반 만들기</Text>
       </Pressable>
 
       {classes.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="school-outline" size={48} color={COLORS.GRAY_300} />
-          <Text style={styles.emptyTitle}>생성된 반이 없습니다</Text>
-          <Text style={styles.emptyHint}>
+          <Ionicons name="school-outline" size={48} color={colors.gray300} />
+          <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>생성된 반이 없습니다</Text>
+          <Text style={[styles.emptyHint, { color: colors.textSecondary }]}>
             반을 만들어 학생들을{'\n'}그룹으로 관리하세요
           </Text>
         </View>
@@ -111,31 +112,27 @@ export default function ClassesTab() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
-    backgroundColor: COLORS.BACKGROUND_SECONDARY,
   },
   errorText: {
     fontSize: 16,
-    color: COLORS.ERROR,
     textAlign: 'center',
     marginBottom: 16,
   },
   retryButton: {
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: COLORS.PRIMARY,
     borderRadius: 12,
   },
   retryButtonText: {
     fontSize: 14,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.WHITE,
+    color: '#FFFFFF',
   },
   createClassButton: {
     flexDirection: 'row',
@@ -146,16 +143,13 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 8,
     paddingVertical: 14,
-    backgroundColor: COLORS.WHITE,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: COLORS.PRIMARY,
     borderStyle: 'dashed',
   },
   createClassButtonText: {
     fontSize: 15,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.PRIMARY,
   },
   emptyContainer: {
     flex: 1,
@@ -167,13 +161,11 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontFamily: 'Pretendard-SemiBold',
-    color: COLORS.TEXT_PRIMARY,
     marginTop: 8,
   },
   emptyHint: {
     fontSize: 14,
     fontFamily: 'Pretendard-Regular',
-    color: COLORS.TEXT_SECONDARY,
     textAlign: 'center',
     lineHeight: 22,
   },

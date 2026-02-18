@@ -3,10 +3,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image, View, Text } from 'react-native';
 
 import { COLORS } from '@/lib/constants';
+import { useThemeColors } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 
 function HeaderLogo() {
   const { currentOrg } = useAuth();
+  const colors = useThemeColors();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', paddingLeft: 16 }}>
       <Image
@@ -16,8 +18,8 @@ function HeaderLogo() {
       />
       {currentOrg && (
         <>
-          <View style={{ width: 1, height: 16, backgroundColor: COLORS.GRAY_200, marginHorizontal: 8 }} />
-          <Text style={{ fontSize: 13, fontFamily: 'Pretendard-Medium', color: COLORS.TEXT_SECONDARY }} numberOfLines={1}>
+          <View style={{ width: 1, height: 16, backgroundColor: colors.border, marginHorizontal: 8 }} />
+          <Text style={{ fontSize: 13, fontFamily: 'Pretendard-Medium', color: colors.textSecondary }} numberOfLines={1}>
             {currentOrg.name}
           </Text>
         </>
@@ -27,14 +29,16 @@ function HeaderLogo() {
 }
 
 export default function TeacherTabsLayout() {
+  const colors = useThemeColors();
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: COLORS.PRIMARY,
-        tabBarInactiveTintColor: COLORS.GRAY_400,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textDisabled,
         tabBarStyle: {
           borderTopWidth: 0.5,
-          borderTopColor: COLORS.BORDER,
+          borderTopColor: colors.border,
+          backgroundColor: colors.surface,
           elevation: 0,
           shadowOpacity: 0,
         },
@@ -43,12 +47,12 @@ export default function TeacherTabsLayout() {
           fontSize: 11,
         },
         headerShown: true,
-        headerStyle: { backgroundColor: COLORS.BACKGROUND_SECONDARY },
+        headerStyle: { backgroundColor: colors.surfaceSecondary },
         headerShadowVisible: false,
         headerTitleStyle: {
           fontFamily: 'Pretendard-Bold',
           fontSize: 20,
-          color: COLORS.TEXT_PRIMARY,
+          color: colors.textPrimary,
         },
         headerTitle: '',
         headerLeft: () => <HeaderLogo />,
