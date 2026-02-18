@@ -6,19 +6,21 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '@/hooks/useTheme';
 import { getUserMessage } from '@/lib/errors';
 import { listUsers } from '@/services/admin';
-import type { AdminUserListItem, UserRole } from '@/lib/types';
+import type { AdminUserListItem, EffectiveRole } from '@/lib/types';
 
-type FilterRole = UserRole | 'all';
+type FilterRole = EffectiveRole | 'all';
 
 const ROLE_LABELS: Record<string, string> = {
   all: '전체',
-  admin: '관리자',
+  super_admin: '슈퍼관리자',
+  owner: '원장',
   teacher: '강사',
   student: '학생',
 };
 
 const ROLE_BADGE_COLORS: Record<string, string> = {
-  admin: '#7C3AED',
+  super_admin: '#7C3AED',
+  owner: '#2563EB',
   teacher: '#D4707F',
   student: '#E88B9A',
 };
@@ -44,6 +46,11 @@ export default function AdminUsersScreen() {
             <Text style={[styles.userMetaText, { color: colors.textDisabled }]}>
               가입: {new Date(user.created_at).toLocaleDateString('ko-KR')}
             </Text>
+            {user.org_name && (
+              <Text style={[styles.userMetaText, { color: colors.textDisabled }]}>
+                {user.org_name}
+              </Text>
+            )}
             {user.subscription_plan && (
               <Text style={[styles.userMetaText, { color: colors.textDisabled }]}>
                 플랜: {user.subscription_plan}
@@ -112,7 +119,7 @@ export default function AdminUsersScreen() {
 
       {/* 필터 */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow} contentContainerStyle={styles.filterContent}>
-        {(['all', 'admin', 'teacher', 'student'] as FilterRole[]).map((role) => (
+        {(['all', 'super_admin', 'owner', 'teacher', 'student'] as FilterRole[]).map((role) => (
           <Pressable
             key={role}
             style={[

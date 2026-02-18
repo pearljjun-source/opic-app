@@ -446,12 +446,17 @@ export interface AdminDashboardStats {
   mrr: number;
 }
 
+/** 관리자 사용자 목록 — effective_role (3계층 통합) */
+export type EffectiveRole = 'super_admin' | 'owner' | 'teacher' | 'student';
+
 /** 관리자 사용자 목록 아이템 */
 export interface AdminUserListItem {
   id: string;
   email: string;
   name: string;
-  role: UserRole;
+  role: EffectiveRole;
+  org_role: string | null;
+  org_name: string | null;
   created_at: string;
   push_token: boolean;
   subscription_plan: string | null;

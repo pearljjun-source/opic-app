@@ -17,7 +17,7 @@ import type {
   AdminOrganizationItem,
   AdminOrgMemberItem,
   AdminOrgSubscription,
-  UserRole,
+  EffectiveRole,
   PaymentRecord,
 } from '@/lib/types';
 
@@ -48,7 +48,7 @@ export async function getAdminDashboardStats(): Promise<{
 
 /** 사용자 목록 조회 (페이지네이션) */
 export async function listUsers(params: {
-  role?: UserRole;
+  role?: EffectiveRole;
   search?: string;
   limit?: number;
   offset?: number;
