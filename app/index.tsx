@@ -14,8 +14,9 @@ export default function Index() {
   const { isLoading, isAuthenticated } = useAuth();
   const colors = useThemeColors();
 
-  // 웹: 미인증 사용자에게 랜딩 페이지 표시
-  if (Platform.OS === 'web' && !isAuthenticated) {
+  // 웹: 루트 URL은 항상 랜딩 페이지 (인증 여부 무관)
+  // 로그인된 사용자는 랜딩 페이지에서 대시보드 버튼으로 이동
+  if (Platform.OS === 'web') {
     return <LandingPage />;
   }
 

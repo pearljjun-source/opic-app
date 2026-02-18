@@ -368,7 +368,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return '/(student)' as const;
     };
 
-    // 웹 랜딩 페이지: 미인증 사용자가 루트(/)에서 로그인 화면으로 리다이렉트되지 않도록 허용
+    // 웹 루트(/): 랜딩 페이지는 인증 여부와 무관하게 항상 접근 가능
     const isRootRoute = !segments[0] || (segments[0] as string) === 'index';
     if (!state.isAuthenticated && !inAuthGroup) {
       if (Platform.OS === 'web' && isRootRoute) return;
@@ -376,6 +376,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else if (state.isAuthenticated && inAuthGroup) {
       router.replace(homeForUser() as any);
     } else if (state.isAuthenticated && !inProtectedGroup) {
+      if (Platform.OS === 'web' && isRootRoute) return; // 랜딩 페이지에서 자동 리다이렉트 차단
       router.replace(homeForUser() as any);
     } else if (state.isAuthenticated && state._profileVerified) {
       // 잘못된 그룹에 있는 경우 올바른 그룹으로 리다이렉트
