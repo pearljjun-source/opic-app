@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 
 import { useAuth } from '@/hooks/useAuth';
-import { canTeach } from '@/lib/permissions';
-import { getMySubscription, getRemainingQuota, checkFeatureAccess } from '@/services/billing';
+import { getMySubscription, checkFeatureAccess, getRemainingQuota } from '@/services/billing';
 import type { Subscription, SubscriptionPlan } from '@/lib/types';
 
 // ============================================================================
@@ -13,29 +12,27 @@ import type { Subscription, SubscriptionPlan } from '@/lib/types';
 //
 //   // AI 피드백 접근 체크
 //   const { allowed } = await checkAccess('ai_feedback');
-//   if (!allowed) { showUpgradeModal(); }
+//   if (!allowed) { Alert.alert('유료 플랜 필요', ...); }
 //
 //   // 학생 쿼터 체크
 //   const { remaining } = await getQuota('students');
-//   if (remaining <= 0) { showUpgradeModal(); }
+//   if (remaining <= 0) { Alert.alert('한도 도달', ...); }
 // ============================================================================
 
 export function useSubscription() {
-  const { isAuthenticated, orgRole, currentOrg, role } = useAuth();
+  const { isAuthenticated, orgRole, currentOrg } = useAuth();
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [plan, setPlan] = useState<SubscriptionPlan | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const isTeacher = canTeach(orgRole) || role === 'teacher';
-
   useEffect(() => {
-    if (!isAuthenticated || !isTeacher) {
+    if (!isAuthenticated) {
       setIsLoading(false);
       return;
     }
 
-    // owner: 조직 기반 구독 조회, teacher: 개인 기반 (레거시 호환)
-    const orgId = orgRole === 'owner' && currentOrg ? currentOrg.id : undefined;
+    // org 기반 구독 조회: currentOrg가 있으면 org_id 사용, 없으면 user_id 폴백
+    const orgId = currentOrg?.id;
 
     getMySubscription(orgId).then(({ data }) => {
       if (data) {
@@ -44,27 +41,27 @@ export function useSubscription() {
       }
       setIsLoading(false);
     });
-  }, [isAuthenticated, isTeacher, orgRole, currentOrg]);
+  }, [isAuthenticated, orgRole, currentOrg]);
 
   /** 구독 정보 새로고침 */
   const refresh = useCallback(async () => {
-    if (!isAuthenticated || !isTeacher) return;
+    if (!isAuthenticated) return;
     setIsLoading(true);
-    const orgId = orgRole === 'owner' && currentOrg ? currentOrg.id : undefined;
+    const orgId = currentOrg?.id;
     const { data } = await getMySubscription(orgId);
     if (data) {
       setSubscription(data.subscription);
       setPlan(data.plan);
     }
     setIsLoading(false);
-  }, [isAuthenticated, isTeacher, orgRole, currentOrg]);
+  }, [isAuthenticated, currentOrg]);
 
-  /** 기능 접근 체크 (ai_feedback, tts) */
+  /** 기능 접근 체크 (ai_feedback, tts) — check_org_entitlement RPC 사용 */
   const checkAccess = useCallback(async (feature: 'ai_feedback' | 'tts') => {
     return checkFeatureAccess(feature);
   }, []);
 
-  /** 쿼터 체크 (students, scripts) */
+  /** 쿼터 체크 (students, scripts) — check_org_entitlement RPC 사용 */
   const getQuota = useCallback(async (quotaType: 'students' | 'scripts') => {
     return getRemainingQuota(quotaType);
   }, []);

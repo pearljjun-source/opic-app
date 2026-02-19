@@ -16,6 +16,7 @@ import { useThemeColors } from '@/hooks/useTheme';
 import { getStudentScript, StudentScriptDetail } from '@/services/scripts';
 import { generateScriptAudio } from '@/services/practices';
 import { getUserMessage } from '@/lib/errors';
+import { checkFeatureAccess } from '@/services/billing';
 
 type ShadowingState = 'loading' | 'ready' | 'playing_tts' | 'recording' | 'playing_recording';
 
@@ -130,6 +131,18 @@ export default function ShadowingScreen() {
     try {
       setState('playing_tts');
       setActiveSentence(0);
+
+      // TTS 구독 entitlement 체크
+      const ttsAccess = await checkFeatureAccess('tts');
+      if (!ttsAccess.allowed) {
+        Alert.alert(
+          '유료 플랜 필요',
+          'TTS 음성은 유료 플랜에서 이용 가능합니다. 플랜을 업그레이드해 주세요.'
+        );
+        setActiveSentence(-1);
+        setState('ready');
+        return;
+      }
 
       const { data: ttsData, error: ttsError } = await generateScriptAudio(id!);
       if (ttsError || !ttsData) {

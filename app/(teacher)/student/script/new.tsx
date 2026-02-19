@@ -18,6 +18,7 @@ import { createScript } from '@/services/scripts';
 import { notifyAction, deliverNotification } from '@/services/notifications';
 import { getUserMessage } from '@/lib/errors';
 import { useThemeColors } from '@/hooks/useTheme';
+import { getRemainingQuota } from '@/services/billing';
 
 export default function NewScriptScreen() {
   const colors = useThemeColors();
@@ -42,6 +43,17 @@ export default function NewScriptScreen() {
     }
 
     setIsSaving(true);
+
+    // 스크립트 쿼터 체크
+    const quota = await getRemainingQuota('scripts');
+    if (!quota.allowed) {
+      Alert.alert(
+        '스크립트 한도 도달',
+        `현재 플랜의 스크립트 한도(${quota.limit}개)에 도달했습니다. 플랜을 업그레이드해 주세요.`
+      );
+      setIsSaving(false);
+      return;
+    }
 
     const { data: scriptData, error } = await createScript({
       studentId,

@@ -5,6 +5,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { checkOrgEntitlement } from '../_shared/check-subscription.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -143,6 +144,21 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+
+    // 구독 entitlement 체크 (비용 드는 API 호출 전)
+    const entitlement = await checkOrgEntitlement(supabaseAdmin, user.id, 'ai_feedback');
+    if (!entitlement.allowed) {
+      return new Response(
+        JSON.stringify({
+          error: entitlement.reason || 'FEATURE_NOT_AVAILABLE',
+          plan_key: entitlement.planKey,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 403,
+        }
+      );
+    }
 
     // Rate limit 사전 확인 (비용 드는 API 호출 전에 차단)
     const { data: rateLimit } = await supabaseAdmin.rpc('check_api_rate_limit', {

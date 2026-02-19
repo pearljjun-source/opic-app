@@ -76,7 +76,8 @@ export async function getMySubscription(orgId?: string): Promise<{
 /** 빌링키 발급 + 첫 결제 (Edge Function 호출) */
 export async function issueBillingKey(
   planKey: string,
-  authKey: string
+  authKey: string,
+  orgId: string
 ): Promise<{ data: { subscriptionId: string } | null; error: Error | null }> {
   // Valibot 검증
   const result = safeParse(BillingKeySchema, { planKey, authKey });
@@ -84,11 +85,15 @@ export async function issueBillingKey(
     return { data: null, error: new AppError('VAL_FAILED') };
   }
 
+  if (!orgId) {
+    return { data: null, error: new AppError('VAL_FAILED') };
+  }
+
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { data: null, error: new AppError('AUTH_REQUIRED') };
 
   const { data, error } = await supabase.functions.invoke('billing-key', {
-    body: { planKey: result.output.planKey, authKey: result.output.authKey },
+    body: { planKey: result.output.planKey, authKey: result.output.authKey, orgId },
   });
 
   if (error) {
@@ -149,67 +154,71 @@ export async function getPaymentHistory(params?: {
   return { data: data as PaymentRecord[], error: null };
 }
 
-/** 플랜 기능 접근 체크 */
+/** 플랜 기능 접근 체크 (check_org_entitlement RPC 사용) */
 export async function checkFeatureAccess(feature: 'ai_feedback' | 'tts'): Promise<{
   allowed: boolean;
-  plan: SubscriptionPlan | null;
+  planKey: string | null;
+  reason?: string;
 }> {
-  const result = await getMySubscription();
-  if (!result.data) {
-    return { allowed: false, plan: null };
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { allowed: false, planKey: null };
+
+  const { data, error } = await (supabase.rpc as CallableFunction)(
+    'check_org_entitlement',
+    { p_feature_key: feature }
+  );
+
+  if (error) {
+    if (__DEV__) console.warn('[AppError] check_org_entitlement:', error.message);
+    return { allowed: false, planKey: null };
   }
 
-  const { plan } = result.data;
-  if (feature === 'ai_feedback') {
-    return { allowed: plan.ai_feedback_enabled, plan };
-  }
-  if (feature === 'tts') {
-    return { allowed: plan.tts_enabled, plan };
+  if (data?.error) {
+    return { allowed: false, planKey: null };
   }
 
-  return { allowed: false, plan };
+  return {
+    allowed: data?.allowed === true,
+    planKey: data?.plan_key || null,
+    reason: data?.reason,
+  };
 }
 
-/** 남은 쿼터 체크 (학생 수, 스크립트 수) */
+/** 남은 쿼터 체크 (check_org_entitlement RPC 사용) */
 export async function getRemainingQuota(quotaType: 'students' | 'scripts'): Promise<{
+  allowed: boolean;
   used: number;
   limit: number;
   remaining: number;
 }> {
-  const result = await getMySubscription();
-  if (!result.data) {
-    // Free 플랜 기본값
-    const defaultLimits = { students: 3, scripts: 5 };
-    return { used: 0, limit: defaultLimits[quotaType], remaining: defaultLimits[quotaType] };
-  }
+  const featureKey = quotaType === 'students' ? 'max_students' : 'max_scripts';
 
-  const { plan } = result.data;
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { used: 0, limit: 0, remaining: 0 };
+  if (!user) return { allowed: false, used: 0, limit: 0, remaining: 0 };
 
-  if (quotaType === 'students') {
-    const { count } = await supabase
-      .from('teacher_student')
-      .select('*', { count: 'exact', head: true })
-      .eq('teacher_id', user.id)
-      .is('deleted_at', null);
+  const { data, error } = await (supabase.rpc as CallableFunction)(
+    'check_org_entitlement',
+    { p_feature_key: featureKey }
+  );
 
-    const used = count || 0;
-    return { used, limit: plan.max_students, remaining: Math.max(0, plan.max_students - used) };
+  if (error) {
+    if (__DEV__) console.warn('[AppError] check_org_entitlement:', error.message);
+    // Free 기본값
+    const defaultLimits = { students: 3, scripts: 5 };
+    return { allowed: true, used: 0, limit: defaultLimits[quotaType], remaining: defaultLimits[quotaType] };
   }
 
-  if (quotaType === 'scripts') {
-    const { count } = await supabase
-      .from('scripts')
-      .select('*', { count: 'exact', head: true })
-      .eq('teacher_id', user.id)
-      .is('deleted_at', null);
-
-    const used = count || 0;
-    return { used, limit: plan.max_scripts, remaining: Math.max(0, plan.max_scripts - used) };
+  if (data?.error) {
+    const defaultLimits = { students: 3, scripts: 5 };
+    return { allowed: true, used: 0, limit: defaultLimits[quotaType], remaining: defaultLimits[quotaType] };
   }
 
-  return { used: 0, limit: 0, remaining: 0 };
+  return {
+    allowed: data?.allowed === true,
+    used: data?.used ?? 0,
+    limit: data?.limit ?? 0,
+    remaining: data?.remaining ?? 0,
+  };
 }
 
 // ============================================================================

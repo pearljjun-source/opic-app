@@ -9,6 +9,7 @@ import { canInviteTeacher } from '@/lib/permissions';
 import type { Invite, OrgRole } from '@/lib/types';
 import { getUserMessage } from '@/lib/errors';
 import { useThemeColors } from '@/hooks/useTheme';
+import { getRemainingQuota } from '@/services/billing';
 
 /**
  * 초대 화면
@@ -73,6 +74,19 @@ export default function InviteScreen() {
   const handleCreateInvite = async (targetRole: OrgRole) => {
     setCreatingRole(targetRole);
     setError(null);
+
+    // 학생 초대 시 쿼터 체크
+    if (targetRole === 'student') {
+      const quota = await getRemainingQuota('students');
+      if (!quota.allowed) {
+        Alert.alert(
+          '학생 수 한도 도달',
+          `현재 플랜의 학생 수 한도(${quota.limit}명)에 도달했습니다. 플랜을 업그레이드해 주세요.`
+        );
+        setCreatingRole(null);
+        return;
+      }
+    }
 
     const result = await createInvite(APP_CONFIG.INVITE_EXPIRE_DAYS, targetRole);
 

@@ -24,6 +24,7 @@ import {
 } from '@/services/practices';
 import { notifyAction, deliverNotification } from '@/services/notifications';
 import { getUserMessage } from '@/lib/errors';
+import { checkFeatureAccess } from '@/services/billing';
 
 type PracticeState = 'loading' | 'ready' | 'playing' | 'recording' | 'processing';
 type ProcessingStep = 'upload' | 'save' | 'stt' | 'feedback' | 'done';
@@ -91,6 +92,17 @@ export default function PracticeScreen() {
       let audioUrl = script.question.audio_url;
 
       if (!audioUrl) {
+        // TTS 구독 entitlement 체크
+        const ttsAccess = await checkFeatureAccess('tts');
+        if (!ttsAccess.allowed) {
+          Alert.alert(
+            '유료 플랜 필요',
+            'TTS 음성은 유료 플랜에서 이용 가능합니다. 플랜을 업그레이드해 주세요.'
+          );
+          setPracticeState('ready');
+          return;
+        }
+
         const { data: ttsData, error: ttsError } = await generateQuestionAudio(
           script.question.id,
         );
@@ -222,8 +234,18 @@ export default function PracticeScreen() {
         return;
       }
 
-      // 4. AI 피드백 생성
+      // 4. AI 피드백 — 구독 entitlement 체크
       setProcessingStep('feedback');
+      const feedbackAccess = await checkFeatureAccess('ai_feedback');
+      if (!feedbackAccess.allowed) {
+        Alert.alert(
+          '유료 플랜 필요',
+          'AI 피드백은 유료 플랜에서 이용 가능합니다. 플랜을 업그레이드해 주세요.'
+        );
+        setPracticeState('ready');
+        return;
+      }
+
       const { data: feedbackData, error: feedbackError } = await generateFeedback(
         script.content,
         sttData.transcription,

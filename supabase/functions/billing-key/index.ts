@@ -1,12 +1,14 @@
 // Edge Function: billing-key
 // 용도: 토스페이먼츠 빌링키 발급 + 첫 결제
-// 입력: { planKey: string, authKey: string }
+// 입력: { planKey: string, authKey: string, orgId: string }
 // 출력: { subscriptionId: string }
 //
 // 보안:
+// - orgId로 org owner 인지 검증 (인가)
 // - 서버에서 plan_key로 금액 조회 (클라이언트 금액 불신)
 // - authKey → 토스 API로 빌링키 교환
 // - 실패 시 subscription 미생성 (롤백)
+// - Toss customerKey = user.id (외부 제약, 변경 불가)
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -43,9 +45,12 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    const { planKey, authKey } = await req.json();
-    if (!planKey || !authKey) {
-      throw new Error('planKey and authKey are required');
+    const { planKey, authKey, orgId } = await req.json();
+    if (!planKey || !authKey || !orgId) {
+      return new Response(
+        JSON.stringify({ error: 'planKey, authKey, and orgId are required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Service Role 클라이언트
@@ -53,6 +58,23 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+
+    // 요청자가 해당 org의 owner인지 확인
+    const { data: membership } = await supabaseAdmin
+      .from('organization_members')
+      .select('role')
+      .eq('organization_id', orgId)
+      .eq('user_id', user.id)
+      .eq('role', 'owner')
+      .is('deleted_at', null)
+      .single();
+
+    if (!membership) {
+      return new Response(
+        JSON.stringify({ error: 'NOT_ORG_OWNER' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // 서버에서 플랜 가격 조회 (클라이언트 금액 불신)
     const { data: plan, error: planError } = await supabaseAdmin
@@ -144,10 +166,27 @@ serve(async (req) => {
     const periodEnd = new Date(now);
     periodEnd.setMonth(periodEnd.getMonth() + 1);
 
+    // 기존 free 구독이 있으면 삭제 (유료 전환)
+    await supabaseAdmin
+      .from('subscriptions')
+      .delete()
+      .eq('organization_id', orgId)
+      .eq('status', 'active')
+      .in('plan_id', [
+        // free 플랜만 삭제 (유료→유료 전환은 admin_update_subscription 사용)
+        ...(await supabaseAdmin
+          .from('subscription_plans')
+          .select('id')
+          .eq('plan_key', 'free')
+          .then(r => (r.data || []).map((p: any) => p.id))
+        ),
+      ]);
+
     const { data: subscription, error: subError } = await supabaseAdmin
       .from('subscriptions')
       .insert({
         user_id: user.id,
+        organization_id: orgId,
         plan_id: plan.id,
         status: 'active',
         billing_provider: 'toss',
