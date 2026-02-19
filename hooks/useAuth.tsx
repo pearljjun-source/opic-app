@@ -206,8 +206,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ============================================================================
   // Auth state listener — single source of truth
+  //
+  // CRITICAL: onAuthStateChange 콜백은 Supabase 내부 lock 안에서 실행됨.
+  // 콜백 안에서 supabase.auth.getUser(), signOut() 등 auth API를 호출하면
+  // pendingInLock 큐의 순환 대기로 promise-level 데드락 발생.
+  // → 모든 auth API 호출은 setTimeout(fn, 0)으로 콜백 밖에서 실행해야 함.
+  // 참고: GoTrueClient.ts _acquireLock() re-entrant path
   // ============================================================================
   useEffect(() => {
+    const loggedOutState: AuthState = {
+      user: null, session: null, isLoading: false, isAuthenticated: false,
+      role: null, platformRole: null, currentOrg: null, orgRole: null,
+      organizations: [], _profileVerified: true,
+    };
+
+    // lock 밖에서 실행 — getUser(), signOut() 등 auth API 호출 안전
+    async function validateSession(session: Session) {
+      try {
+        const { error: tokenError } = await supabase.auth.getUser();
+        if (tokenError) {
+          if (__DEV__) console.warn('[Auth] Token invalid:', tokenError.message);
+          safeMultiRemove([CACHE_KEY_ROLE, CACHE_KEY_PROFILE, CACHE_KEY_ORG, CACHE_KEY_ORGS]);
+          setState(loggedOutState);
+          // 저장된 세션 삭제 (다음 시작 시 INITIAL_SESSION에 null 전달)
+          await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+          return;
+        }
+
+        // 토큰 유효 → 최신 프로필 조회
+        const { profile, orgs } = await fetchUserProfile(session.user.id);
+        if (profile) {
+          const freshState = await buildAuthState(session, profile, orgs);
+          setState(prev => ({ ...prev, ...freshState, _profileVerified: true }));
+        } else {
+          // 프로필 조회 실패했지만 토큰은 유효 (비정상 — 검증만 완료 처리)
+          setState(prev => ({ ...prev, isLoading: false, _profileVerified: true }));
+        }
+      } catch (err) {
+        if (__DEV__) console.warn('[Auth] Session validation error:', err);
+        setState(prev => ({ ...prev, isLoading: false, _profileVerified: true }));
+      }
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         try {
@@ -216,7 +256,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // ----------------------------------------------------------------
         if (event === 'INITIAL_SESSION') {
           if (session?.user) {
-            // 1) 캐시에서 role + profile + orgs 읽기 (로컬, ~10ms)
+            // 1) 캐시에서 role + profile + orgs 읽기 (로컬, ~10ms — lock 안전)
             const [cachedRole, cachedProfileStr, cachedOrgsStr] = await Promise.all([
               safeGetItem(CACHE_KEY_ROLE),
               safeGetItem(CACHE_KEY_PROFILE),
@@ -230,55 +270,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               if (cachedProfileStr) cachedProfile = JSON.parse(cachedProfileStr) as User;
               if (cachedOrgsStr) cachedOrgs = JSON.parse(cachedOrgsStr) as MyOrganization[];
             } catch {
-              // 캐시 손상 → 무시하고 DB에서 다시 조회
               safeMultiRemove([CACHE_KEY_ROLE, CACHE_KEY_PROFILE, CACHE_KEY_ORG, CACHE_KEY_ORGS]);
-            }
-
-            // 토큰 유효성 먼저 검증 (캐시 유무와 무관하게)
-            const { error: tokenError } = await supabase.auth.getUser();
-            if (tokenError) {
-              // 토큰 무효 → 캐시 삭제 + 로컬 로그아웃 (서버 호출 불필요)
-              if (__DEV__) console.warn('[Auth] Token invalid, signing out:', tokenError.message);
-              safeMultiRemove([CACHE_KEY_ROLE, CACHE_KEY_PROFILE, CACHE_KEY_ORG, CACHE_KEY_ORGS]);
-              await supabase.auth.signOut({ scope: 'local' });
-              return; // SIGNED_OUT 이벤트가 state 초기화 처리
             }
 
             if (cachedRole && cachedProfile) {
-              // Fast path: 토큰 유효 + 캐시 있음 → 즉시 UI 표시
+              // Fast path: 캐시 있음 → 즉시 UI 표시
               const cachedState = await buildAuthState(session, cachedProfile, cachedOrgs);
               setState(prev => ({ ...prev, ...cachedState, _profileVerified: false }));
-
-              // Background: DB에서 최신 profile + orgs 갱신
-              fetchUserProfile(session.user.id).then(async ({ profile: fresh, orgs: freshOrgs }) => {
-                if (fresh) {
-                  const freshState = await buildAuthState(session, fresh, freshOrgs);
-                  setState(prev => ({ ...prev, ...freshState, _profileVerified: true }));
-                } else {
-                  // DB fetch 실패해도 검증 완료로 표시 (토큰은 이미 검증됨)
-                  setState(prev => ({ ...prev, _profileVerified: true }));
-                }
-              }).catch(() => {});
-            } else {
-              // Slow path: 토큰 유효 + 캐시 없음 → DB에서 조회
-              const { profile, orgs } = await fetchUserProfile(session.user.id);
-              const newState = await buildAuthState(session, profile, orgs);
-              setState(prev => ({ ...prev, ...newState, _profileVerified: true }));
             }
+
+            // 2) 토큰 검증 + 프로필 갱신 — lock 밖에서 실행 (데드락 방지)
+            setTimeout(() => { validateSession(session).catch(() => {}); }, 0);
+
           } else {
             // 세션 없음 → 로그인 화면으로
-            setState({
-              user: null,
-              session: null,
-              isLoading: false,
-              isAuthenticated: false,
-              role: null,
-              platformRole: null,
-              currentOrg: null,
-              orgRole: null,
-              organizations: [],
-              _profileVerified: true,
-            });
+            setState(loggedOutState);
           }
 
         // ----------------------------------------------------------------
@@ -294,18 +300,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // ----------------------------------------------------------------
         } else if (event === 'SIGNED_OUT') {
           safeMultiRemove([CACHE_KEY_ROLE, CACHE_KEY_PROFILE, CACHE_KEY_ORG, CACHE_KEY_ORGS]);
-          setState({
-            user: null,
-            session: null,
-            isLoading: false,
-            isAuthenticated: false,
-            role: null,
-            platformRole: null,
-            currentOrg: null,
-            orgRole: null,
-            organizations: [],
-            _profileVerified: true,
-          });
+          setState(loggedOutState);
 
         // ----------------------------------------------------------------
         // TOKEN_REFRESHED: 토큰 갱신 시 최신 profile 반영
@@ -322,18 +317,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // 어떤 에러든 isLoading을 false로 → 앱이 멈추지 않음
           if (__DEV__) console.warn('[Auth] onAuthStateChange error:', err);
           safeMultiRemove([CACHE_KEY_ROLE, CACHE_KEY_PROFILE, CACHE_KEY_ORG, CACHE_KEY_ORGS]);
-          setState({
-            user: null,
-            session: null,
-            isLoading: false,
-            isAuthenticated: false,
-            role: null,
-            platformRole: null,
-            currentOrg: null,
-            orgRole: null,
-            organizations: [],
-            _profileVerified: true,
-          });
+          setState(loggedOutState);
         }
       }
     );
