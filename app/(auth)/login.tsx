@@ -18,7 +18,7 @@ import { useThemeColors } from '@/hooks/useTheme';
 import { classifyAuthError } from '@/lib/errors';
 
 export default function LoginScreen() {
-  const { signIn, isLoading } = useAuth();
+  const { signIn, isLoading, isAuthenticated, _profileVerified } = useAuth();
   const colors = useThemeColors();
 
   const [email, setEmail] = useState('');
@@ -51,7 +51,8 @@ export default function LoginScreen() {
     }
   };
 
-  if (isLoading) {
+  // isLoading: 초기 로딩, isAuthenticated && !_profileVerified: 캐시 세션 검증 중
+  if (isLoading || (isAuthenticated && !_profileVerified)) {
     return (
       <ScreenContainer>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>

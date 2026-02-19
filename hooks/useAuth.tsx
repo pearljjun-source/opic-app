@@ -359,7 +359,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!state.isAuthenticated && !inAuthGroup) {
       if (Platform.OS === 'web' && isRootRoute) return;
       router.replace('/(auth)/login');
-    } else if (state.isAuthenticated && inAuthGroup) {
+    } else if (state.isAuthenticated && inAuthGroup && state._profileVerified) {
+      // 토큰 검증 완료 후에만 auth 그룹(로그인/회원가입)에서 리다이렉트
+      // _profileVerified 없이 하면 캐시된 만료 세션으로 잘못된 화면 이동
       router.replace(homeForUser() as any);
     } else if (state.isAuthenticated && !inProtectedGroup) {
       if (Platform.OS === 'web' && isRootRoute) return; // 랜딩 페이지에서 자동 리다이렉트 차단
