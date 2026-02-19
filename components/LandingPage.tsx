@@ -11,6 +11,7 @@ import {
   Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { supabase } from '@/lib/supabase';
 import { getLandingData } from '@/services/landing';
 import type { LandingSection, LandingItem } from '@/lib/types';
 import {
@@ -674,6 +675,16 @@ export default function LandingPage() {
 
   const router = useRouter();
   const go = (path: string) => () => router.push(path as any);
+
+  // 로그인 버튼: 기존 세션이 남아있으면 먼저 제거 후 로그인 페이지로 이동
+  const handleLogin = useCallback(async () => {
+    try {
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch (_) {
+      // 세션이 없어도 무시
+    }
+    router.push('/(auth)/login' as any);
+  }, [router]);
   const { width } = useWindowDimensions();
   const mob = width < 768;
   const [heroBgMode, setHeroBgMode] = useState<HeroBgMode>('blob');
@@ -839,7 +850,7 @@ export default function LandingPage() {
               <Image source={require('@/assets/images/speaky-text-logo.png')} style={s.navTextLogo} resizeMode="contain" />
             </View>
             <View style={s.navRight}>
-              <Pressable onPress={go('/(auth)/login')}>
+              <Pressable onPress={handleLogin}>
                 <Text style={s.navLink}>로그인</Text>
               </Pressable>
               <Pressable style={s.navCta} onPress={go('/(auth)/signup')}>

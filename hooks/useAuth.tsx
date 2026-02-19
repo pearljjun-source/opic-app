@@ -240,13 +240,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { profile, orgs } = await fetchUserProfile(session.user.id);
       if (profile) {
         const freshState = await buildAuthState(session, profile, orgs);
-        setState(prev => ({ ...prev, ...freshState, _profileVerified: true }));
+        setState(prev => {
+          // signOut이 이미 실행되었으면 프로필 로드 결과 무시 (경쟁 조건 방지)
+          if (!prev.isAuthenticated) return prev;
+          return { ...prev, ...freshState, _profileVerified: true };
+        });
       } else {
-        setState(prev => ({ ...prev, isLoading: false, _profileVerified: true }));
+        setState(prev => {
+          if (!prev.isAuthenticated) return prev;
+          return { ...prev, isLoading: false, _profileVerified: true };
+        });
       }
     } catch (err) {
       if (__DEV__) console.warn('[Auth] Session validation error:', err);
-      setState(prev => ({ ...prev, isLoading: false, _profileVerified: true }));
+      setState(prev => {
+        if (!prev.isAuthenticated) return prev;
+        return { ...prev, isLoading: false, _profileVerified: true };
+      });
     }
   }, [fetchUserProfile, buildAuthState]);
 
@@ -256,13 +266,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { profile, orgs } = await fetchUserProfile(session.user.id);
       if (profile) {
         const freshState = await buildAuthState(session, profile, orgs);
-        setState(prev => ({ ...prev, ...freshState, _profileVerified: true }));
+        setState(prev => {
+          if (!prev.isAuthenticated) return prev;
+          return { ...prev, ...freshState, _profileVerified: true };
+        });
       } else {
-        setState(prev => ({ ...prev, isLoading: false, _profileVerified: true }));
+        setState(prev => {
+          if (!prev.isAuthenticated) return prev;
+          return { ...prev, isLoading: false, _profileVerified: true };
+        });
       }
     } catch (err) {
       if (__DEV__) console.warn('[Auth] Profile load error:', err);
-      setState(prev => ({ ...prev, isLoading: false, _profileVerified: true }));
+      setState(prev => {
+        if (!prev.isAuthenticated) return prev;
+        return { ...prev, isLoading: false, _profileVerified: true };
+      });
     }
   }, [fetchUserProfile, buildAuthState]);
 
@@ -412,8 +431,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // 인증 완료 → auth 그룹(로그인/회원가입)에서 나감
       router.replace(correctHome as any);
     } else if (!inProtectedGroup) {
-      // 웹 루트(랜딩)는 인증 상태에서도 접근 가능
-      if (Platform.OS === 'web' && isRootRoute) return;
+      // 인증된 사용자는 웹 루트(랜딩)를 포함한 모든 비보호 경로에서 홈으로 이동
       router.replace(correctHome as any);
     } else {
       // protected 그룹에 있지만 잘못된 그룹이면 수정
