@@ -523,6 +523,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await supabase.auth.signOut();
     } catch (err) {
       if (__DEV__) console.warn('[Auth] signOut error:', err);
+      // 서버 signout 실패 (네트워크 등) → 최소한 로컬 세션이라도 제거
+      try {
+        await supabase.auth.signOut({ scope: 'local' });
+      } catch (_) {}
     }
   }, []);
 
