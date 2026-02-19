@@ -552,6 +552,7 @@ export interface SubscriptionPlan {
 export interface Subscription {
   id: string;
   user_id: string;
+  organization_id: string | null;
   plan_id: string;
   status: 'active' | 'past_due' | 'canceled' | 'trialing' | 'incomplete';
   billing_provider: 'toss' | 'stripe';
