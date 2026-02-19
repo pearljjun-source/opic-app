@@ -169,12 +169,16 @@ export async function checkFeatureAccess(feature: 'ai_feedback' | 'tts'): Promis
   );
 
   if (error) {
+    // RPC 미존재(마이그레이션 미적용) 또는 네트워크 에러 → 허용 폴백
+    // 실제 권한 확인은 Edge Function 서버에서 수행 (이중 차단 방지)
     if (__DEV__) console.warn('[AppError] check_org_entitlement:', error.message);
-    return { allowed: false, planKey: null };
+    return { allowed: true, planKey: null };
   }
 
   if (data?.error) {
-    return { allowed: false, planKey: null };
+    // RPC 내부 에러 (예: UNKNOWN_FEATURE) → 허용 폴백
+    if (__DEV__) console.warn('[AppError] check_org_entitlement data.error:', data.error);
+    return { allowed: true, planKey: null };
   }
 
   return {
