@@ -403,11 +403,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const inProtectedGroup = inTeacherGroup || inStudentGroup || inAdminGroup;
     const isRootRoute = !segments[0] || (segments[0] as string) === 'index';
 
-    // ① 미인증 → 로그인 페이지로 (웹 루트/랜딩은 제외)
+    // ① 미인증 → 웹은 랜딩 페이지, 네이티브는 로그인 페이지로
     if (!state.isAuthenticated) {
       if (inAuthGroup) return; // 이미 로그인/회원가입 화면
-      if (Platform.OS === 'web' && isRootRoute) return; // 웹 랜딩
-      router.replace('/(auth)/login');
+      if (Platform.OS === 'web') {
+        if (isRootRoute) return; // 이미 랜딩 페이지
+        router.replace('/'); // 보호된 라우트 → 랜딩 페이지로
+      } else {
+        router.replace('/(auth)/login');
+      }
       return;
     }
 
