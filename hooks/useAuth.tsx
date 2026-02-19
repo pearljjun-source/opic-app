@@ -183,9 +183,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const timer = setTimeout(() => {
       setState(prev => {
-        if (!prev.isLoading) return prev;
-        // 초기화 실패 → 캐시 삭제 후 로그인 화면으로
-        if (__DEV__) console.warn('[Auth] Init timeout — forcing isLoading: false');
+        // 이미 정상 완료된 경우 무시
+        if (!prev.isLoading && prev._profileVerified) return prev;
+        // 초기화 또는 프로필 검증 미완료 → 강제 로그아웃
+        if (__DEV__) console.warn('[Auth] Init timeout — forcing logged out state');
         safeMultiRemove([CACHE_KEY_ROLE, CACHE_KEY_PROFILE, CACHE_KEY_ORG, CACHE_KEY_ORGS]);
         return {
           user: null,
@@ -200,7 +201,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           _profileVerified: true,
         };
       });
-    }, 10_000);
+    }, 5_000);
     return () => clearTimeout(timer);
   }, []);
 
@@ -213,40 +214,74 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // → 모든 auth API 호출은 setTimeout(fn, 0)으로 콜백 밖에서 실행해야 함.
   // 참고: GoTrueClient.ts _acquireLock() re-entrant path
   // ============================================================================
+  // ============================================================================
+  // Profile loading — lock 밖에서 실행 (네트워크 호출)
+  //
+  // CRITICAL: 이 함수들은 onAuthStateChange 콜백 밖에서만 호출해야 함.
+  // 콜백 안에서 네트워크 호출 → navigator.locks 점유 → 다른 auth 작업 차단
+  // ============================================================================
+
+  // 세션 토큰 검증 + 프로필 로드 (앱 시작 시)
+  const validateAndLoadProfile = useCallback(async (session: Session) => {
+    try {
+      const { error: tokenError } = await supabase.auth.getUser();
+      if (tokenError) {
+        if (__DEV__) console.warn('[Auth] Token invalid:', tokenError.message);
+        safeMultiRemove([CACHE_KEY_ROLE, CACHE_KEY_PROFILE, CACHE_KEY_ORG, CACHE_KEY_ORGS]);
+        setState({
+          user: null, session: null, isLoading: false, isAuthenticated: false,
+          role: null, platformRole: null, currentOrg: null, orgRole: null,
+          organizations: [], _profileVerified: true,
+        });
+        await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+        return;
+      }
+
+      const { profile, orgs } = await fetchUserProfile(session.user.id);
+      if (profile) {
+        const freshState = await buildAuthState(session, profile, orgs);
+        setState(prev => ({ ...prev, ...freshState, _profileVerified: true }));
+      } else {
+        setState(prev => ({ ...prev, isLoading: false, _profileVerified: true }));
+      }
+    } catch (err) {
+      if (__DEV__) console.warn('[Auth] Session validation error:', err);
+      setState(prev => ({ ...prev, isLoading: false, _profileVerified: true }));
+    }
+  }, [fetchUserProfile, buildAuthState]);
+
+  // 프로필만 로드 (이미 인증된 상태 — 로그인/토큰 갱신 후)
+  const loadProfile = useCallback(async (session: Session) => {
+    try {
+      const { profile, orgs } = await fetchUserProfile(session.user.id);
+      if (profile) {
+        const freshState = await buildAuthState(session, profile, orgs);
+        setState(prev => ({ ...prev, ...freshState, _profileVerified: true }));
+      } else {
+        setState(prev => ({ ...prev, isLoading: false, _profileVerified: true }));
+      }
+    } catch (err) {
+      if (__DEV__) console.warn('[Auth] Profile load error:', err);
+      setState(prev => ({ ...prev, isLoading: false, _profileVerified: true }));
+    }
+  }, [fetchUserProfile, buildAuthState]);
+
+  // ============================================================================
+  // Auth state listener
+  //
+  // CRITICAL: onAuthStateChange 콜백은 Supabase 내부 lock 안에서 실행됨.
+  // 웹: navigator.locks — lock 점유 중 다른 auth 작업 (getUser, signOut) 차단
+  // RN: 내부 pendingInLock 큐 — 순환 대기 시 promise-level 데드락
+  //
+  // 원칙: 콜백은 로컬 캐시 읽기 + 즉각 상태 설정만 수행.
+  //       모든 네트워크 호출은 setTimeout으로 lock 밖에서 실행.
+  // ============================================================================
   useEffect(() => {
     const loggedOutState: AuthState = {
       user: null, session: null, isLoading: false, isAuthenticated: false,
       role: null, platformRole: null, currentOrg: null, orgRole: null,
       organizations: [], _profileVerified: true,
     };
-
-    // lock 밖에서 실행 — getUser(), signOut() 등 auth API 호출 안전
-    async function validateSession(session: Session) {
-      try {
-        const { error: tokenError } = await supabase.auth.getUser();
-        if (tokenError) {
-          if (__DEV__) console.warn('[Auth] Token invalid:', tokenError.message);
-          safeMultiRemove([CACHE_KEY_ROLE, CACHE_KEY_PROFILE, CACHE_KEY_ORG, CACHE_KEY_ORGS]);
-          setState(loggedOutState);
-          // 저장된 세션 삭제 (다음 시작 시 INITIAL_SESSION에 null 전달)
-          await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
-          return;
-        }
-
-        // 토큰 유효 → 최신 프로필 조회
-        const { profile, orgs } = await fetchUserProfile(session.user.id);
-        if (profile) {
-          const freshState = await buildAuthState(session, profile, orgs);
-          setState(prev => ({ ...prev, ...freshState, _profileVerified: true }));
-        } else {
-          // 프로필 조회 실패했지만 토큰은 유효 (비정상 — 검증만 완료 처리)
-          setState(prev => ({ ...prev, isLoading: false, _profileVerified: true }));
-        }
-      } catch (err) {
-        if (__DEV__) console.warn('[Auth] Session validation error:', err);
-        setState(prev => ({ ...prev, isLoading: false, _profileVerified: true }));
-      }
-    }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -256,14 +291,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // ----------------------------------------------------------------
         if (event === 'INITIAL_SESSION') {
           if (session?.user) {
-            // 1) 캐시에서 role + profile + orgs 읽기 (로컬, ~10ms — lock 안전)
+            // 캐시에서 role + profile + orgs 읽기 (로컬, ~10ms — lock 안전)
             const [cachedRole, cachedProfileStr, cachedOrgsStr] = await Promise.all([
               safeGetItem(CACHE_KEY_ROLE),
               safeGetItem(CACHE_KEY_PROFILE),
               safeGetItem(CACHE_KEY_ORGS),
             ]);
 
-            // 안전한 JSON 파싱 (캐시 손상 방어)
             let cachedProfile: User | null = null;
             let cachedOrgs: MyOrganization[] = [];
             try {
@@ -274,13 +308,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
 
             if (cachedRole && cachedProfile) {
-              // Fast path: 캐시 있음 → 즉시 UI 표시
+              // Fast path: 캐시 있음 → 즉시 UI 표시 (검증은 백그라운드)
               const cachedState = await buildAuthState(session, cachedProfile, cachedOrgs);
               setState(prev => ({ ...prev, ...cachedState, _profileVerified: false }));
+            } else {
+              // 캐시 없음 → isLoading 즉시 해제 (검증 대기 표시는 _profileVerified로)
+              setState(prev => ({
+                ...prev,
+                session,
+                isLoading: false,
+                isAuthenticated: true,
+                _profileVerified: false,
+              }));
             }
 
-            // 2) 토큰 검증 + 프로필 갱신 — lock 밖에서 실행 (데드락 방지)
-            setTimeout(() => { validateSession(session).catch(() => {}); }, 0);
+            // 토큰 검증 + 프로필 갱신 — lock 밖에서 실행 (데드락 방지)
+            setTimeout(() => { validateAndLoadProfile(session).catch(() => {}); }, 0);
 
           } else {
             // 세션 없음 → 로그인 화면으로
@@ -288,12 +331,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
 
         // ----------------------------------------------------------------
-        // SIGNED_IN: 로그인 성공
+        // SIGNED_IN: 로그인 성공 — 즉시 인증 상태로, 프로필은 lock 밖에서
         // ----------------------------------------------------------------
         } else if (event === 'SIGNED_IN' && session?.user) {
-          const { profile, orgs } = await fetchUserProfile(session.user.id);
-          const newState = await buildAuthState(session, profile, orgs);
-          setState(prev => ({ ...prev, ...newState, _profileVerified: true }));
+          setState(prev => ({
+            ...prev,
+            session,
+            isLoading: false,
+            isAuthenticated: true,
+            _profileVerified: false,
+          }));
+          // 프로필 로드 — lock 밖에서 실행
+          setTimeout(() => { loadProfile(session).catch(() => {}); }, 0);
 
         // ----------------------------------------------------------------
         // SIGNED_OUT: 로그아웃
@@ -303,18 +352,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setState(loggedOutState);
 
         // ----------------------------------------------------------------
-        // TOKEN_REFRESHED: 토큰 갱신 시 최신 profile 반영
+        // TOKEN_REFRESHED: 토큰 갱신 — 프로필 lock 밖에서 갱신
         // ----------------------------------------------------------------
         } else if (event === 'TOKEN_REFRESHED' && session) {
-          const { profile, orgs } = await fetchUserProfile(session.user.id);
-          if (profile) {
-            const newState = await buildAuthState(session, profile, orgs);
-            setState(prev => ({ ...prev, ...newState, _profileVerified: true }));
-          }
+          setTimeout(() => { loadProfile(session).catch(() => {}); }, 0);
         }
 
         } catch (err) {
-          // 어떤 에러든 isLoading을 false로 → 앱이 멈추지 않음
           if (__DEV__) console.warn('[Auth] onAuthStateChange error:', err);
           safeMultiRemove([CACHE_KEY_ROLE, CACHE_KEY_PROFILE, CACHE_KEY_ORG, CACHE_KEY_ORGS]);
           setState(loggedOutState);
@@ -325,7 +369,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [fetchUserProfile, buildAuthState]);
+  }, [validateAndLoadProfile, loadProfile, buildAuthState]);
 
   // ============================================================================
   // Routing based on auth state
@@ -338,38 +382,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const inStudentGroup = segments[0] === '(student)';
     const inAdminGroup = segments[0] === '(admin)';
     const inProtectedGroup = inTeacherGroup || inStudentGroup || inAdminGroup;
+    const isRootRoute = !segments[0] || (segments[0] as string) === 'index';
 
-    // 역할별 홈 경로 (org 기반)
+    // ① 미인증 → 로그인 페이지로 (웹 루트/랜딩은 제외)
+    if (!state.isAuthenticated) {
+      if (inAuthGroup) return; // 이미 로그인/회원가입 화면
+      if (Platform.OS === 'web' && isRootRoute) return; // 웹 랜딩
+      router.replace('/(auth)/login');
+      return;
+    }
+
+    // ② 인증됨 but 프로필 미검증 → 라우팅 보류
+    // 로그인 직후 또는 INITIAL_SESSION 검증 중 — role이 확정되기 전 이동하면
+    // 잘못된 그룹으로 이동 후 깜빡임/리다이렉트 반복 발생
+    if (!state._profileVerified) return;
+
+    // ③ 인증 + 프로필 검증 완료 → 올바른 화면으로
     const homeForUser = () => {
-      // super_admin → admin
       if (state.platformRole === 'super_admin') return '/(admin)' as const;
-      // Legacy admin 호환
       if (state.role === 'admin') return '/(admin)' as const;
-
-      // org 없으면 → 학생 초대 코드 화면
       if (!state.currentOrg) return '/(student)' as const;
-
-      // org 역할 기반
       if (canTeach(state.orgRole)) return '/(teacher)' as const;
       return '/(student)' as const;
     };
 
-    // 웹 루트(/): 랜딩 페이지는 인증 여부와 무관하게 항상 접근 가능
-    const isRootRoute = !segments[0] || (segments[0] as string) === 'index';
-    if (!state.isAuthenticated && !inAuthGroup) {
+    const correctHome = homeForUser();
+
+    if (inAuthGroup) {
+      // 인증 완료 → auth 그룹(로그인/회원가입)에서 나감
+      router.replace(correctHome as any);
+    } else if (!inProtectedGroup) {
+      // 웹 루트(랜딩)는 인증 상태에서도 접근 가능
       if (Platform.OS === 'web' && isRootRoute) return;
-      router.replace('/(auth)/login');
-    } else if (state.isAuthenticated && inAuthGroup && state._profileVerified) {
-      // 토큰 검증 완료 후에만 auth 그룹(로그인/회원가입)에서 리다이렉트
-      // _profileVerified 없이 하면 캐시된 만료 세션으로 잘못된 화면 이동
-      router.replace(homeForUser() as any);
-    } else if (state.isAuthenticated && !inProtectedGroup) {
-      if (Platform.OS === 'web' && isRootRoute) return; // 랜딩 페이지에서 자동 리다이렉트 차단
-      router.replace(homeForUser() as any);
-    } else if (state.isAuthenticated && state._profileVerified) {
-      // 잘못된 그룹에 있는 경우 올바른 그룹으로 리다이렉트
-      // _profileVerified: DB 검증 후에만 실행 (캐시 불일치로 인한 리다이렉트 반복 방지)
-      const correctHome = homeForUser();
+      router.replace(correctHome as any);
+    } else {
+      // protected 그룹에 있지만 잘못된 그룹이면 수정
       const inCorrectGroup =
         (correctHome === '/(admin)' && inAdminGroup) ||
         (correctHome === '/(teacher)' && inTeacherGroup) ||

@@ -1,6 +1,6 @@
-import { Tabs } from 'expo-router';
+import { Tabs, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { View, Text } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 
 import { COLORS } from '@/lib/constants';
 import { useThemeColors } from '@/hooks/useTheme';
@@ -8,11 +8,14 @@ import { useThemeColors } from '@/hooks/useTheme';
 function AdminHeaderLogo() {
   const colors = useThemeColors();
   return (
-    <View style={{ paddingLeft: 16, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+    <Pressable
+      onPress={() => router.replace('/(admin)/')}
+      style={{ paddingLeft: 16, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+    >
       <Text style={{ fontFamily: 'Pretendard-Bold', fontSize: 18, color: colors.textPrimary }}>
         Speaky Admin
       </Text>
-    </View>
+    </Pressable>
   );
 }
 

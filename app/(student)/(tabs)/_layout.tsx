@@ -1,6 +1,6 @@
-import { Tabs } from 'expo-router';
+import { Tabs, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Image, View, Text } from 'react-native';
+import { Image, View, Text, Pressable } from 'react-native';
 
 import { COLORS } from '@/lib/constants';
 import { useThemeColors } from '@/hooks/useTheme';
@@ -10,7 +10,10 @@ function HeaderLogo() {
   const { currentOrg } = useAuth();
   const colors = useThemeColors();
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', paddingLeft: 16 }}>
+    <Pressable
+      onPress={() => router.replace('/(student)/')}
+      style={{ flexDirection: 'row', alignItems: 'center', paddingLeft: 16 }}
+    >
       <Image
         source={require('@/assets/images/speaky-text-logo.png')}
         style={{ width: 172, height: 56, marginRight: -24 }}
@@ -24,7 +27,7 @@ function HeaderLogo() {
           </Text>
         </>
       )}
-    </View>
+    </Pressable>
   );
 }
 
