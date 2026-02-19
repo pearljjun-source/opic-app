@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
@@ -70,6 +70,12 @@ export default function TeacherSettings() {
   };
 
   const handleLogout = () => {
+    if (Platform.OS === 'web') {
+      if (window.confirm('정말 로그아웃하시겠습니까?')) {
+        signOut();
+      }
+      return;
+    }
     Alert.alert(
       '로그아웃',
       '정말 로그아웃하시겠습니까?',

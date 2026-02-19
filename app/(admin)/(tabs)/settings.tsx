@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Alert, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Alert, RefreshControl, Platform } from 'react-native';
 import { useState, useEffect, useCallback } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -94,6 +94,12 @@ export default function AdminSettingsScreen() {
   }, [fetchLogs]);
 
   const handleSignOut = useCallback(() => {
+    if (Platform.OS === 'web') {
+      if (window.confirm('로그아웃하시겠습니까?')) {
+        signOut();
+      }
+      return;
+    }
     Alert.alert('로그아웃', '로그아웃하시겠습니까?', [
       { text: '취소', style: 'cancel' },
       { text: '로그아웃', style: 'destructive', onPress: signOut },

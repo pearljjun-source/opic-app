@@ -446,7 +446,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Sign out
   // ============================================================================
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
+    // 먼저 로컬 상태 즉시 초기화 (UI 즉시 반영)
+    safeMultiRemove([CACHE_KEY_ROLE, CACHE_KEY_PROFILE, CACHE_KEY_ORG, CACHE_KEY_ORGS]);
+    setState({
+      user: null, session: null, isLoading: false, isAuthenticated: false,
+      role: null, platformRole: null, currentOrg: null, orgRole: null,
+      organizations: [], _profileVerified: true,
+    });
+    // Supabase 세션 정리 (실패해도 위에서 이미 로그아웃 상태)
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      if (__DEV__) console.warn('[Auth] signOut error:', err);
+    }
   }, []);
 
   // ============================================================================
