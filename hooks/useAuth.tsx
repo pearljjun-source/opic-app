@@ -234,8 +234,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               safeMultiRemove([CACHE_KEY_ROLE, CACHE_KEY_PROFILE, CACHE_KEY_ORG, CACHE_KEY_ORGS]);
             }
 
+            // 토큰 유효성 먼저 검증 (캐시 유무와 무관하게)
+            const { error: tokenError } = await supabase.auth.getUser();
+            if (tokenError) {
+              // 토큰 무효 → 캐시 삭제 + 로컬 로그아웃 (서버 호출 불필요)
+              if (__DEV__) console.warn('[Auth] Token invalid, signing out:', tokenError.message);
+              safeMultiRemove([CACHE_KEY_ROLE, CACHE_KEY_PROFILE, CACHE_KEY_ORG, CACHE_KEY_ORGS]);
+              await supabase.auth.signOut({ scope: 'local' });
+              return; // SIGNED_OUT 이벤트가 state 초기화 처리
+            }
+
             if (cachedRole && cachedProfile) {
-              // Fast path: 캐시 있음 → 즉시 UI 표시 (단, 라우팅은 DB 검증 후)
+              // Fast path: 토큰 유효 + 캐시 있음 → 즉시 UI 표시
               const cachedState = await buildAuthState(session, cachedProfile, cachedOrgs);
               setState(prev => ({ ...prev, ...cachedState, _profileVerified: false }));
 
@@ -245,24 +255,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   const freshState = await buildAuthState(session, fresh, freshOrgs);
                   setState(prev => ({ ...prev, ...freshState, _profileVerified: true }));
                 } else {
-                  // DB fetch 실패해도 검증 완료로 표시 (캐시 기반 라우팅 허용)
+                  // DB fetch 실패해도 검증 완료로 표시 (토큰은 이미 검증됨)
                   setState(prev => ({ ...prev, _profileVerified: true }));
                 }
-              });
+              }).catch(() => {});
             } else {
-              // Slow path: 캐시 없거나 손상 → DB에서 조회 (직접 검증)
+              // Slow path: 토큰 유효 + 캐시 없음 → DB에서 조회
               const { profile, orgs } = await fetchUserProfile(session.user.id);
               const newState = await buildAuthState(session, profile, orgs);
               setState(prev => ({ ...prev, ...newState, _profileVerified: true }));
             }
-
-            // Background: 서버에서 토큰 유효성 검증
-            supabase.auth.getUser().then(({ error }) => {
-              if (error) {
-                if (__DEV__) console.warn('[Auth] Token invalid, signing out');
-                supabase.auth.signOut();
-              }
-            });
           } else {
             // 세션 없음 → 로그인 화면으로
             setState({
