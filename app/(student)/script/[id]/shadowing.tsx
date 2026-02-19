@@ -51,13 +51,21 @@ export default function ShadowingScreen() {
     return splitSentences(script.content);
   }, [script]);
 
-  // 각 문장의 누적 비율 (글자 수 기반 시간 추정)
+  // 각 문장의 누적 비율 (단어 수 + 문장 종결 휴지 기반 시간 추정)
+  // TTS 발화 시간은 글자 수보다 단어 수에 비례하고,
+  // 문장 끝(. ? !)에서 ~0.3초 휴지가 추가됨
   const cumulativeRatios = useMemo(() => {
-    const total = sentences.reduce((sum, s) => sum + s.length, 0);
+    const PAUSE_WEIGHT = 2; // 문장 종결 휴지 = 단어 2개 분량
+    const weights = sentences.map((s) => {
+      const wordCount = s.split(/\s+/).filter(Boolean).length;
+      const hasSentenceEnd = /[.?!]\s*$/.test(s);
+      return wordCount + (hasSentenceEnd ? PAUSE_WEIGHT : 0);
+    });
+    const total = weights.reduce((sum, w) => sum + w, 0);
     if (total === 0) return [];
     let cum = 0;
-    return sentences.map((s) => {
-      cum += s.length;
+    return weights.map((w) => {
+      cum += w;
       return cum / total;
     });
   }, [sentences]);
