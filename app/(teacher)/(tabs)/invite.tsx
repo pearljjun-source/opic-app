@@ -88,7 +88,7 @@ export default function InviteScreen() {
             { text: '확인', style: 'cancel' },
             ...(orgRole === 'owner' ? [{
               text: '업그레이드',
-              onPress: () => router.push('/(teacher)/settings/plan-select'),
+              onPress: () => router.push('/(teacher)/manage/plan-select'),
             }] : []),
           ]
         );

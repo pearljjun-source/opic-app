@@ -52,7 +52,7 @@ export default function NewScriptScreen() {
         `현재 플랜의 스크립트 한도(${quota.limit}개)에 도달했습니다. 플랜을 업그레이드해 주세요.`,
         [
           { text: '확인', style: 'cancel' },
-          { text: '업그레이드', onPress: () => router.push('/(teacher)/settings/plan-select') },
+          { text: '업그레이드', onPress: () => router.push('/(teacher)/manage/plan-select') },
         ]
       );
       setIsSaving(false);

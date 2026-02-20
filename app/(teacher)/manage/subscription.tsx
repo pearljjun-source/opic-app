@@ -148,7 +148,7 @@ export default function SubscriptionScreen() {
         {isOwner && (
           <Pressable
             style={[styles.upgradeButton, { backgroundColor: colors.primary }]}
-            onPress={() => router.push('/(teacher)/settings/plan-select')}
+            onPress={() => router.push('/(teacher)/manage/plan-select')}
           >
             <Ionicons name="arrow-up-circle-outline" size={18} color="#fff" />
             <Text style={styles.upgradeButtonText}>플랜 변경</Text>

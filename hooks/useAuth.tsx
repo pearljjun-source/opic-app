@@ -408,7 +408,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (inAuthGroup) return; // 이미 로그인/회원가입 화면
       if (Platform.OS === 'web') {
         if (isRootRoute) return; // 이미 랜딩 페이지
-        router.replace('/'); // 보호된 라우트 → 랜딩 페이지로
+        // 전체 페이지 리로드: SPA router.replace('/')는 group index와 URL 충돌 가능.
+        // 전체 리로드로 네비게이션 상태 + 컴포넌트 메모리(비밀번호 등) 완전 제거.
+        window.location.href = '/';
+        return;
       } else {
         router.replace('/(auth)/login');
       }
@@ -527,10 +530,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await supabase.auth.signOut();
     } catch (err) {
       if (__DEV__) console.warn('[Auth] signOut error:', err);
-      // 서버 signout 실패 (네트워크 등) → 최소한 로컬 세션이라도 제거
       try {
         await supabase.auth.signOut({ scope: 'local' });
       } catch (_) {}
+    }
+    // 웹: 전체 페이지 리로드로 네비게이션 상태 + 컴포넌트 메모리 완전 제거
+    // SPA router.replace('/')는 group index URL 충돌 + 비밀번호 등 폼 상태 잔존 위험
+    if (Platform.OS === 'web') {
+      window.location.href = '/';
     }
   }, []);
 

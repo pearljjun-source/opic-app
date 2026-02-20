@@ -103,21 +103,21 @@ export default function TeacherSettings() {
               icon="business-outline"
               label="학원 정보"
               value={currentOrg.name}
-              onPress={() => router.push('/(teacher)/settings/academy-info')}
+              onPress={() => router.push('/(teacher)/manage/academy-info')}
               showChevron
             />
             <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
             <SettingsRow
               icon="people-outline"
               label="강사 관리"
-              onPress={() => router.push('/(teacher)/settings/teacher-management')}
+              onPress={() => router.push('/(teacher)/manage/teacher-management')}
               showChevron
             />
             <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
             <SettingsRow
               icon="card-outline"
               label="구독 정보"
-              onPress={() => router.push('/(teacher)/settings/subscription')}
+              onPress={() => router.push('/(teacher)/manage/subscription')}
               showChevron
             />
           </View>

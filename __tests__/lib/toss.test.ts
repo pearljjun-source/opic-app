@@ -45,8 +45,8 @@ describe('buildPaymentUrls', () => {
 
     const result = buildPaymentUrls('pro');
     expect(result).not.toBeNull();
-    expect(result!.successUrl).toBe('https://app.test.com/(teacher)/settings/plan-select?planKey=pro');
-    expect(result!.failUrl).toBe('https://app.test.com/(teacher)/settings/plan-select?paymentStatus=fail');
+    expect(result!.successUrl).toBe('https://app.test.com/(teacher)/manage/plan-select?planKey=pro');
+    expect(result!.failUrl).toBe('https://app.test.com/(teacher)/manage/plan-select?paymentStatus=fail');
   });
 
   it('encodes special characters in planKey', () => {

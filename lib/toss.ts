@@ -84,7 +84,7 @@ export function buildPaymentUrls(planKey: string): { successUrl: string; failUrl
   if (Platform.OS !== 'web' || typeof window === 'undefined') return null;
 
   const base = window.location.origin;
-  const path = '/(teacher)/settings/plan-select';
+  const path = '/(teacher)/manage/plan-select';
 
   return {
     successUrl: `${base}${path}?planKey=${encodeURIComponent(planKey)}`,

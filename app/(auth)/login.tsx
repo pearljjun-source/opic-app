@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   Pressable,
 } from 'react-native';
-import { Link, useRouter } from 'expo-router';
+import { Link, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ScreenContainer } from '@/components/layout/SafeAreaView';
@@ -28,6 +28,14 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // 화면 포커스 시 비밀번호 초기화 (보안: SPA에서 컴포넌트가 메모리에 잔존할 수 있음)
+  useFocusEffect(
+    useCallback(() => {
+      setPassword('');
+      setError(null);
+    }, [])
+  );
 
   const handleLogin = async () => {
     if (!email.trim()) {

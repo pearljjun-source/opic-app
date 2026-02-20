@@ -186,7 +186,7 @@ export default function PlanSelectScreen() {
       if (webUrl) {
         try {
           await WebBrowser.openBrowserAsync(
-            `${webUrl}/(teacher)/settings/plan-select`
+            `${webUrl}/(teacher)/manage/plan-select`
           );
           // 브라우저 닫힌 후 구독 새로고침
           await refreshSubscription();
