@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert, ScrollView } from 'react-native';
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'expo-router';
 
 import { APP_CONFIG, ORG_ROLE_LABELS } from '@/lib/constants';
 import { createInvite, getActiveInvite, deleteInvite } from '@/services/invites';
@@ -24,6 +25,7 @@ import { getRemainingQuota } from '@/services/billing';
 export default function InviteScreen() {
   const { orgRole } = useAuth();
   const colors = useThemeColors();
+  const router = useRouter();
   const canInviteTeachers = canInviteTeacher(orgRole);
 
   const [studentInvite, setStudentInvite] = useState<Invite | null>(null);
@@ -81,7 +83,14 @@ export default function InviteScreen() {
       if (!quota.allowed) {
         Alert.alert(
           '학생 수 한도 도달',
-          `현재 플랜의 학생 수 한도(${quota.limit}명)에 도달했습니다. 플랜을 업그레이드해 주세요.`
+          `현재 플랜의 학생 수 한도(${quota.limit}명)에 도달했습니다. 플랜을 업그레이드해 주세요.`,
+          [
+            { text: '확인', style: 'cancel' },
+            ...(orgRole === 'owner' ? [{
+              text: '업그레이드',
+              onPress: () => router.push('/(teacher)/settings/plan-select'),
+            }] : []),
+          ]
         );
         setCreatingRole(null);
         return;

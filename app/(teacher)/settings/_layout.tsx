@@ -26,6 +26,7 @@ export default function SettingsLayout() {
       <Stack.Screen name="academy-info" options={{ title: '학원 정보' }} />
       <Stack.Screen name="teacher-management" options={{ title: '강사 관리' }} />
       <Stack.Screen name="subscription" options={{ title: '구독 정보' }} />
+      <Stack.Screen name="plan-select" options={{ title: '플랜 선택' }} />
     </Stack>
   );
 }

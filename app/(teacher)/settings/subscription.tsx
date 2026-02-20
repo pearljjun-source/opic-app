@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Alert, RefreshControl } from 'react-native';
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useThemeColors } from '@/hooks/useTheme';
@@ -11,6 +12,7 @@ import type { PaymentRecord } from '@/lib/types';
 
 export default function SubscriptionScreen() {
   const colors = useThemeColors();
+  const router = useRouter();
   const { orgRole, currentOrg } = useAuth();
   const { subscription, plan, planKey, isActive, isLoading: subLoading, refresh } = useSubscription();
 
@@ -141,6 +143,16 @@ export default function SubscriptionScreen() {
           <Text style={[styles.cancelNote, { color: '#F59E0B' }]}>
             기간 만료 시 구독이 종료됩니다
           </Text>
+        )}
+
+        {isOwner && (
+          <Pressable
+            style={[styles.upgradeButton, { backgroundColor: colors.primary }]}
+            onPress={() => router.push('/(teacher)/settings/plan-select')}
+          >
+            <Ionicons name="arrow-up-circle-outline" size={18} color="#fff" />
+            <Text style={styles.upgradeButtonText}>플랜 변경</Text>
+          </Pressable>
         )}
       </View>
 
@@ -346,6 +358,20 @@ const styles = StyleSheet.create({
   paymentStatus: {
     fontSize: 11,
     fontFamily: 'Pretendard-Medium',
+  },
+  upgradeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  upgradeButtonText: {
+    fontSize: 14,
+    fontFamily: 'Pretendard-SemiBold',
+    color: '#fff',
   },
   cancelButton: {
     borderWidth: 1,

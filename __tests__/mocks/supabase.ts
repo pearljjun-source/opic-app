@@ -8,6 +8,7 @@ const mockChain = {
   delete: jest.fn().mockReturnThis(),
   eq: jest.fn().mockReturnThis(),
   neq: jest.fn().mockReturnThis(),
+  in: jest.fn().mockReturnThis(),
   is: jest.fn().mockReturnThis(),
   gt: jest.fn().mockReturnThis(),
   lt: jest.fn().mockReturnThis(),
