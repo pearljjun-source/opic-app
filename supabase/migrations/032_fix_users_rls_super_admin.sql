@@ -25,12 +25,12 @@ CREATE POLICY "users_select_own_and_connected" ON public.users
           AND ((ts.teacher_id = auth.uid() AND ts.student_id = users.id)
                OR (ts.student_id = auth.uid() AND ts.teacher_id = users.id))
       )
-      -- 조직: 같은 조직의 owner/admin이 조직원 조회 가능
+      -- 조직: 같은 조직의 owner가 조직원 조회 가능
       OR EXISTS (
         SELECT 1 FROM public.organization_members om
         WHERE om.deleted_at IS NULL
           AND om.user_id = auth.uid()
-          AND om.role IN ('owner', 'admin')
+          AND om.role = 'owner'
           AND om.organization_id IN (
             SELECT om2.organization_id FROM public.organization_members om2
             WHERE om2.user_id = users.id AND om2.deleted_at IS NULL
@@ -68,7 +68,7 @@ BEGIN
       WHEN u.platform_role = 'super_admin' THEN 'super_admin'
       WHEN EXISTS (
         SELECT 1 FROM public.organization_members om
-        WHERE om.user_id = u.id AND om.role IN ('owner', 'admin') AND om.deleted_at IS NULL
+        WHERE om.user_id = u.id AND om.role = 'owner' AND om.deleted_at IS NULL
       ) THEN 'admin'
       WHEN u.role = 'teacher' THEN 'teacher'
       ELSE 'student'

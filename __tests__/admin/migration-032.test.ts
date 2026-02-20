@@ -51,7 +51,7 @@ describe('032 마이그레이션: users RLS super_admin bypass', () => {
 
   it('organization_members owner/admin 조회 조건이 추가된다', () => {
     expect(sql).toContain('public.organization_members om');
-    expect(sql).toContain("om.role IN ('owner', 'admin')");
+    expect(sql).toContain("om.role = 'owner'");
   });
 
   it('deleted_at IS NULL 조건이 모든 레벨에 적용된다', () => {
