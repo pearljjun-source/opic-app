@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ScreenContainer } from '@/components/layout/SafeAreaView';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { FormView } from '@/components/ui/FormView';
 import { useAuth } from '@/hooks/useAuth';
 import { useThemeColors } from '@/hooks/useTheme';
 import { classifyAuthError } from '@/lib/errors';
@@ -156,7 +157,11 @@ export default function SignupScreen() {
             </View>
 
             {/* Form Card */}
-            <View className="bg-white dark:bg-neutral-900 rounded-2xl p-6 shadow-sm">
+            <FormView onSubmit={handleSignup} style={{
+              backgroundColor: 'white',
+              borderRadius: 16,
+              padding: 24,
+            }}>
               {error && (
                 <View className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
                   <Text className="text-red-600 text-sm">{error}</Text>
@@ -221,7 +226,7 @@ export default function SignupScreen() {
               >
                 회원가입
               </Button>
-            </View>
+            </FormView>
 
             {/* Login Link */}
             <View className="flex-row justify-center items-center mt-6">

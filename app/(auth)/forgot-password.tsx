@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ScreenContainer } from '@/components/layout/SafeAreaView';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { FormView } from '@/components/ui/FormView';
 import { useAuth } from '@/hooks/useAuth';
 import { useThemeColors } from '@/hooks/useTheme';
 import { classifyAuthError } from '@/lib/errors';
@@ -123,7 +124,11 @@ export default function ForgotPasswordScreen() {
             </View>
 
             {/* Form Card */}
-            <View className="bg-white dark:bg-neutral-900 rounded-2xl p-6 shadow-sm">
+            <FormView onSubmit={handleResetPassword} style={{
+              backgroundColor: 'white',
+              borderRadius: 16,
+              padding: 24,
+            }}>
               <View className="items-center mb-6">
                 <View className="w-16 h-16 bg-gray-100 dark:bg-neutral-800 rounded-full items-center justify-center mb-4">
                   <Ionicons name="key-outline" size={32} color={colors.gray500} />
@@ -163,7 +168,7 @@ export default function ForgotPasswordScreen() {
               >
                 재설정 링크 보내기
               </Button>
-            </View>
+            </FormView>
 
             {/* Back to Login */}
             <View className="flex-row justify-center items-center mt-6">

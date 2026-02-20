@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ScreenContainer } from '@/components/layout/SafeAreaView';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { FormView } from '@/components/ui/FormView';
 import { useAuth } from '@/hooks/useAuth';
 import { useThemeColors } from '@/hooks/useTheme';
 import { classifyAuthError } from '@/lib/errors';
@@ -150,7 +151,7 @@ export default function LoginScreen() {
             )}
 
             {/* Form */}
-            <View style={{ gap: 16 }}>
+            <FormView onSubmit={handleLogin} autoComplete="off" style={{ gap: 16 }}>
               <View>
                 <Text style={{
                   fontSize: 15,
@@ -166,7 +167,7 @@ export default function LoginScreen() {
                   onChangeText={setEmail}
                   keyboardType="email-address"
                   autoCapitalize="none"
-                  autoComplete="email"
+                  autoComplete={Platform.OS === 'web' ? 'off' : 'email'}
                   leftIcon={
                     <Ionicons name="mail-outline" size={20} color={colors.textDisabled} />
                   }
@@ -187,7 +188,7 @@ export default function LoginScreen() {
                   value={password}
                   onChangeText={setPassword}
                   isPassword
-                  autoComplete="password"
+                  autoComplete={Platform.OS === 'web' ? 'off' : 'password'}
                   leftIcon={
                     <Ionicons name="lock-closed-outline" size={20} color={colors.textDisabled} />
                   }
@@ -211,7 +212,7 @@ export default function LoginScreen() {
               >
                 로그인
               </Button>
-            </View>
+            </FormView>
 
             {/* Sign Up Link */}
             <View style={{

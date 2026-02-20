@@ -674,16 +674,28 @@ const FAQ = [
 export default function LandingPage() {
 
   const router = useRouter();
-  const go = (path: string) => () => router.push(path as any);
+  // 웹: 인증 페이지 이동 시 전체 리로드 — SPA state(폼 입력값) 완전 제거
+  const go = (path: string) => () => {
+    if (Platform.OS === 'web' && path.startsWith('/(auth)')) {
+      window.location.href = path;
+    } else {
+      router.push(path as any);
+    }
+  };
 
   // 로그인 버튼: 기존 세션이 남아있으면 먼저 제거 후 로그인 페이지로 이동
+  // 웹: window.location.href로 전체 리로드 — SPA state(이메일/비밀번호) 완전 제거
   const handleLogin = useCallback(async () => {
     try {
       await supabase.auth.signOut({ scope: 'local' });
     } catch (_) {
       // 세션이 없어도 무시
     }
-    router.push('/(auth)/login' as any);
+    if (Platform.OS === 'web') {
+      window.location.href = '/(auth)/login';
+    } else {
+      router.push('/(auth)/login' as any);
+    }
   }, [router]);
   const { width } = useWindowDimensions();
   const mob = width < 768;
