@@ -11,7 +11,7 @@ function HeaderLogo() {
   const colors = useThemeColors();
   return (
     <Pressable
-      onPress={() => router.replace('/(teacher)/')}
+      onPress={() => router.replace('/(teacher)/' as any)}
       style={{ flexDirection: 'row', alignItems: 'center', paddingLeft: 16 }}
     >
       <Image

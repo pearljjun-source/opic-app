@@ -426,7 +426,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // ③ 인증 + 프로필 검증 완료 → 올바른 화면으로
     const homeForUser = () => {
       if (state.platformRole === 'super_admin') return '/(admin)' as const;
-      if (state.role === 'admin') return '/(admin)' as const;
       if (!state.currentOrg) return '/(student)' as const;
       if (canTeach(state.orgRole)) return '/(teacher)' as const;
       return '/(student)' as const;

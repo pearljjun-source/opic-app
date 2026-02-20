@@ -155,7 +155,7 @@ export default function InviteScreen() {
   }
 
   // 단일 섹션 렌더링 (초대 카드 또는 생성 버튼)
-  const renderInviteSection = (role: OrgRole) => {
+  const renderInviteSection = (role: 'student' | 'teacher') => {
     const invite = role === 'student' ? studentInvite : teacherInvite;
     const isCreating = creatingRole === role;
     const roleLabel = ORG_ROLE_LABELS[role];

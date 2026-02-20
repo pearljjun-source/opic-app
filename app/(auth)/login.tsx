@@ -167,7 +167,7 @@ export default function LoginScreen() {
                   onChangeText={setEmail}
                   keyboardType="email-address"
                   autoCapitalize="none"
-                  autoComplete={Platform.OS === 'web' ? 'off' : 'email'}
+                  autoComplete={Platform.OS === 'web' ? 'new-password' : 'email'}
                   leftIcon={
                     <Ionicons name="mail-outline" size={20} color={colors.textDisabled} />
                   }
@@ -188,7 +188,7 @@ export default function LoginScreen() {
                   value={password}
                   onChangeText={setPassword}
                   isPassword
-                  autoComplete={Platform.OS === 'web' ? 'off' : 'password'}
+                  autoComplete={Platform.OS === 'web' ? 'new-password' : 'password'}
                   leftIcon={
                     <Ionicons name="lock-closed-outline" size={20} color={colors.textDisabled} />
                   }

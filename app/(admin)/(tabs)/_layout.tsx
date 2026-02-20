@@ -9,7 +9,7 @@ function AdminHeaderLogo() {
   const colors = useThemeColors();
   return (
     <Pressable
-      onPress={() => router.replace('/(admin)/')}
+      onPress={() => router.replace('/(admin)/' as any)}
       style={{ paddingLeft: 16, flexDirection: 'row', alignItems: 'center', gap: 8 }}
     >
       <Text style={{ fontFamily: 'Pretendard-Bold', fontSize: 18, color: colors.textPrimary }}>

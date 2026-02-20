@@ -5,28 +5,45 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useThemeColors } from '@/hooks/useTheme';
-import { getUserMessage } from '@/lib/errors';
+import { getUserMessage, classifyRpcError } from '@/lib/errors';
 import { changeUserRole, getAuditLogs } from '@/services/admin';
 import { supabase } from '@/lib/supabase';
-import type { User, AdminAuditLog } from '@/lib/types';
+import type { AdminAuditLog } from '@/lib/types';
 
 const ROLE_LABELS: Record<string, string> = {
+  super_admin: '슈퍼 관리자',
   admin: '관리자',
   teacher: '강사',
   student: '학생',
 };
 
 const ROLE_BADGE_COLORS: Record<string, string> = {
+  super_admin: '#DC2626',
   admin: '#7C3AED',
   teacher: '#D4707F',
   student: '#E88B9A',
 };
 
+interface UserDetail {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  platform_role: string | null;
+  effective_role: string;
+  created_at: string;
+  organizations: Array<{
+    org_id: string;
+    org_name: string;
+    org_role: string;
+  }>;
+}
+
 export default function AdminUserDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserDetail | null>(null);
   const [logs, setLogs] = useState<AdminAuditLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isChangingRole, setIsChangingRole] = useState(false);
@@ -35,17 +52,24 @@ export default function AdminUserDetailScreen() {
   const fetchUser = useCallback(async () => {
     if (!id) return;
 
-    const { data, error: fetchError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const { data, error: rpcError } = await (supabase.rpc as CallableFunction)(
+      'admin_get_user_by_id',
+      { p_user_id: id }
+    );
 
-    if (fetchError) {
-      setError(getUserMessage(fetchError));
-    } else {
-      setUser(data as User);
+    if (rpcError) {
+      setError(getUserMessage(rpcError));
+      setIsLoading(false);
+      return;
     }
+
+    if (data?.error) {
+      setError(classifyRpcError(data.error, { resource: 'user' }).userMessage);
+      setIsLoading(false);
+      return;
+    }
+
+    setUser(data as UserDetail);
 
     // 이 사용자 관련 audit log
     const { data: logData } = await getAuditLogs({ resourceType: 'user', limit: 10 });
@@ -78,17 +102,15 @@ export default function AdminUserDetailScreen() {
               Alert.alert('오류', getUserMessage(changeError));
             } else {
               Alert.alert('완료', '역할이 변경되었습니다.');
-              setUser(prev => prev ? { ...prev, role: newRole } : null);
-              // Audit log 새로고침
-              const { data: logData } = await getAuditLogs({ resourceType: 'user', limit: 10 });
-              if (logData) setLogs(logData.filter(l => l.resource_id === id));
+              // RPC로 최신 데이터 다시 가져오기
+              await fetchUser();
             }
             setIsChangingRole(false);
           },
         },
       ]
     );
-  }, [user, id]);
+  }, [user, fetchUser]);
 
   if (isLoading) {
     return (
@@ -105,6 +127,8 @@ export default function AdminUserDetailScreen() {
       </View>
     );
   }
+
+  const displayRole = user.effective_role;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surfaceSecondary, paddingTop: insets.top }]}>
@@ -125,20 +149,35 @@ export default function AdminUserDetailScreen() {
           </View>
           <Text style={[styles.userName, { color: colors.textPrimary }]}>{user.name}</Text>
           <Text style={[styles.userEmail, { color: colors.textSecondary }]}>{user.email}</Text>
-          <View style={[styles.roleBadge, { backgroundColor: ROLE_BADGE_COLORS[user.role] || colors.textDisabled }]}>
-            <Text style={styles.roleBadgeText}>{ROLE_LABELS[user.role] || user.role}</Text>
+          <View style={[styles.roleBadge, { backgroundColor: ROLE_BADGE_COLORS[displayRole] || colors.textDisabled }]}>
+            <Text style={styles.roleBadgeText}>{ROLE_LABELS[displayRole] || displayRole}</Text>
           </View>
           <Text style={[styles.joinDate, { color: colors.gray400 }]}>
-            가입: {new Date(user.created_at!).toLocaleDateString('ko-KR')}
+            가입: {new Date(user.created_at).toLocaleDateString('ko-KR')}
           </Text>
         </View>
 
-        {/* 역할 변경 */}
-        {user.role !== 'admin' && (
+        {/* 소속 조직 */}
+        {user.organizations.length > 0 && (
+          <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>소속 조직</Text>
+            {user.organizations.map((org) => (
+              <View key={org.org_id} style={[styles.orgItem, { borderBottomColor: colors.gray100 }]}>
+                <Text style={[styles.orgName, { color: colors.textPrimary }]}>{org.org_name}</Text>
+                <Text style={[styles.orgRole, { color: colors.textSecondary }]}>
+                  {ROLE_LABELS[org.org_role] || org.org_role}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* 역할 변경 — super_admin/admin에게는 표시 안 함 */}
+        {displayRole !== 'super_admin' && displayRole !== 'admin' && (
           <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>역할 변경</Text>
             <View style={styles.roleButtons}>
-              {user.role !== 'teacher' && (
+              {displayRole !== 'teacher' && (
                 <Pressable
                   style={[styles.roleButton, { backgroundColor: colors.primary }]}
                   onPress={() => handleRoleChange('teacher')}
@@ -147,7 +186,7 @@ export default function AdminUserDetailScreen() {
                   <Text style={styles.roleButtonText}>강사로 승격</Text>
                 </Pressable>
               )}
-              {user.role !== 'student' && (
+              {displayRole !== 'student' && (
                 <Pressable
                   style={[styles.roleButton, { backgroundColor: colors.warning }]}
                   onPress={() => handleRoleChange('student')}
@@ -227,6 +266,15 @@ const styles = StyleSheet.create({
   roleButtons: { flexDirection: 'row', gap: 10 },
   roleButton: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
   roleButtonText: { fontSize: 13, fontFamily: 'Pretendard-Bold', color: '#FFFFFF' },
+  orgItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+  },
+  orgName: { fontSize: 14, fontFamily: 'Pretendard-Medium' },
+  orgRole: { fontSize: 12, fontFamily: 'Pretendard-Regular' },
   logItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',

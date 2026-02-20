@@ -278,7 +278,7 @@ describe('unauthenticated redirect on web', () => {
     // router.replace('/') should NOT appear as actual code in the web branch
     // (it may appear in comments explaining why we use window.location.href instead)
     // The native branch uses router.replace('/(auth)/login'), not router.replace('/')
-    const codeLines = section.split('\n').filter(l => !l.trim().startsWith('//'));
+    const codeLines = section.split('\n').filter((l: string) => !l.trim().startsWith('//'));
     const codeOnly = codeLines.join('\n');
     expect(codeOnly).not.toContain("router.replace('/')");
   });
