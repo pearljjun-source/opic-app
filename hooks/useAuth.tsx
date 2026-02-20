@@ -489,11 +489,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     name: string,
   ): Promise<{ error: Error | null; autoLoggedIn: boolean }> => {
     try {
+      const redirectUrl = Platform.OS === 'web' && typeof window !== 'undefined'
+        ? `${window.location.origin}/confirm`
+        : 'https://opic-app.vercel.app/confirm';
+
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: { name },
+          emailRedirectTo: redirectUrl,
         },
       });
 
@@ -545,7 +550,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ============================================================================
   const resetPassword = useCallback(async (email: string) => {
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      const redirectUrl = Platform.OS === 'web' && typeof window !== 'undefined'
+        ? `${window.location.origin}/confirm`
+        : 'https://opic-app.vercel.app/confirm';
+
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: redirectUrl,
+      });
       return { error: error ? new Error(error.message) : null };
     } catch (error) {
       return { error: error as Error };

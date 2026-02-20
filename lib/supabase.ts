@@ -26,7 +26,8 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     storage: getAuthStorage(),
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false,
+    detectSessionInUrl: Platform.OS === 'web',
+    flowType: 'pkce',
   },
 });
 
