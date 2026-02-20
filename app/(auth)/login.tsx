@@ -2,12 +2,14 @@ import { useState } from 'react';
 import {
   View,
   Text,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   TouchableOpacity,
+  Pressable,
 } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ScreenContainer } from '@/components/layout/SafeAreaView';
@@ -20,6 +22,7 @@ import { classifyAuthError } from '@/lib/errors';
 export default function LoginScreen() {
   const { signIn, isLoading, isAuthenticated, _profileVerified } = useAuth();
   const colors = useThemeColors();
+  const router = useRouter();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -84,6 +87,17 @@ export default function LoginScreen() {
               borderBottomRightRadius: 24,
               marginBottom: 32,
             }}>
+              {Platform.OS === 'web' && (
+                <Pressable
+                  onPress={() => router.push('/')}
+                  style={{ marginBottom: 16 }}
+                >
+                  <Image
+                    source={require('@/assets/images/speaky-icon.png')}
+                    style={{ width: 36, height: 36, borderRadius: 18 }}
+                  />
+                </Pressable>
+              )}
               <Text style={{
                 fontSize: 28,
                 fontFamily: 'Pretendard-Bold',

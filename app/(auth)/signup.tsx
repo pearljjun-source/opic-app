@@ -2,12 +2,14 @@ import { useState } from 'react';
 import {
   View,
   Text,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   TouchableOpacity,
+  Pressable,
 } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ScreenContainer } from '@/components/layout/SafeAreaView';
@@ -20,6 +22,7 @@ import { classifyAuthError } from '@/lib/errors';
 export default function SignupScreen() {
   const { signUp, isLoading } = useAuth();
   const colors = useThemeColors();
+  const router = useRouter();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -135,11 +138,20 @@ export default function SignupScreen() {
           <View className="flex-1 py-6">
             {/* Header */}
             <View className="flex-row items-center mb-6">
-              <Link href="/(auth)/login" asChild>
-                <TouchableOpacity className="p-2 -ml-2">
-                  <Ionicons name="arrow-back" size={24} color={colors.gray900} />
-                </TouchableOpacity>
-              </Link>
+              {Platform.OS === 'web' ? (
+                <Pressable onPress={() => router.push('/')} style={{ marginRight: 8 }}>
+                  <Image
+                    source={require('@/assets/images/speaky-icon.png')}
+                    style={{ width: 36, height: 36, borderRadius: 18 }}
+                  />
+                </Pressable>
+              ) : (
+                <Link href="/(auth)/login" asChild>
+                  <TouchableOpacity className="p-2 -ml-2">
+                    <Ionicons name="arrow-back" size={24} color={colors.gray900} />
+                  </TouchableOpacity>
+                </Link>
+              )}
               <Text className="text-2xl font-bold text-gray-900 dark:text-gray-50 ml-2">회원가입</Text>
             </View>
 

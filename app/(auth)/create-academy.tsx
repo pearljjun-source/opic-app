@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -48,9 +48,18 @@ export default function CreateAcademyScreen() {
       style={[styles.container, { backgroundColor: colors.surface }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <Pressable style={styles.backButton} onPress={() => router.back()}>
-        <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
-      </Pressable>
+      {Platform.OS === 'web' ? (
+        <Pressable style={styles.backButton} onPress={() => router.push('/')}>
+          <Image
+            source={require('@/assets/images/speaky-icon.png')}
+            style={{ width: 36, height: 36, borderRadius: 18 }}
+          />
+        </Pressable>
+      ) : (
+        <Pressable style={styles.backButton} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+        </Pressable>
+      )}
 
       <View style={styles.content}>
         <Ionicons name="business" size={56} color={colors.primary} style={styles.icon} />
