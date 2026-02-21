@@ -12,13 +12,21 @@ import { supabase } from '@/lib/supabase';
  * 이메일 인증 콜백 페이지
  *
  * Supabase 이메일 확인/비밀번호 재설정 링크 클릭 시 리다이렉트되는 페이지.
- * URL 형태: /confirm?code=xxx (PKCE flow)
+ *
+ * Implicit flow (기본):
+ *   URL: /confirm#access_token=xxx&refresh_token=xxx
+ *   → detectSessionInUrl이 자동 처리하거나, 수동으로 setSession 호출
+ *
+ * PKCE flow (fallback):
+ *   URL: /confirm?code=xxx
+ *   → exchangeCodeForSession(code) 호출
  *
  * 처리 흐름:
- * 1. URL에서 code 파라미터 추출
- * 2. supabase.auth.exchangeCodeForSession(code) 호출
- * 3. 성공 → 세션 생성 → useAuth의 onAuthStateChange가 홈으로 라우팅
- * 4. 실패 → 에러 메시지 표시 + 로그인 링크
+ * 1. detectSessionInUrl이 이미 세션을 생성했는지 확인
+ * 2. URL hash에서 토큰 추출 시도 (implicit flow)
+ * 3. code 파라미터로 세션 교환 시도 (PKCE fallback)
+ * 4. 성공 → useAuth의 onAuthStateChange가 홈으로 라우팅
+ * 5. 실패 → 에러 메시지 표시 + 로그인 링크
  */
 export default function AuthConfirmScreen() {
   const colors = useThemeColors();
@@ -32,7 +40,14 @@ export default function AuthConfirmScreen() {
   }, []);
 
   const handleConfirm = async () => {
-    // 웹: URL hash에서 토큰 추출 시도 (implicit flow 대비)
+    // 1. detectSessionInUrl이 이미 처리한 경우 (페이지 로드 시 자동 토큰 교환)
+    const { data: { session: existingSession } } = await supabase.auth.getSession();
+    if (existingSession) {
+      setStatus('success');
+      return;
+    }
+
+    // 2. 웹: URL hash에서 토큰 추출 (implicit flow — 기본)
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       const hash = window.location.hash;
       if (hash) {
@@ -58,7 +73,7 @@ export default function AuthConfirmScreen() {
       }
     }
 
-    // PKCE flow: code 파라미터로 세션 교환
+    // 3. PKCE fallback: code 파라미터로 세션 교환
     const code = params.code;
     if (code) {
       const { error } = await supabase.auth.exchangeCodeForSession(code);
@@ -73,14 +88,22 @@ export default function AuthConfirmScreen() {
       return;
     }
 
-    // URL에 에러 파라미터가 있는 경우
+    // 4. URL에 에러 파라미터가 있는 경우
     if (params.error) {
       setStatus('error');
       setErrorMessage(params.error_description || '인증 처리 중 오류가 발생했습니다.');
       return;
     }
 
-    // code도 token도 없으면 에러
+    // 5. detectSessionInUrl 비동기 처리 대기 (토큰 교환에 시간이 걸릴 수 있음)
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    const { data: { session: retrySession } } = await supabase.auth.getSession();
+    if (retrySession) {
+      setStatus('success');
+      return;
+    }
+
+    // 6. 최종 에러
     setStatus('error');
     setErrorMessage('유효하지 않은 인증 링크입니다.');
   };

@@ -489,16 +489,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     name: string,
   ): Promise<{ error: Error | null; autoLoggedIn: boolean }> => {
     try {
-      const redirectUrl = Platform.OS === 'web' && typeof window !== 'undefined'
-        ? `${window.location.origin}/confirm`
-        : 'https://opic-app.vercel.app/confirm';
-
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: { name },
-          emailRedirectTo: redirectUrl,
         },
       });
 

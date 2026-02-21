@@ -31,7 +31,6 @@ export default function SignupScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
 
   const validateForm = (): boolean => {
     if (!name.trim()) {
@@ -78,11 +77,10 @@ export default function SignupScreen() {
         setError(classifyAuthError(signUpError).userMessage);
       } else if (autoLoggedIn) {
         // 이메일 인증 OFF → 세션 자동 생성 → onAuthStateChange가 홈으로 네비게이션
-        // 별도 화면 표시 불필요
         return;
       } else {
-        // 이메일 인증 ON → 인증 안내 화면 표시
-        setSuccess(true);
+        // 이메일 인증 ON → OTP 입력 화면으로 이동
+        router.push({ pathname: '/(auth)/verify-email' as any, params: { email: email.trim() } });
       }
     } catch (err) {
       setError('회원가입 중 오류가 발생했습니다.');
@@ -96,30 +94,6 @@ export default function SignupScreen() {
       <ScreenContainer>
         <View className="flex-1 justify-center items-center">
           <Text className="text-gray-500 dark:text-gray-400">로딩 중...</Text>
-        </View>
-      </ScreenContainer>
-    );
-  }
-
-  if (success) {
-    return (
-      <ScreenContainer backgroundColor={colors.surfaceSecondary}>
-        <View className="flex-1 justify-center items-center px-6">
-          <View className="w-20 h-20 bg-green-100 rounded-full items-center justify-center mb-6">
-            <Ionicons name="checkmark-circle" size={48} color={colors.success} />
-          </View>
-          <Text className="text-2xl font-bold text-gray-900 dark:text-gray-50 mb-2 text-center">
-            회원가입 완료!
-          </Text>
-          <Text className="text-base text-gray-500 dark:text-gray-400 text-center mb-8">
-            이메일 인증 후 로그인해주세요.{'\n'}
-            메일함을 확인해주세요.
-          </Text>
-          <Link href="/(auth)/login" asChild>
-            <Button fullWidth size="lg">
-              로그인하러 가기
-            </Button>
-          </Link>
         </View>
       </ScreenContainer>
     );
