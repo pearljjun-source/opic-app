@@ -52,3 +52,6 @@ nul
 
 .vercel
 .env*.local
+
+# Claude Code local settings (may contain secrets in allowed commands)
+.claude/settings.local.json
