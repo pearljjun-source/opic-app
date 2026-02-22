@@ -235,43 +235,34 @@ export async function getOrganizationDetail(orgId: string): Promise<{
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { data: null, error: new AppError('AUTH_REQUIRED') };
 
-  const [membersResult, subResult] = await Promise.all([
-    supabase
-      .from('organization_members')
-      .select('id, role, created_at, user_id, users(id, name, email)')
-      .eq('organization_id', orgId)
-      .is('deleted_at', null)
-      .order('created_at', { ascending: true }),
-    supabase
-      .from('subscriptions')
-      .select('id, status, current_period_end, plan_id, cancel_at_period_end, canceled_at, subscription_plans(name, plan_key)')
-      .eq('organization_id', orgId)
-      .in('status', ['active', 'trialing', 'past_due'])
-      .limit(1)
-      .maybeSingle(),
-  ]);
+  const { data, error } = await (supabase.rpc as CallableFunction)(
+    'admin_get_organization_detail',
+    { p_org_id: orgId }
+  );
 
-  if (membersResult.error) {
-    return { data: null, error: classifyError(membersResult.error, { resource: 'organization' }) };
+  if (error) return { data: null, error: classifyError(error, { resource: 'organization' }) };
+
+  if (data?.error) {
+    return { data: null, error: classifyRpcError(data.error, { resource: 'organization' }) };
   }
 
-  const members: AdminOrgMemberItem[] = (membersResult.data || []).map((m: any) => ({
+  const members: AdminOrgMemberItem[] = (data?.members || []).map((m: any) => ({
     id: m.id,
-    user_id: m.users?.id || m.user_id,
-    name: m.users?.name || '(알 수 없음)',
-    email: m.users?.email || '',
+    user_id: m.user_id,
+    name: m.name || '(알 수 없음)',
+    email: m.email || '',
     role: m.role,
     created_at: m.created_at,
   }));
 
   let subscription: AdminOrgSubscription | null = null;
-  if (subResult.data) {
-    const sub = subResult.data as any;
+  if (data?.subscription) {
+    const sub = data.subscription;
     subscription = {
       id: sub.id,
       status: sub.status,
-      plan_name: sub.subscription_plans?.name || '(알 수 없음)',
-      plan_key: sub.subscription_plans?.plan_key || '',
+      plan_name: sub.plan_name || '(알 수 없음)',
+      plan_key: sub.plan_key || '',
       plan_id: sub.plan_id,
       current_period_end: sub.current_period_end,
       cancel_at_period_end: sub.cancel_at_period_end || false,
@@ -389,25 +380,18 @@ export async function getOrganizationPayments(orgId: string): Promise<{
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { data: null, error: new AppError('AUTH_REQUIRED') };
 
-  // 해당 org의 subscription IDs 조회
-  const { data: subs, error: subsError } = await supabase
-    .from('subscriptions')
-    .select('id')
-    .eq('organization_id', orgId);
-
-  if (subsError) return { data: null, error: classifyError(subsError, { resource: 'subscription' }) };
-  if (!subs || subs.length === 0) return { data: [], error: null };
-
-  const subIds = subs.map((s: any) => s.id);
-  const { data, error } = await supabase
-    .from('payment_history')
-    .select('*')
-    .in('subscription_id', subIds)
-    .order('created_at', { ascending: false })
-    .limit(20);
+  const { data, error } = await (supabase.rpc as CallableFunction)(
+    'admin_get_org_payments',
+    { p_org_id: orgId }
+  );
 
   if (error) return { data: null, error: classifyError(error, { resource: 'subscription' }) };
-  return { data: data as PaymentRecord[], error: null };
+
+  if (data?.error) {
+    return { data: null, error: classifyRpcError(data.error, { resource: 'subscription' }) };
+  }
+
+  return { data: (data?.payments as PaymentRecord[]) || [], error: null };
 }
 
 /** 감사 로그 조회 */

@@ -81,28 +81,44 @@ export default function AcademyDetailScreen() {
     if (!id) return;
     setError(null);
 
-    const [orgsResult, detailResult, paymentsResult] = await Promise.all([
-      listOrganizations(),
-      getOrganizationDetail(id),
-      getOrganizationPayments(id),
-    ]);
+    try {
+      const [orgsResult, detailResult, paymentsResult] = await Promise.all([
+        listOrganizations(),
+        getOrganizationDetail(id),
+        getOrganizationPayments(id),
+      ]);
 
-    if (orgsResult.error) {
-      setError(getUserMessage(orgsResult.error));
-    } else {
-      const found = orgsResult.data?.find(o => o.id === id) || null;
-      setOrg(found);
-    }
+      const errors: string[] = [];
 
-    if (detailResult.data) {
-      setMembers(detailResult.data.members);
-      setSubscription(detailResult.data.subscription);
-    } else if (detailResult.error) {
-      setError(getUserMessage(detailResult.error));
-    }
+      if (orgsResult.error) {
+        if (__DEV__) console.warn('[AcademyDetail] listOrganizations error:', orgsResult.error);
+        errors.push(getUserMessage(orgsResult.error));
+      } else {
+        const found = orgsResult.data?.find(o => o.id === id) || null;
+        setOrg(found);
+      }
 
-    if (paymentsResult.data) {
-      setPayments(paymentsResult.data);
+      if (detailResult.data) {
+        setMembers(detailResult.data.members);
+        setSubscription(detailResult.data.subscription);
+      } else if (detailResult.error) {
+        if (__DEV__) console.warn('[AcademyDetail] getOrganizationDetail error:', detailResult.error);
+        errors.push(getUserMessage(detailResult.error));
+      }
+
+      if (paymentsResult.error) {
+        if (__DEV__) console.warn('[AcademyDetail] getOrganizationPayments error:', paymentsResult.error);
+      }
+      if (paymentsResult.data) {
+        setPayments(paymentsResult.data);
+      }
+
+      if (errors.length > 0) {
+        setError(errors[0]);
+      }
+    } catch (err) {
+      if (__DEV__) console.warn('[AcademyDetail] fetchData exception:', err);
+      setError(getUserMessage(err));
     }
 
     setIsLoading(false);

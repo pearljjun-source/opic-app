@@ -199,7 +199,7 @@ describe('user/[id].tsx: RPC 기반 사용자 상세 화면', () => {
 // P3: getOrganizationDetail users JOIN — RLS 수정으로 자동 해결 검증
 // ============================================================================
 
-describe('services/admin.ts: getOrganizationDetail users JOIN', () => {
+describe('services/admin.ts: getOrganizationDetail RPC 전환', () => {
   const adminServicePath = path.resolve(__dirname, '../../services/admin.ts');
   let content: string;
 
@@ -207,10 +207,21 @@ describe('services/admin.ts: getOrganizationDetail users JOIN', () => {
     content = fs.readFileSync(adminServicePath, 'utf8');
   });
 
-  it('organization_members에서 users JOIN을 수행한다', () => {
-    // 기존 쿼리가 변경되지 않았음을 확인 (RLS 수정으로 자동 해결)
-    expect(content).toContain("users(id, name, email)");
-    expect(content).toContain("'organization_members'");
+  it('admin_get_organization_detail RPC를 호출한다', () => {
+    expect(content).toContain("'admin_get_organization_detail'");
+    expect(content).toContain('p_org_id');
+  });
+
+  it('직접 organization_members 쿼리를 사용하지 않는다', () => {
+    expect(content).not.toContain("from('organization_members')");
+  });
+
+  it('admin_get_org_payments RPC를 호출한다', () => {
+    expect(content).toContain("'admin_get_org_payments'");
+  });
+
+  it('직접 payment_history 쿼리를 사용하지 않는다', () => {
+    expect(content).not.toContain("from('payment_history')");
   });
 });
 
