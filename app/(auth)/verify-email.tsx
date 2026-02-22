@@ -16,13 +16,14 @@ import { Button } from '@/components/ui/Button';
 import { useThemeColors } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 
+const OTP_LENGTH = 8;
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_SECONDS = 180; // 3분
 
 /**
  * 이메일 인증 코드 입력 화면
  *
- * 회원가입 후 이메일로 발송된 6자리 인증 코드를 입력하는 화면.
+ * 회원가입 후 이메일로 발송된 인증 코드를 입력하는 화면.
  * OTP 방식: 크로스 브라우저/모바일 호환 문제 없음.
  *
  * 보안:
@@ -33,7 +34,7 @@ export default function VerifyEmailScreen() {
   const colors = useThemeColors();
 
   const [email, setEmail] = useState<string | null>(null);
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [otp, setOtp] = useState(Array(OTP_LENGTH).fill(''));
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
@@ -69,15 +70,15 @@ export default function VerifyEmailScreen() {
     // 숫자만 허용
     const digit = value.replace(/[^0-9]/g, '');
 
-    // 붙여넣기: 6자리 전체 입력
+    // 붙여넣기: 전체 입력
     if (digit.length > 1) {
-      const digits = digit.slice(0, 6).split('');
+      const digits = digit.slice(0, OTP_LENGTH).split('');
       const newOtp = [...otp];
       digits.forEach((d, i) => {
-        if (index + i < 6) newOtp[index + i] = d;
+        if (index + i < OTP_LENGTH) newOtp[index + i] = d;
       });
       setOtp(newOtp);
-      const nextIndex = Math.min(index + digits.length, 5);
+      const nextIndex = Math.min(index + digits.length, OTP_LENGTH - 1);
       inputRefs.current[nextIndex]?.focus();
       return;
     }
@@ -88,7 +89,7 @@ export default function VerifyEmailScreen() {
     setError(null);
 
     // 다음 칸으로 자동 이동
-    if (digit && index < 5) {
+    if (digit && index < OTP_LENGTH - 1) {
       inputRefs.current[index + 1]?.focus();
     }
   };
@@ -107,8 +108,8 @@ export default function VerifyEmailScreen() {
     if (lockoutRemaining > 0) return;
 
     const code = otp.join('');
-    if (code.length !== 6) {
-      setError('6자리 인증 코드를 모두 입력해주세요.');
+    if (code.length !== OTP_LENGTH) {
+      setError(`${OTP_LENGTH}자리 인증 코드를 모두 입력해주세요.`);
       return;
     }
 
@@ -137,7 +138,7 @@ export default function VerifyEmailScreen() {
         } else {
           setError(`인증 코드가 올바르지 않거나 만료되었습니다. (${newAttempts}/${MAX_ATTEMPTS})`);
         }
-        setOtp(['', '', '', '', '', '']);
+        setOtp(Array(OTP_LENGTH).fill(''));
         inputRefs.current[0]?.focus();
       } else {
         // 성공 — pending email 정리
@@ -218,7 +219,7 @@ export default function VerifyEmailScreen() {
                 fontSize: 15, fontFamily: 'Pretendard-Regular',
                 color: colors.textSecondary, textAlign: 'center', lineHeight: 22,
               }}>
-                {email ? `${email}로 발송된\n6자리 인증 코드를 입력해주세요.` : '이메일로 발송된 인증 코드를 입력해주세요.'}
+                {email ? `${email}로 발송된\n${OTP_LENGTH}자리 인증 코드를 입력해주세요.` : '이메일로 발송된 인증 코드를 입력해주세요.'}
               </Text>
             </View>
 
@@ -266,14 +267,14 @@ export default function VerifyEmailScreen() {
                   onChangeText={value => handleOtpChange(value, index)}
                   onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
                   keyboardType="number-pad"
-                  maxLength={Platform.OS === 'web' ? 6 : 1}
+                  maxLength={Platform.OS === 'web' ? OTP_LENGTH : 1}
                   editable={!isLocked}
                   style={{
-                    width: 48, height: 56,
+                    width: 40, height: 48,
                     borderWidth: 2,
                     borderColor: digit ? colors.primary : colors.border,
                     borderRadius: 12,
-                    fontSize: 24,
+                    fontSize: 20,
                     fontFamily: 'Pretendard-Bold',
                     color: colors.textPrimary,
                     textAlign: 'center',
@@ -288,7 +289,7 @@ export default function VerifyEmailScreen() {
             <Button
               onPress={handleVerify}
               loading={isSubmitting}
-              disabled={isSubmitting || otp.join('').length !== 6 || isLocked}
+              disabled={isSubmitting || otp.join('').length !== OTP_LENGTH || isLocked}
               fullWidth
               size="lg"
             >
