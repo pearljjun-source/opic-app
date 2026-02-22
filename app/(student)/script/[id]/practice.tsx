@@ -5,7 +5,6 @@ import {
   Pressable,
   ActivityIndicator,
   Alert,
-  ScrollView,
   Platform,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -48,12 +47,6 @@ export default function PracticeScreen() {
   const [processingStep, setProcessingStep] = useState<ProcessingStep>('upload');
   const [recordingTime, setRecordingTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
-
-  // ★ 임시 디버그: 화면에 각 단계 로그 표시
-  const [debugLogs, setDebugLogs] = useState<string[]>([]);
-  const addDebugLog = (msg: string) => {
-    setDebugLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
-  };
 
   const recordingRef = useRef<Audio.Recording | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -183,10 +176,7 @@ export default function PracticeScreen() {
 
   // 녹음 중지 및 처리
   const handleStopRecording = async () => {
-    if (!recordingRef.current || !script || !id) {
-      addDebugLog('⚠ EARLY RETURN: recordingRef/script/id 없음');
-      return;
-    }
+    if (!recordingRef.current || !script || !id) return;
 
     try {
       // 타이머 정지
@@ -195,19 +185,16 @@ export default function PracticeScreen() {
         timerRef.current = null;
       }
 
-      setDebugLogs([]); // 이전 로그 초기화
       setPracticeState('processing');
       setProcessingStep('upload');
-      addDebugLog(`▶ 시작 (Platform: ${Platform.OS})`);
 
       // 녹음 중지
       await recordingRef.current.stopAndUnloadAsync();
       const uri = recordingRef.current.getURI();
       recordingRef.current = null;
-      addDebugLog(`1. 녹음 중지 완료, URI: ${uri ? uri.substring(0, 60) + '...' : 'NULL'}`);
 
       if (!uri) {
-        addDebugLog('❌ FAIL: URI가 null');
+        Alert.alert('오류', '녹음 파일을 찾을 수 없습니다.');
         setPracticeState('ready');
         return;
       }
@@ -215,21 +202,16 @@ export default function PracticeScreen() {
       // 1. 파일 업로드 (웹은 webm, 네이티브는 m4a)
       const ext = Platform.OS === 'web' ? 'webm' : 'm4a';
       const fileName = `practice_${Date.now()}.${ext}`;
-      addDebugLog(`2. 업로드 시작: ${fileName}`);
       const { data: uploadData, error: uploadError } = await uploadRecording(uri, fileName);
 
       if (uploadError || !uploadData) {
-        addDebugLog(`❌ UPLOAD FAIL: ${uploadError?.message || 'data null'}`);
-        addDebugLog(`   error type: ${uploadError?.constructor.name}`);
-        addDebugLog(`   getUserMessage: ${getUserMessage(uploadError)}`);
+        Alert.alert('업로드 실패', getUserMessage(uploadError));
         setPracticeState('ready');
         return;
       }
-      addDebugLog(`✓ 업로드 성공: ${uploadData.path}`);
 
       // 2. 연습 기록 생성
       setProcessingStep('save');
-      addDebugLog('3. createPractice 시작...');
       const { data: practiceData, error: practiceError } = await createPractice({
         scriptId: id,
         audioPath: uploadData.path,
@@ -237,38 +219,35 @@ export default function PracticeScreen() {
       });
 
       if (practiceError || !practiceData) {
-        addDebugLog(`❌ CREATE FAIL: ${practiceError?.message || 'data null'}`);
-        addDebugLog(`   getUserMessage: ${getUserMessage(practiceError)}`);
+        Alert.alert('저장 실패', getUserMessage(practiceError));
         setPracticeState('ready');
         return;
       }
-      addDebugLog(`✓ 연습 생성: ${practiceData.id}`);
 
       // 3. STT 변환
       setProcessingStep('stt');
-      addDebugLog('4. STT (whisper-stt) 시작...');
       const { data: sttData, error: sttError } = await transcribeAudio(uploadData.path);
 
       if (sttError || !sttData) {
-        addDebugLog(`❌ STT FAIL: ${sttError?.message || 'data null'}`);
-        addDebugLog(`   getUserMessage: ${getUserMessage(sttError)}`);
+        const msg = getUserMessage(sttError);
+        if (__DEV__) console.warn('[AppError] STT failed:', sttError);
+        Alert.alert('음성 인식 실패', msg + (__DEV__ ? `\n\n[DEV] ${sttError?.message || 'unknown'}` : ''));
         setPracticeState('ready');
         return;
       }
-      addDebugLog(`✓ STT 성공: "${sttData.transcription.substring(0, 50)}..."`);
 
       // 4. AI 피드백 — 구독 entitlement 체크
       setProcessingStep('feedback');
-      addDebugLog('5. checkFeatureAccess("ai_feedback") 시작...');
       const feedbackAccess = await checkFeatureAccess('ai_feedback');
-      addDebugLog(`   결과: allowed=${feedbackAccess.allowed}, plan=${feedbackAccess.plan_key || 'N/A'}`);
       if (!feedbackAccess.allowed) {
-        addDebugLog('❌ ENTITLEMENT DENIED: ai_feedback 불허');
+        Alert.alert(
+          '유료 플랜 필요',
+          'AI 피드백은 유료 플랜에서 이용 가능합니다. 플랜을 업그레이드해 주세요.'
+        );
         setPracticeState('ready');
         return;
       }
 
-      addDebugLog('6. generateFeedback (claude-feedback) 시작...');
       const { data: feedbackData, error: feedbackError } = await generateFeedback(
         script.content,
         sttData.transcription,
@@ -276,16 +255,13 @@ export default function PracticeScreen() {
       );
 
       if (feedbackError || !feedbackData) {
-        addDebugLog(`❌ FEEDBACK FAIL: ${feedbackError?.message || 'data null'}`);
-        addDebugLog(`   getUserMessage: ${getUserMessage(feedbackError)}`);
+        Alert.alert('AI 분석 실패', getUserMessage(feedbackError));
         setPracticeState('ready');
         return;
       }
-      addDebugLog(`✓ 피드백 성공: score=${feedbackData.score}, rate=${feedbackData.reproductionRate}`);
 
       // 5. 연습 결과 업데이트
       setProcessingStep('done');
-      addDebugLog('7. updatePracticeWithFeedback 시작...');
       const { error: updateError } = await updatePracticeWithFeedback({
         practiceId: practiceData.id,
         transcription: sttData.transcription,
@@ -295,9 +271,7 @@ export default function PracticeScreen() {
       });
 
       if (updateError) {
-        addDebugLog(`⚠ UPDATE WARNING: ${updateError.message}`);
-      } else {
-        addDebugLog('✓ 결과 업데이트 성공');
+        if (__DEV__) console.warn('[AppError] Failed to update practice:', updateError);
       }
 
       // 알림: 강사에게 연습 완료 알림 (fire-and-forget)
@@ -307,19 +281,14 @@ export default function PracticeScreen() {
         }
       });
 
-      addDebugLog('8. ✅ 완료! 결과 화면으로 이동합니다...');
-
-      // 결과 화면으로 이동 (1초 후 — 로그 확인용)
-      setTimeout(() => {
-        router.replace({
-          pathname: '/(student)/script/[id]/result',
-          params: { id, practiceId: practiceData.id },
-        });
-      }, 1500);
-    } catch (err: any) {
-      addDebugLog(`❌ CATCH: ${err?.message || String(err)}`);
-      addDebugLog(`   name: ${err?.name}, code: ${err?.code || 'N/A'}`);
-      addDebugLog(`   stack: ${(err?.stack || '').substring(0, 200)}`);
+      // 결과 화면으로 이동
+      router.replace({
+        pathname: '/(student)/script/[id]/result',
+        params: { id, practiceId: practiceData.id },
+      });
+    } catch (err) {
+      if (__DEV__) console.warn('[AppError] Error processing recording:', err);
+      Alert.alert('오류', getUserMessage(err));
       setPracticeState('ready');
     }
   };
@@ -352,54 +321,13 @@ export default function PracticeScreen() {
     );
   }
 
-  if (practiceState === 'processing' || debugLogs.length > 0) {
+  if (practiceState === 'processing') {
     return (
-      <ScrollView
-        style={[{ flex: 1, backgroundColor: colors.surfaceSecondary }]}
-        contentContainerStyle={{ padding: 16, paddingBottom: 60 }}
-      >
-        <ActivityIndicator size="large" color={colors.primary} style={{ marginBottom: 12 }} />
-        <Text style={[styles.processingTitle, { color: colors.textPrimary, textAlign: 'center' }]}>
-          {STEP_LABELS[processingStep]}
-        </Text>
-        <Text style={[styles.processingHint, { color: colors.textSecondary, textAlign: 'center', marginBottom: 16 }]}>
-          잠시만 기다려주세요.
-        </Text>
-
-        {/* ★ 디버그 로그 패널 */}
-        <View style={{ backgroundColor: '#1a1a2e', borderRadius: 8, padding: 12, marginTop: 8 }}>
-          <Text style={{ color: '#00ff88', fontSize: 12, fontFamily: 'Pretendard-SemiBold', marginBottom: 8 }}>
-            🔍 DEBUG LOG (임시)
-          </Text>
-          {debugLogs.map((log, i) => (
-            <Text
-              key={i}
-              style={{
-                color: log.includes('❌') ? '#ff6b6b' : log.includes('✓') ? '#51cf66' : log.includes('⚠') ? '#ffd43b' : '#e0e0e0',
-                fontSize: 11,
-                fontFamily: Platform.OS === 'web' ? 'monospace' : undefined,
-                lineHeight: 18,
-                marginBottom: 2,
-              }}
-            >
-              {log}
-            </Text>
-          ))}
-          {debugLogs.length === 0 && (
-            <Text style={{ color: '#666', fontSize: 11 }}>로그 대기 중...</Text>
-          )}
-        </View>
-
-        {/* 에러 시 뒤로가기 버튼 */}
-        {practiceState === 'ready' && debugLogs.some(l => l.includes('❌') || l.includes('CATCH')) && (
-          <Pressable
-            style={[styles.retryButton, { backgroundColor: colors.primary, alignSelf: 'center', marginTop: 16 }]}
-            onPress={() => { setDebugLogs([]); }}
-          >
-            <Text style={styles.retryButtonText}>다시 시도</Text>
-          </Pressable>
-        )}
-      </ScrollView>
+      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.processingTitle, { color: colors.textPrimary }]}>{STEP_LABELS[processingStep]}</Text>
+        <Text style={[styles.processingHint, { color: colors.textSecondary }]}>잠시만 기다려주세요.</Text>
+      </View>
     );
   }
 
