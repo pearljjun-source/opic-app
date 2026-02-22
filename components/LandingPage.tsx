@@ -545,18 +545,18 @@ export default function LandingPage() {
         <BlobBg />
 
         {/* Nav */}
-        <View style={s.nav}>
+        <View style={[s.nav, mob && s.navM]}>
           <View style={s.navInner}>
             <View style={s.navLogoGroup}>
-              <Image source={require('@/assets/images/speaky-icon.png')} style={s.navIcon} />
-              <Image source={require('@/assets/images/speaky-text-logo.png')} style={s.navTextLogo} resizeMode="contain" />
+              <Image source={require('@/assets/images/speaky-icon.png')} style={[s.navIcon, mob && s.navIconM]} />
+              {!mob && <Image source={require('@/assets/images/speaky-text-logo.png')} style={s.navTextLogo} resizeMode="contain" />}
             </View>
-            <View style={s.navRight}>
+            <View style={[s.navRight, mob && s.navRightM]}>
               <Pressable onPress={handleLogin}>
-                <Text style={s.navLink}>로그인</Text>
+                <Text style={[s.navLink, mob && s.navLinkM]}>로그인</Text>
               </Pressable>
-              <Pressable style={s.navCta} onPress={go('/(auth)/signup')}>
-                <Text style={s.navCtaText}>무료 체험</Text>
+              <Pressable style={[s.navCta, mob && s.navCtaM]} onPress={go('/(auth)/signup')}>
+                <Text style={[s.navCtaText, mob && s.navCtaTextM]}>무료 체험</Text>
               </Pressable>
             </View>
           </View>
@@ -923,14 +923,20 @@ const s = StyleSheet.create({
   // ── Hero ──
   hero: { minHeight: 720, backgroundColor: DARK, position: 'relative', overflow: 'hidden' },
   nav: { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 12, zIndex: 10 },
+  navM: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 },
   navInner: { maxWidth: 1200, width: '100%', alignSelf: 'center', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   navLogoGroup: { flexDirection: 'row', alignItems: 'center', gap: 1 },
   navIcon: { width: 54, height: 54, borderRadius: 27 },
+  navIconM: { width: 40, height: 40, borderRadius: 20 },
   navTextLogo: { height: 68, width: 240 },
   navRight: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  navRightM: { gap: 10 },
   navLink: { color: '#9ca3af', fontSize: 15, fontFamily: 'Pretendard-Medium' },
+  navLinkM: { fontSize: 13 },
   navCta: { backgroundColor: ROSE, borderRadius: 22, paddingHorizontal: 20, paddingVertical: 9 },
+  navCtaM: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 18 },
   navCtaText: { color: '#fff', fontSize: 14, fontFamily: 'Pretendard-SemiBold' },
+  navCtaTextM: { fontSize: 13 },
 
   heroBody: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24, paddingBottom: 60, zIndex: 10 },
   heroTitle: { fontSize: 56, fontWeight: '800', color: '#fff', textAlign: 'center', lineHeight: 72, fontFamily: 'Pretendard-Bold', letterSpacing: -0.5 },
