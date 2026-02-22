@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import type { Database } from '@/lib/database.types';
 import type { AIFeedback, StudentPracticeStats } from '@/lib/types';
@@ -670,7 +671,8 @@ export async function generateScriptAudio(
 
 /**
  * 녹음 파일 업로드
- * - FormData로 로컬 파일 업로드 (React Native 표준 방식)
+ * - 네이티브: FormData + { uri, name, type } (React Native 표준)
+ * - 웹: blob URI → fetch → Blob 객체 → 직접 upload
  * @returns 파일 경로 (예: {user_id}/{filename}) - DB에 저장용
  */
 export async function uploadRecording(
@@ -689,23 +691,40 @@ export async function uploadRecording(
 
     const filePath = `${user.id}/${fileName}`;
 
-    // React Native FormData: URI를 직접 전달 (fetch/FileSystem 불필요)
-    const formData = new FormData();
-    formData.append('', {
-      uri,
-      name: fileName,
-      type: 'audio/m4a',
-    } as any);
+    if (Platform.OS === 'web') {
+      // 웹: blob URI를 fetch하여 실제 Blob 객체로 변환
+      const response = await fetch(uri);
+      const blob = await response.blob();
 
-    const { error: uploadError } = await supabase.storage
-      .from('practice-recordings')
-      .upload(filePath, formData, {
-        contentType: 'multipart/form-data',
-        upsert: false,
-      });
+      const { error: uploadError } = await supabase.storage
+        .from('practice-recordings')
+        .upload(filePath, blob, {
+          contentType: blob.type || 'audio/webm',
+          upsert: false,
+        });
 
-    if (uploadError) {
-      return { data: null, error: classifyError(uploadError, { resource: 'audio' }) };
+      if (uploadError) {
+        return { data: null, error: classifyError(uploadError, { resource: 'audio' }) };
+      }
+    } else {
+      // 네이티브: FormData + URI 직접 전달
+      const formData = new FormData();
+      formData.append('', {
+        uri,
+        name: fileName,
+        type: 'audio/m4a',
+      } as any);
+
+      const { error: uploadError } = await supabase.storage
+        .from('practice-recordings')
+        .upload(filePath, formData, {
+          contentType: 'multipart/form-data',
+          upsert: false,
+        });
+
+      if (uploadError) {
+        return { data: null, error: classifyError(uploadError, { resource: 'audio' }) };
+      }
     }
 
     // 경로만 반환 (조회 시 signedUrl 생성)

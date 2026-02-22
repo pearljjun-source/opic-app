@@ -212,8 +212,9 @@ export default function PracticeScreen() {
         return;
       }
 
-      // 1. 파일 업로드
-      const fileName = `practice_${Date.now()}.m4a`;
+      // 1. 파일 업로드 (웹은 webm, 네이티브는 m4a)
+      const ext = Platform.OS === 'web' ? 'webm' : 'm4a';
+      const fileName = `practice_${Date.now()}.${ext}`;
       addDebugLog(`2. 업로드 시작: ${fileName}`);
       const { data: uploadData, error: uploadError } = await uploadRecording(uri, fileName);
 
