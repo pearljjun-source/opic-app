@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { ScreenContainer } from '@/components/layout/SafeAreaView';
 import { Input } from '@/components/ui/Input';
@@ -80,7 +81,9 @@ export default function SignupScreen() {
         return;
       } else {
         // 이메일 인증 ON → OTP 입력 화면으로 이동
-        router.push({ pathname: '/(auth)/verify-email' as any, params: { email: email.trim() } });
+        // email을 URL param 대신 AsyncStorage로 전달 (URL 노출 방지)
+        await AsyncStorage.setItem('pending_verify_email', email.trim());
+        router.push('/(auth)/verify-email' as any);
       }
     } catch (err) {
       setError('회원가입 중 오류가 발생했습니다.');
