@@ -88,37 +88,39 @@ export default function AcademyDetailScreen() {
         getOrganizationPayments(id),
       ]);
 
-      const errors: string[] = [];
+      // DEBUG: 각 쿼리의 raw 에러를 수집 (근본 원인 파악용, 해결 후 제거)
+      const debugErrors: string[] = [];
 
       if (orgsResult.error) {
-        if (__DEV__) console.warn('[AcademyDetail] listOrganizations error:', orgsResult.error);
-        errors.push(getUserMessage(orgsResult.error));
+        const raw = orgsResult.error as any;
+        debugErrors.push(`[listOrgs] ${raw.code || ''} ${raw.message || raw.userMessage || String(raw)}`);
       } else {
         const found = orgsResult.data?.find(o => o.id === id) || null;
         setOrg(found);
       }
 
+      if (detailResult.error) {
+        const raw = detailResult.error as any;
+        debugErrors.push(`[detail] ${raw.code || ''} ${raw.message || raw.userMessage || String(raw)}`);
+      }
       if (detailResult.data) {
         setMembers(detailResult.data.members);
         setSubscription(detailResult.data.subscription);
-      } else if (detailResult.error) {
-        if (__DEV__) console.warn('[AcademyDetail] getOrganizationDetail error:', detailResult.error);
-        errors.push(getUserMessage(detailResult.error));
       }
 
       if (paymentsResult.error) {
-        if (__DEV__) console.warn('[AcademyDetail] getOrganizationPayments error:', paymentsResult.error);
+        const raw = paymentsResult.error as any;
+        debugErrors.push(`[payments] ${raw.code || ''} ${raw.message || raw.userMessage || String(raw)}`);
       }
       if (paymentsResult.data) {
         setPayments(paymentsResult.data);
       }
 
-      if (errors.length > 0) {
-        setError(errors[0]);
+      if (debugErrors.length > 0) {
+        setError(debugErrors.join('\n'));
       }
-    } catch (err) {
-      if (__DEV__) console.warn('[AcademyDetail] fetchData exception:', err);
-      setError(getUserMessage(err));
+    } catch (err: any) {
+      setError(`[exception] ${err?.code || ''} ${err?.message || String(err)}`);
     }
 
     setIsLoading(false);
