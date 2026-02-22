@@ -88,39 +88,26 @@ export default function AcademyDetailScreen() {
         getOrganizationPayments(id),
       ]);
 
-      // DEBUG: 각 쿼리의 raw 에러를 수집 (근본 원인 파악용, 해결 후 제거)
-      const debugErrors: string[] = [];
-
       if (orgsResult.error) {
-        const raw = orgsResult.error as any;
-        debugErrors.push(`[listOrgs] ${raw.code || ''} ${raw.message || raw.userMessage || String(raw)}`);
+        setError(getUserMessage(orgsResult.error));
       } else {
         const found = orgsResult.data?.find(o => o.id === id) || null;
         setOrg(found);
       }
 
       if (detailResult.error) {
-        const raw = detailResult.error as any;
-        debugErrors.push(`[detail] ${raw.code || ''} ${raw.message || raw.userMessage || String(raw)}`);
+        setError(getUserMessage(detailResult.error));
       }
       if (detailResult.data) {
         setMembers(detailResult.data.members);
         setSubscription(detailResult.data.subscription);
       }
 
-      if (paymentsResult.error) {
-        const raw = paymentsResult.error as any;
-        debugErrors.push(`[payments] ${raw.code || ''} ${raw.message || raw.userMessage || String(raw)}`);
-      }
       if (paymentsResult.data) {
         setPayments(paymentsResult.data);
       }
-
-      if (debugErrors.length > 0) {
-        setError(debugErrors.join('\n'));
-      }
-    } catch (err: any) {
-      setError(`[exception] ${err?.code || ''} ${err?.message || String(err)}`);
+    } catch (err) {
+      setError(getUserMessage(err));
     }
 
     setIsLoading(false);
