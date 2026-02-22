@@ -100,10 +100,11 @@ export const ERROR_CODES = {
   CONFLICT_ADMIN_PROTECTED: 'CONFLICT_ADMIN_PROTECTED',
   CONFLICT_DUPLICATE_INVITE: 'CONFLICT_DUPLICATE_INVITE',
 
-  // RATE_LIMIT (3)
+  // RATE_LIMIT (4)
   RATE_WHISPER: 'RATE_WHISPER',
   RATE_TTS: 'RATE_TTS',
   RATE_CLAUDE: 'RATE_CLAUDE',
+  RATE_AUTH: 'RATE_AUTH',
 
   // ADMIN (5)
   ADMIN_LAST_ADMIN_PROTECTION: 'ADMIN_LAST_ADMIN_PROTECTION',
@@ -269,6 +270,7 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   RATE_WHISPER: '음성 변환 요청이 너무 많습니다. 잠시 후 다시 시도해주세요',
   RATE_TTS: '오디오 생성 요청이 너무 많습니다. 잠시 후 다시 시도해주세요',
   RATE_CLAUDE: 'AI 분석 요청이 너무 많습니다. 잠시 후 다시 시도해주세요',
+  RATE_AUTH: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요',
 
   // ORGANIZATION
   ORG_NOT_FOUND: '학원을 찾을 수 없습니다',
@@ -361,6 +363,7 @@ const ERROR_CODE_CATEGORY: Record<ErrorCode, ErrorCategory> = {
   RATE_WHISPER: 'rate_limit',
   RATE_TTS: 'rate_limit',
   RATE_CLAUDE: 'rate_limit',
+  RATE_AUTH: 'rate_limit',
   ORG_NOT_FOUND: 'not_found',
   ORG_ALREADY_MEMBER: 'conflict',
   ORG_LAST_OWNER: 'permission',
@@ -501,6 +504,8 @@ const AUTH_ERROR_PATTERNS: Array<{ pattern: string; code: ErrorCode }> = [
   { pattern: 'already registered', code: ERROR_CODES.CONFLICT_EMAIL_EXISTS },
   { pattern: 'user not found', code: ERROR_CODES.NF_USER },
   { pattern: 'password should be at least', code: ERROR_CODES.VAL_PASSWORD_TOO_SHORT },
+  { pattern: 'rate limit exceeded', code: ERROR_CODES.RATE_AUTH },
+  { pattern: 'over_email_send_rate_limit', code: ERROR_CODES.RATE_AUTH },
 ];
 
 // ============================================================================
@@ -764,7 +769,7 @@ export function classifyAuthError(error: unknown): AppError {
     }
   }
 
-  return new AppError(ERROR_CODES.AUTH_REQUIRED, { originalError: error });
+  return new AppError(ERROR_CODES.SVR_UNKNOWN, { originalError: error });
 }
 
 /** RPC 함수 에러 문자열 분류 */

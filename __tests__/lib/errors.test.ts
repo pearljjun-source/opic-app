@@ -614,9 +614,9 @@ describe('classifyAuthError()', () => {
     expect(result.code).toBe('NF_USER');
   });
 
-  it('unknown auth error falls back to AUTH_REQUIRED', () => {
+  it('unknown auth error falls back to SVR_UNKNOWN', () => {
     const result = classifyAuthError({ message: 'some unknown auth error' });
-    expect(result.code).toBe('AUTH_REQUIRED');
+    expect(result.code).toBe('SVR_UNKNOWN');
   });
 
   it('string input is handled', () => {
