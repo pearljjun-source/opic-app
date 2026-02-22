@@ -1,27 +1,32 @@
-# OPIc 학습 앱 - 프로젝트 설계 문서
+# Speaky — OPIc 학습 SaaS 플랫폼
 
-> **문서 버전**: v2.0 (분리됨)
-> **최종 수정일**: 2026-02-07
-> **작성자**: Jin (영어 강사) + Claude AI
+> **문서 버전**: v3.0
+> **최종 수정일**: 2026-02-22
+> **작성자**: Jin + Claude AI
 
 ---
 
 ## 프로젝트 개요
 
-영어 강사 Jin이 학생들과 OPIc 수업 진행 시 사용할 학습 앱.
-실제 OPIc 시험의 가상 진행자 "Ava"를 시뮬레이션하고, 스크립트 기반 연습 및 AI 피드백을 제공.
+OPIc 시험 대비 학습 SaaS 플랫폼.
+학원(조직) 단위로 강사-학생을 관리하고, 스크립트 기반 연습 + AI 피드백을 제공.
 
 ### 핵심 가치
+- **B2B SaaS**: 학원(조직) 단위 구독, 멀티 테넌트 데이터 격리
 - **강사-학생 연계**: 강사가 학생별 맞춤 스크립트 작성
-- **실전 연습**: Ava 음성으로 질문 듣고 녹음 연습
-- **AI 피드백**: 스크립트 vs 실제 답변 비교 분석
-- **학습 기록**: 연습 이력 관리 및 진도 추적
+- **실전 연습**: Ava 음성(TTS)으로 질문 듣고 녹음 연습
+- **AI 피드백**: 스크립트 vs 실제 답변 비교 분석 (Claude)
+- **학습 기록**: 연습 이력, 진도 추적, 통계 대시보드
 
-### 대상 사용자
-| 구분 | 설명 |
-|------|------|
-| 강사 (Teacher) | Jin - OPIc 수업 진행, 스크립트 작성 |
-| 학생 (Student) | Jin의 수업을 듣는 학생들 |
+### 사용자 역할 (3계층)
+
+| 계층 | 필드 | 역할 | 설명 |
+|------|------|------|------|
+| Platform | `users.platform_role` | `super_admin` | SaaS 전체 관리자 |
+| Organization | `organization_members.role` | `owner` | 학원장 (구독/결제 관리) |
+| | | `teacher` | 강사 (스크립트/피드백) |
+| | | `student` | 학생 (연습/녹음) |
+| Legacy | `users.role` | `admin/teacher/student` | 14개 RLS 정책 호환용 (향후 제거) |
 
 ---
 
@@ -29,67 +34,83 @@
 
 | 영역 | 기술 |
 |------|------|
-| 프론트엔드 | React Native + Expo (SDK 52+), Expo Router, NativeWind, Zustand |
+| 프론트엔드 | React Native + Expo (SDK 52+), Expo Router, NativeWind |
 | 백엔드 | Supabase (Auth, PostgreSQL, Storage, Edge Functions) |
-| AI & 음성 | Whisper API (STT), OpenAI TTS, Claude Haiku |
-| 배포 | EAS Build, Google Play, Vercel (웹) |
+| AI & 음성 | OpenAI Whisper (STT), OpenAI TTS, Claude Haiku (피드백) |
+| 결제 | TOSS Payments (빌링키 방식) |
+| 배포 | EAS Build (모바일), Vercel (웹), Google Play |
+
+---
+
+## 프로젝트 구조
+
+```
+app/
+├── (auth)/          # 인증: login, signup, verify-email, confirm, forgot-password, create-academy
+├── (admin)/         # 슈퍼 관리자: 대시보드, 학원/사용자/구독/랜딩 관리
+│   └── (tabs)/      # 6탭: index, landing, academies, users, billing, settings
+├── (teacher)/       # 강사: 대시보드, 학생/반/스크립트/초대/구독 관리
+│   └── (tabs)/      # 4탭: index, classes, invite, settings
+├── (student)/       # 학생: 연습, 이력, 토픽, 연결
+│   └── (tabs)/      # 3탭: index, history, settings
+└── index.tsx        # 랜딩 페이지 (미인증) / 홈 리다이렉트 (인증)
+
+services/            # 12개 서비스 (admin, billing, classes, connection, invites,
+                     #   landing, notifications, organizations, practices, scripts,
+                     #   students, topics)
+hooks/               # 7개 훅 (useAuth, useSubscription, useTheme,
+                     #   usePushNotifications, useAppState, useNetworkStatus)
+lib/                 # errors.ts, types.ts, constants.ts, validations.ts, supabase.ts
+supabase/
+├── functions/       # 8개 Edge Functions + _shared
+└── migrations/      # 32개 마이그레이션 (001~032)
+```
 
 ---
 
 ## 상수 정의 (lib/constants.ts)
 
 ```typescript
-export const USER_ROLES = {
-  ADMIN: 'admin',
-  TEACHER: 'teacher',
-  STUDENT: 'student',
-} as const;
+// 역할
+USER_ROLES    // admin, teacher, student (레거시)
+ORG_ROLES     // owner, teacher, student (현재)
+PLATFORM_ROLES // super_admin
 
-export const INVITE_STATUS = {
-  PENDING: 'pending',
-  USED: 'used',
-  EXPIRED: 'expired',
-} as const;
+// 상태
+INVITE_STATUS  // pending, used, expired
+SCRIPT_STATUS  // draft, complete
 
-export const SCRIPT_STATUS = {
-  DRAFT: 'draft',
-  COMPLETE: 'complete',
-} as const;
+// 콘텐츠
+QUESTION_TYPES    // describe, routine, experience, comparison, roleplay, advanced
+TOPIC_CATEGORIES  // survey, unexpected
+API_TYPES         // whisper, claude, tts
+NOTIFICATION_TYPES // practice_completed, teacher_feedback, new_script, student_connected
 
-export const QUESTION_TYPES = {
-  DESCRIBE: 'describe',
-  ROUTINE: 'routine',
-  EXPERIENCE: 'experience',
-  COMPARISON: 'comparison',
-  ROLEPLAY: 'roleplay',
-  ADVANCED: 'advanced',
-} as const;
+// 설정
+APP_CONFIG.API_RATE_LIMIT  // whisper: 30/h, claude: 50/h, tts: 20/h
+APP_CONFIG.INVITE_CODE_LENGTH   // 6
+APP_CONFIG.MAX_RECORDING_DURATION_SEC // 120 (2분)
+STORAGE_BUCKETS  // practice-recordings, question-audio, landing-assets
 
-export const COLORS = {
-  PRIMARY: '#3B82F6',
-  SECONDARY: '#10B981',
-  WARNING: '#F59E0B',
-  ERROR: '#EF4444',
-  GRAY: '#6B7280',
-  WHITE: '#FFFFFF',
-  TEXT_PRIMARY: '#111827',
-  TEXT_SECONDARY: '#6B7280',
-  BACKGROUND_SECONDARY: '#F9FAFB',
-} as const;
+// 색상
+COLORS.PRIMARY  // #D4707F (딥 로즈)
 ```
 
 ---
 
-## 권한 매트릭스 요약
+## 권한 매트릭스
 
 **범례**: ✅ 가능 | ❌ 불가 | 🔸 조건부
 
-| 테이블 | teacher | student | 조건 |
-|--------|:-------:|:-------:|------|
-| scripts | 🔸 | 🔸 | teacher: 본인 작성 / student: 본인 것 |
-| practices | 🔸 | 🔸 | teacher: 연결된 학생 / student: 본인 |
-| invites | 🔸 | 🔸 | teacher: 본인 것 / student: 코드 사용 |
-| topics, questions | ✅ | ✅ | 공개 (읽기 전용) |
+| 테이블 | super_admin | owner/admin | teacher | student | 조건 |
+|--------|:-----------:|:-----------:|:-------:|:-------:|------|
+| users | ✅ | 🔸 | 🔸 | 🔸 | SA: 전체 / owner: 같은 조직원 / 나머지: 본인+연결 |
+| organizations | ✅ | 🔸 | ❌ | ❌ | owner: 본인 조직 |
+| scripts | 🔸 | 🔸 | 🔸 | 🔸 | teacher: 본인 작성 / student: 본인 것 |
+| practices | 🔸 | 🔸 | 🔸 | 🔸 | teacher: 연결된 학생 / student: 본인 |
+| invites | 🔸 | 🔸 | 🔸 | 🔸 | teacher: 본인 것 / student: 코드 사용 |
+| subscriptions | ✅ | 🔸 | ❌ | ❌ | owner: 본인 조직 |
+| topics, questions | ✅ | ✅ | ✅ | ✅ | 공개 (읽기 전용) |
 
 ---
 
@@ -120,8 +141,8 @@ export const COLORS = {
 
 ### 적용된 보안 패턴
 
-| 위협 | 근본 해결책 | 구현 (012_auth_security.sql) |
-|------|------------|------------------------------|
+| 위협 | 근본 해결책 | 구현 |
+|------|------------|------|
 | 회원가입 시 역할 조작 | DB 트리거에서 role 강제 지정 | `handle_new_user` → 항상 'student' |
 | 역할 자체 변경 | BEFORE UPDATE 트리거 + 컬럼 화이트리스트 | `protect_user_columns` → role, email, id, created_at 변경 차단 |
 | 강사 계정 생성 | admin 전용 SECURITY DEFINER RPC | `promote_to_teacher(user_id)` |
@@ -132,6 +153,8 @@ export const COLORS = {
 | 초대 코드 무단 삭제 | 서버 RPC에서 소유권 검증 | `soft_delete_invite` RPC: `teacher_id = auth.uid()` |
 | 연습 통계 무단 조회 | 본인 또는 연결된 강사만 허용 | `get_student_practice_stats`: `auth.uid()` + 연결 관계 검증 |
 | 데이터 조회 전 인가 | 쿼리 레벨에서 필터링 | `getPracticeForTeacher`: `!inner` JOIN + `.eq('script.teacher_id')` |
+| 이메일 인증 브루트포스 | 클라이언트 시도 제한 + 서버 rate limit | 5회 실패 → 3분 잠금 + OTP 만료 |
+| URL 토큰 잔존 | 토큰 추출 즉시 제거 | `window.history.replaceState` |
 
 ### 보호 컬럼 트리거 bypass 원리 (PostgreSQL 내장 역할 시스템)
 ```sql
@@ -143,11 +166,15 @@ IF current_user NOT IN ('authenticated', 'anon') THEN
 END IF;
 ```
 
-### 회원가입 플로우
+### 회원가입 + 이메일 인증 플로우
 ```
 클라이언트 → signUp(email, password, name)  ← role 전달 금지
    ↓
 auth.users 생성 → handle_new_user 트리거 → public.users INSERT (role='student' 강제)
+   ↓
+이메일 인증 ON → 6자리 OTP 코드 발송 → verify-email 화면에서 입력
+   ↓
+supabase.auth.verifyOtp({ email, token, type: 'email' }) → 세션 생성
    ↓
 강사 승격 필요 시 → admin이 promote_to_teacher RPC 호출
 ```
@@ -172,23 +199,6 @@ auth.users 생성 → handle_new_user 트리거 → public.users INSERT (role='s
 | 알림 중복 생성 | UNIQUE + ON CONFLICT | `notification_logs.resource_id` UNIQUE 인덱스 + `ON CONFLICT DO NOTHING` | `notify_action` |
 | 피드백 중복 INSERT | UPSERT | `.upsert({...}, { onConflict: 'practice_id' })` | `saveTeacherFeedback` |
 
-```sql
--- CAS 패턴 예시 (use_invite_code)
-UPDATE invites SET status = 'used'
-WHERE id = v_invite.id AND status = 'pending';  -- 확인+변경 원자적
-GET DIAGNOSTICS v_rows_affected = ROW_COUNT;
-IF v_rows_affected = 0 THEN  -- 다른 트랜잭션이 먼저 변경
-  RETURN 'CODE_ALREADY_USED';
-END IF;
-
--- UNIQUE + ON CONFLICT 패턴 예시 (notify_action)
-INSERT INTO notification_logs (type, user_id, ..., resource_id)
-VALUES (p_type, v_recipient_id, ..., p_resource_id)
-ON CONFLICT (type, user_id, resource_id) WHERE deleted_at IS NULL
-DO NOTHING
-RETURNING id INTO v_notification_id;  -- NULL이면 이미 존재
-```
-
 ### 클라이언트 상태 동기화 원칙
 
 > **원칙: 서버가 단일 소스(Single Source of Truth), 클라이언트 캐시를 신뢰하지 않음**
@@ -203,8 +213,8 @@ RETURNING id INTO v_notification_id;  -- NULL이면 이미 존재
 | Edge Function | API | 제한 | 비고 |
 |--------------|-----|------|------|
 | `whisper-stt` | OpenAI Whisper | 30/시간 | |
-| `tts-generate` | OpenAI TTS | 50/시간 | 캐시 히트 후 체크 (캐시 시 미소비) |
-| `claude-feedback` | Claude API | 30/시간 | |
+| `tts-generate` | OpenAI TTS | 20/시간 | 캐시 히트 후 체크 (캐시 시 미소비) |
+| `claude-feedback` | Claude API | 50/시간 | |
 
 429 반환 시 `{ error, remaining, reset_at }` 포함.
 
@@ -234,48 +244,157 @@ IF v_user_id IS NULL THEN
 END IF;
 ```
 
-### 현재 RPC 함수 목록
-| 함수 | 용도 | 마이그레이션 |
-|------|------|-------------|
-| `get_user_role` | 사용자 역할 조회 | |
-| `get_teacher_students` | 강사의 학생 목록 + 통계 | |
-| `is_connected_student` | 연결 여부 확인 | |
-| `create_invite` | 초대 코드 생성 | |
-| `use_invite_code` | 초대 코드 사용 + 알림 생성 (CAS 패턴) | 011, 013 |
-| `soft_delete_*` | Soft Delete 함수들 | |
-| `soft_delete_invite` | 초대 코드 삭제 (강사 소유권 검증) | 013 |
-| `notify_action` | 알림 생성 (SECURITY DEFINER, 서버 결정 수신자, resource_id UNIQUE 중복 방지) | 011, 013 |
-| `promote_to_teacher` | admin 전용 강사 승격 | 012 |
-| `get_student_practice_stats` | 학생 연습 통계 (본인/연결 강사만) | 002, 013 |
+### 주요 RPC 함수 목록
+
+**인증/역할**:
+| 함수 | 용도 |
+|------|------|
+| `get_user_role` | 사용자 레거시 역할 조회 |
+| `is_super_admin` | 플랫폼 관리자 확인 |
+| `is_org_member` | 조직 멤버 확인 |
+| `can_teach_in_org` | 강사/원장 확인 |
+| `get_user_org_role` | 특정 조직 내 역할 |
+| `promote_to_teacher` | admin 전용 강사 승격 (SECURITY DEFINER) |
+
+**조직 관리**:
+| 함수 | 용도 |
+|------|------|
+| `create_organization` | 조직 생성 |
+| `get_my_organizations` | 내 조직 목록 |
+| `get_org_teachers` | 조직 강사 목록 |
+| `remove_org_member` | 멤버 제거 (SECURITY DEFINER) |
+| `change_member_role` | 역할 변경 |
+| `update_organization_name` | 조직명 변경 |
+
+**초대/연결**:
+| 함수 | 용도 |
+|------|------|
+| `create_invite` | 초대 코드 생성 (조직 기반) |
+| `use_invite_code` | 초대 코드 사용 (CAS 패턴 + SECURITY DEFINER) |
+| `soft_delete_invite` | 초대 삭제 (소유권 검증) |
+
+**학생/학습**:
+| 함수 | 용도 |
+|------|------|
+| `get_teacher_students` | 강사의 학생 목록 + 통계 |
+| `get_student_detail` | 학생 상세 정보 |
+| `get_student_practice_stats` | 연습 통계 (인가 검증) |
+| `get_student_topics_with_progress` | 토픽별 진도 |
+| `get_topic_questions_with_scripts` | 질문 + 스크립트/연습 데이터 |
+| `set_student_topics` | 토픽 일괄 배정 |
+
+**반 관리**:
+| 함수 | 용도 |
+|------|------|
+| `create_class` / `update_class` / `soft_delete_class` | 반 CRUD |
+| `get_teacher_classes` / `get_class_detail` | 반 조회 |
+| `add_class_member` / `remove_class_member` | 반원 관리 |
+
+**알림**:
+| 함수 | 용도 |
+|------|------|
+| `notify_action` | 알림 생성 (SECURITY DEFINER, resource_id UNIQUE 중복 방지) |
+
+**구독/결제**:
+| 함수 | 용도 |
+|------|------|
+| `check_org_entitlement` | Feature gating + 쿼터 확인 |
+| `check_api_rate_limit` | API 호출 전 rate limit 확인 |
+| `log_api_usage` | API 사용량 기록 |
+| `validate_subscription_change` | 구독 변경 트리거 |
+
+**어드민**:
+| 함수 | 용도 |
+|------|------|
+| `get_admin_dashboard_stats` | KPI 통계 |
+| `admin_list_users` | 사용자 목록 (effective_role 포함) |
+| `admin_change_user_role` | 사용자 역할 변경 |
+| `admin_list_organizations` | 조직 목록 |
+| `admin_update_organization` / `admin_delete_organization` | 조직 관리 |
+| `admin_get_subscription_stats` | 구독 통계 (MRR 등) |
+| `admin_update_subscription` / `admin_cancel_subscription` | 구독 관리 |
+| `admin_create_owner_invite` / `admin_list_owner_invites` / `admin_delete_owner_invite` | 원장 초대 |
+| `admin_update_landing_section` / `admin_upsert_landing_item` / `admin_delete_landing_item` / `admin_reorder_items` | 랜딩 CMS |
+| `admin_get_user_by_id` | 사용자 상세 (effective_role + 소속 조직) |
 
 ---
 
-## Phase 1 개발 체크리스트
+## Edge Functions (8개)
 
-### 완료됨 ✅
-- [x] 프로젝트 초기 설정
-- [x] Supabase 설정 (테이블, RLS)
-- [x] 공통 컴포넌트 & 유틸리티
-- [x] 인증 기능
-- [x] 강사 대시보드 (학생 목록)
-- [x] 학생 상세 화면
-- [x] 스크립트 CRUD
-- [x] 초대 코드 검증
-- [x] 학생 기능
-- [x] 녹음 & 오디오 기능
-- [x] AI 연동
-- [x] 푸시 알림 (011_notification_rpc, deliver-notification)
-- [x] 인증/보안 근본 수정 (012_auth_security)
-- [x] 인가 검증 + 데이터 무결성 (013_authorization_fixes)
+| 함수 | 용도 | 외부 API |
+|------|------|---------|
+| `whisper-stt` | 음성 → 텍스트 변환 | OpenAI Whisper |
+| `tts-generate` | 텍스트 → 음성 변환 | OpenAI TTS |
+| `claude-feedback` | AI 피드백 생성 | Claude Haiku |
+| `deliver-notification` | 푸시 알림 배달 | Expo Push |
+| `billing-key` | TOSS 빌링키 발급 | TOSS Payments |
+| `toss-webhook` | 결제 웹훅 처리 | TOSS Payments |
+| `subscription-renew` | 구독 자동 갱신 | TOSS Payments |
+| `delete-user` | 사용자 데이터 삭제 | — |
 
-### 완료됨 ✅ (추가)
-- [x] 에러 처리 & UX 개선 (lib/errors.ts: 53 에러코드, classifyError, 서비스/화면 전체 통합)
+---
+
+## 구독/결제 시스템
+
+### 구조
+- **조직 기반**: `subscriptions` 테이블에 `organization_id` (+ 레거시 `user_id` 폴백)
+- **플랜**: `subscription_plans` — plan_key, price_monthly, price_yearly, max_students, max_scripts, features[]
+- **결제**: TOSS Payments 빌링키 방식 → `payment_history` 추적
+- **Feature Gating**: `check_org_entitlement(feature_key)` RPC
+  - `ai_feedback`, `tts`, `max_students`, `max_scripts`
+  - 무료 기본: 학생 3명, 스크립트 5개
+  - RPC 미존재 시 무료 폴백 (보수적)
+
+### 상태
+- `active`, `trialing`, `past_due`, `canceled`, `incomplete`
+
+---
+
+## 개발 체크리스트
+
+### Phase 1 — 완료 ✅
+- [x] 프로젝트 초기 설정 + Supabase
+- [x] 인증 (회원가입, 로그인, 이메일 OTP 인증, 비밀번호 재설정)
+- [x] 강사 기능 (학생 관리, 스크립트 CRUD, 반 관리, 초대 코드)
+- [x] 학생 기능 (연습, 녹음, 이력, 토픽 선택)
+- [x] AI 연동 (Whisper STT, TTS, Claude 피드백)
+- [x] 푸시 알림
+- [x] 보안 (012 auth_security + 013 authorization_fixes)
+- [x] 에러 처리 (53 에러코드, classifyError 통합)
+- [x] 테스트 (428개 통과 — 9개 테스트 파일)
+
+### Phase 2 — 완료 ✅
+- [x] 조직(Organization) 시스템 (020 마이그레이션)
+- [x] 멀티 테넌트 데이터 격리
+- [x] 조직 역할 (owner, teacher, student)
+- [x] 슈퍼 관리자 대시보드
+
+### Phase 3 — 완료 ✅
+- [x] 구독/결제 (TOSS Payments 빌링키)
+- [x] Feature Gating (check_org_entitlement)
+- [x] 랜딩 페이지 CMS (admin)
+- [x] 웹 배포 (Vercel)
 
 ### 진행 중 🚧
-- [ ] 테스트 & QA (자동화 테스트 336개 통과 — validation 146, errors 129, services 61)
+- [ ] 어드민 패널 안정화 (032 마이그레이션 — users RLS 수정)
+- [ ] 웹 플랫폼 안정화 (라우팅, 로그인 폼, 자격증명)
 
 ### 예정 📋
-- [ ] 배포 준비
+- [ ] Phase 4: Feature Gating 고도화 (org_role 기반 인가 함수)
+- [ ] Phase 5: 구독 관리 화면 완성 + 결제 테스트
+- [ ] 프로덕션 배포 준비
+
+---
+
+## 마이그레이션 이력 (32개)
+
+| 범위 | 파일 | 내용 |
+|------|------|------|
+| 기초 | 001~005 | 테이블, 함수, RLS, Storage, Seed 데이터 |
+| 보안 | 006~013 | Soft Delete, RLS 수정, 알림, 인증/인가 보안 |
+| 기능 | 014~019 | 반 관리, 토픽 네비게이션, 대시보드, 어드민 |
+| 조직 | 020~025 | Organization 시스템, 어드민 RLS, 초대, 데이터 정리 |
+| 안정화 | 026~032 | 어드민 기능, 역할 수정, 구독 정리, users RLS 수정 |
 
 ---
 
@@ -312,7 +431,7 @@ if (error && __DEV__) {
 
 ### 테스트 실행
 ```bash
-npm test                  # 전체 테스트 실행 (336 tests)
+npm test                  # 전체 테스트 실행 (428 tests)
 npm test -- --coverage    # 커버리지 리포트
 npm run test:watch        # 변경 감지 모드
 ```
