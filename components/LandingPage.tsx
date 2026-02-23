@@ -9,6 +9,7 @@ import {
   Platform,
   useWindowDimensions,
   Animated,
+  Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -38,6 +39,7 @@ const ICON_MAP: Record<string, React.ComponentType<any>> = {
 const ROSE = '#D4707F';
 const ROSE_LIGHT = '#FDE8EB';
 const DARK = '#111827';
+const APK_DOWNLOAD_URL = 'https://expo.dev/accounts/pearljjun/projects/opic-app/builds/0d5c1ad6-c1ba-4498-b8d1-80ac77fe0984';
 
 // ============================================================================
 // Animation helpers
@@ -577,7 +579,7 @@ export default function LandingPage() {
                 <Text style={s.heroBtnText}>무료로 시작하기</Text>
                 <ArrowRight size={18} color="#fff" weight="bold" />
               </Pressable>
-              <Pressable style={s.heroBtnOutline}>
+              <Pressable style={s.heroBtnOutline} onPress={() => Linking.openURL(APK_DOWNLOAD_URL)}>
                 <GooglePlayLogo size={18} color="#e8b4bb" weight="duotone" />
                 <Text style={s.heroBtnOutlineText}>앱 다운로드</Text>
               </Pressable>
@@ -884,7 +886,7 @@ export default function LandingPage() {
             <Pressable style={s.ctaBtn} onPress={go('/(auth)/signup')}>
               <Text style={s.ctaBtnText}>무료로 시작하기</Text>
             </Pressable>
-            <Pressable style={s.ctaBtnOutline}>
+            <Pressable style={s.ctaBtnOutline} onPress={() => Linking.openURL(APK_DOWNLOAD_URL)}>
               <GooglePlayLogo size={18} color="#fff" weight="duotone" />
               <Text style={s.ctaBtnOutlineText}>앱 다운로드</Text>
             </Pressable>
