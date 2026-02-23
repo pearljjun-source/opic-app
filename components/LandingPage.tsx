@@ -724,11 +724,13 @@ export default function LandingPage() {
               <FadeInView key={i} delay={i * 120}>
                 <HoverCard style={[s.featVisualCard, mob && s.featVisualCardM]}>
                   {f.image ? (
-                    <Image
-                      source={f.image}
-                      style={[s.featVisualImg, Platform.OS === 'web' && ({ objectFit: 'contain' } as any)]}
-                      resizeMode="contain"
-                    />
+                    <View style={s.featImgWrap}>
+                      <Image
+                        source={f.image}
+                        style={[s.featVisualImg, Platform.OS === 'web' && ({ objectFit: 'contain' } as any)]}
+                        resizeMode="contain"
+                      />
+                    </View>
                   ) : (
                     <View style={[
                       s.featVisualTop,
@@ -1003,7 +1005,8 @@ const s = StyleSheet.create({
   featVisualCard: { width: 230, borderRadius: 16, overflow: 'hidden', backgroundColor: '#1a1a2e' },
   featVisualCardM: { width: '100%', maxWidth: 340 },
   featVisualTop: { height: 400, justifyContent: 'center', alignItems: 'center' },
-  featVisualImg: { width: '100%', height: 400, borderRadius: 24 },
+  featImgWrap: { borderRadius: 24, overflow: 'hidden', margin: 8 },
+  featVisualImg: { width: '100%', height: 384 },
   featVisualBottom: { padding: 20 },
   featVisualTitle: { fontSize: 16, fontFamily: 'Pretendard-Bold', color: '#fff', marginBottom: 6 },
   featVisualDesc: { fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 20, fontFamily: 'Pretendard-Regular' },
