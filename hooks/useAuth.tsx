@@ -5,7 +5,7 @@ import { useRouter, useSegments } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { supabase } from '@/lib/supabase';
-import type { User, UserRole, OrgRole, PlatformRole, MyOrganization } from '@/lib/types';
+import type { User, OrgRole, PlatformRole, MyOrganization } from '@/lib/types';
 import { canTeach } from '@/lib/permissions';
 
 // ============================================================================
@@ -29,7 +29,6 @@ const safeMultiRemove = (keys: string[]): void => {
 // Cache keys
 // ============================================================================
 
-const CACHE_KEY_ROLE = 'auth_cached_role';
 const CACHE_KEY_PROFILE = 'auth_cached_profile';
 const CACHE_KEY_ORG = 'auth_cached_org';
 const CACHE_KEY_ORGS = 'auth_cached_orgs';
@@ -43,8 +42,6 @@ interface AuthState {
   session: Session | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  /** Legacy role from users.role (점진적 폐기) */
-  role: UserRole | null;
   /** 플랫폼 역할 (super_admin) */
   platformRole: PlatformRole | null;
   /** 현재 선택된 조직 */
@@ -82,7 +79,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session: null,
     isLoading: true,
     isAuthenticated: false,
-    role: null,
     platformRole: null,
     currentOrg: null,
     orgRole: null,
@@ -122,7 +118,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Cache for instant next startup
     if (profile) {
-      safeSetItem(CACHE_KEY_ROLE, profile.role);
       safeSetItem(CACHE_KEY_PROFILE, JSON.stringify(profile));
       safeSetItem(CACHE_KEY_ORGS, JSON.stringify(orgs));
     }
@@ -169,7 +164,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       isLoading: false,
       isAuthenticated: true,
-      role: profile?.role || null,
       platformRole,
       currentOrg,
       orgRole: currentOrg?.role || null,
@@ -187,13 +181,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!prev.isLoading && prev._profileVerified) return prev;
         // 초기화 또는 프로필 검증 미완료 → 강제 로그아웃
         if (__DEV__) console.warn('[Auth] Init timeout — forcing logged out state');
-        safeMultiRemove([CACHE_KEY_ROLE, CACHE_KEY_PROFILE, CACHE_KEY_ORG, CACHE_KEY_ORGS]);
+        safeMultiRemove([CACHE_KEY_PROFILE, CACHE_KEY_ORG, CACHE_KEY_ORGS]);
         return {
           user: null,
           session: null,
           isLoading: false,
           isAuthenticated: false,
-          role: null,
           platformRole: null,
           currentOrg: null,
           orgRole: null,
@@ -227,10 +220,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error: tokenError } = await supabase.auth.getUser();
       if (tokenError) {
         if (__DEV__) console.warn('[Auth] Token invalid:', tokenError.message);
-        safeMultiRemove([CACHE_KEY_ROLE, CACHE_KEY_PROFILE, CACHE_KEY_ORG, CACHE_KEY_ORGS]);
+        safeMultiRemove([CACHE_KEY_PROFILE, CACHE_KEY_ORG, CACHE_KEY_ORGS]);
         setState({
           user: null, session: null, isLoading: false, isAuthenticated: false,
-          role: null, platformRole: null, currentOrg: null, orgRole: null,
+          platformRole: null, currentOrg: null, orgRole: null,
           organizations: [], _profileVerified: true,
         });
         await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
@@ -298,7 +291,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const loggedOutState: AuthState = {
       user: null, session: null, isLoading: false, isAuthenticated: false,
-      role: null, platformRole: null, currentOrg: null, orgRole: null,
+      platformRole: null, currentOrg: null, orgRole: null,
       organizations: [], _profileVerified: true,
     };
 
@@ -310,9 +303,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // ----------------------------------------------------------------
         if (event === 'INITIAL_SESSION') {
           if (session?.user) {
-            // 캐시에서 role + profile + orgs 읽기 (로컬, ~10ms — lock 안전)
-            const [cachedRole, cachedProfileStr, cachedOrgsStr] = await Promise.all([
-              safeGetItem(CACHE_KEY_ROLE),
+            // 캐시에서 profile + orgs 읽기 (로컬, ~10ms — lock 안전)
+            const [cachedProfileStr, cachedOrgsStr] = await Promise.all([
               safeGetItem(CACHE_KEY_PROFILE),
               safeGetItem(CACHE_KEY_ORGS),
             ]);
@@ -323,10 +315,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               if (cachedProfileStr) cachedProfile = JSON.parse(cachedProfileStr) as User;
               if (cachedOrgsStr) cachedOrgs = JSON.parse(cachedOrgsStr) as MyOrganization[];
             } catch {
-              safeMultiRemove([CACHE_KEY_ROLE, CACHE_KEY_PROFILE, CACHE_KEY_ORG, CACHE_KEY_ORGS]);
+              safeMultiRemove([CACHE_KEY_PROFILE, CACHE_KEY_ORG, CACHE_KEY_ORGS]);
             }
 
-            if (cachedRole && cachedProfile) {
+            if (cachedProfile) {
               // Fast path: 캐시 있음 → 즉시 UI 표시 (검증은 백그라운드)
               const cachedState = await buildAuthState(session, cachedProfile, cachedOrgs);
               setState(prev => ({ ...prev, ...cachedState, _profileVerified: false }));
@@ -367,7 +359,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // SIGNED_OUT: 로그아웃
         // ----------------------------------------------------------------
         } else if (event === 'SIGNED_OUT') {
-          safeMultiRemove([CACHE_KEY_ROLE, CACHE_KEY_PROFILE, CACHE_KEY_ORG, CACHE_KEY_ORGS]);
+          safeMultiRemove([CACHE_KEY_PROFILE, CACHE_KEY_ORG, CACHE_KEY_ORGS]);
           setState(loggedOutState);
 
         // ----------------------------------------------------------------
@@ -379,7 +371,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         } catch (err) {
           if (__DEV__) console.warn('[Auth] onAuthStateChange error:', err);
-          safeMultiRemove([CACHE_KEY_ROLE, CACHE_KEY_PROFILE, CACHE_KEY_ORG, CACHE_KEY_ORGS]);
+          safeMultiRemove([CACHE_KEY_PROFILE, CACHE_KEY_ORG, CACHE_KEY_ORGS]);
           setState(loggedOutState);
         }
       }
@@ -449,7 +441,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         router.replace(correctHome as any);
       }
     }
-  }, [state.isAuthenticated, state.isLoading, state._profileVerified, state.role, state.platformRole, state.orgRole, state.currentOrg, segments, router]);
+  }, [state.isAuthenticated, state.isLoading, state._profileVerified, state.platformRole, state.orgRole, state.currentOrg, segments, router]);
 
   // ============================================================================
   // Sign in
@@ -518,10 +510,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ============================================================================
   const signOut = useCallback(async () => {
     // 먼저 로컬 상태 즉시 초기화 (UI 즉시 반영)
-    safeMultiRemove([CACHE_KEY_ROLE, CACHE_KEY_PROFILE, CACHE_KEY_ORG, CACHE_KEY_ORGS]);
+    safeMultiRemove([CACHE_KEY_PROFILE, CACHE_KEY_ORG, CACHE_KEY_ORGS]);
     setState({
       user: null, session: null, isLoading: false, isAuthenticated: false,
-      role: null, platformRole: null, currentOrg: null, orgRole: null,
+      platformRole: null, currentOrg: null, orgRole: null,
       organizations: [], _profileVerified: true,
     });
     // Supabase 세션 정리 (실패해도 위에서 이미 로그아웃 상태)
@@ -628,11 +620,6 @@ export function useSession() {
 export function useIsAuthenticated() {
   const { isAuthenticated, isLoading } = useAuth();
   return { isAuthenticated, isLoading };
-}
-
-export function useRole() {
-  const { role } = useAuth();
-  return role;
 }
 
 export function useOrgRole() {

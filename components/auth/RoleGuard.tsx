@@ -42,7 +42,7 @@ export function RoleGuard({
   fallback,
   redirectTo,
 }: RoleGuardProps) {
-  const { isAuthenticated, isLoading, orgRole, platformRole, role } = useAuth();
+  const { isAuthenticated, isLoading, orgRole, platformRole } = useAuth();
   const colors = useThemeColors();
 
   if (isLoading) {
@@ -80,7 +80,7 @@ export function RoleGuard({
   }
 
   // Default redirect based on role
-  if (platformRole === 'super_admin' || role === 'admin') {
+  if (platformRole === 'super_admin') {
     return <Redirect href={"/(admin)" as any} />;
   } else if (canTeach(orgRole)) {
     return <Redirect href={"/(teacher)" as any} />;

@@ -401,7 +401,6 @@ function AuthTestScreen() {
     session,
     isLoading,
     isAuthenticated,
-    role,
     signIn,
     signUp,
     signOut,
@@ -510,7 +509,7 @@ function AuthTestScreen() {
               <View className="mt-2">
                 <Text className="text-white/90 text-center">{user.email}</Text>
                 <Text className="text-white/80 text-center text-sm">
-                  {user.name} ({role})
+                  {user.name}
                 </Text>
               </View>
             )}
@@ -527,10 +526,6 @@ function AuthTestScreen() {
             <View className="flex-row justify-between py-1">
               <Text className="text-gray-600">isLoading</Text>
               <Text className="font-bold text-gray-900">{isLoading ? 'true' : 'false'}</Text>
-            </View>
-            <View className="flex-row justify-between py-1">
-              <Text className="text-gray-600">role</Text>
-              <Text className="font-bold text-gray-900">{role || 'null'}</Text>
             </View>
             <View className="flex-row justify-between py-1">
               <Text className="text-gray-600">session</Text>
@@ -1305,7 +1300,7 @@ export default function TestScreen() {
           <Text className="text-lg font-semibold text-gray-700 mb-3">
             SkeletonList (count=3)
           </Text>
-          <SkeletonList count={3} className="mb-6" />
+          <SkeletonList count={3} style={{ marginBottom: 24 }} />
 
           {/* 사용 예시 설명 */}
           <Card variant="outlined" className="mb-8">

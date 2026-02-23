@@ -5,18 +5,11 @@
 // 타입은 types.ts에서 정의하고 여기서 import합니다.
 // ============================================================================
 
-import type { UserRole, InviteStatus, ScriptStatus, QuestionType, ApiType, NotificationType, TopicCategory, OrgRole, PlatformRole } from './types';
+import type { InviteStatus, ScriptStatus, QuestionType, ApiType, NotificationType, TopicCategory, OrgRole, PlatformRole, ExamType } from './types';
 
 // ============================================================================
 // 상태/역할 상수
 // ============================================================================
-
-/** 사용자 역할 상수 */
-export const USER_ROLES: Record<string, UserRole> = {
-  ADMIN: 'admin',
-  TEACHER: 'teacher',
-  STUDENT: 'student',
-} as const;
 
 /** 조직 역할 상수 */
 export const ORG_ROLES: Record<string, OrgRole> = {
@@ -222,4 +215,54 @@ export const STORAGE_BUCKETS = {
   PRACTICE_RECORDINGS: 'practice-recordings',
   QUESTION_AUDIO: 'question-audio',
   LANDING_ASSETS: 'landing-assets',
+} as const;
+
+// ============================================================================
+// 시험 설정 (모의고사 / 콤보 롤플레이 / 레벨 테스트)
+// ============================================================================
+
+/** 시험 유형 상수 */
+export const EXAM_TYPES: Record<string, ExamType> = {
+  MOCK_EXAM: 'mock_exam',
+  COMBO_ROLEPLAY: 'combo_roleplay',
+  LEVEL_TEST: 'level_test',
+} as const;
+
+/** 시험 유형 한글 라벨 */
+export const EXAM_TYPE_LABELS: Record<ExamType, string> = {
+  mock_exam: '실전 모의고사',
+  combo_roleplay: '콤보 롤플레이',
+  level_test: '레벨 테스트',
+} as const;
+
+/** 자기평가 레벨 (모의고사 시작 시 선택) */
+export const SELF_ASSESSMENT_LEVELS = [
+  { level: 1, label: '레벨 1', description: '10단어 이하로 말할 수 있습니다', questionCount: 12 },
+  { level: 2, label: '레벨 2', description: '간단한 문장을 만들 수 있습니다', questionCount: 12 },
+  { level: 3, label: '레벨 3', description: '일상 주제에 대해 문장으로 말합니다', questionCount: 15 },
+  { level: 4, label: '레벨 4', description: '익숙한 상황에서 대화할 수 있습니다', questionCount: 15 },
+  { level: 5, label: '레벨 5', description: '다양한 주제에 대해 자신있게 말합니다', questionCount: 15 },
+  { level: 6, label: '레벨 6', description: '의견을 논리적으로 표현할 수 있습니다', questionCount: 15 },
+] as const;
+
+/** ACTFL 4차원 평가 항목 */
+export const ACTFL_DIMENSIONS = {
+  FUNCTION: { key: 'score_function', label_ko: '과제 수행', label_en: 'Function/Task' },
+  ACCURACY: { key: 'score_accuracy', label_ko: '정확성', label_en: 'Accuracy' },
+  CONTENT: { key: 'score_content', label_ko: '내용/맥락', label_en: 'Content/Context' },
+  TEXT_TYPE: { key: 'score_text_type', label_ko: '텍스트 유형', label_en: 'Text Type' },
+} as const;
+
+/** 시험 설정 */
+export const EXAM_CONFIG = {
+  /** 모의고사 제한 시간 (40분) */
+  MOCK_EXAM_DURATION_SEC: 40 * 60,
+  /** 레벨 테스트 문항 수 */
+  LEVEL_TEST_QUESTION_COUNT: 6,
+  /** 콤보 롤플레이 문항 수 */
+  COMBO_QUESTION_COUNT: 3,
+  /** 모의고사 서베이 최소 토픽 수 */
+  MIN_SURVEY_TOPICS: 4,
+  /** 시간당 최대 시험 횟수 */
+  MAX_EXAMS_PER_HOUR: 2,
 } as const;

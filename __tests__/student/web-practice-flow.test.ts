@@ -163,7 +163,7 @@ describe('practice.tsx: 질문 듣기 오디오 정지', () => {
   });
 
   it('녹음/처리 중에만 버튼이 비활성화된다', () => {
-    expect(content).toContain("disabled={practiceState === 'recording' || practiceState === 'processing'}");
+    expect(content).toContain("disabled={practiceState === 'recording'}");
   });
 
   it('createAsync 후 soundRef에 저장한다', () => {

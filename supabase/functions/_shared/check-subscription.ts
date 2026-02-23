@@ -35,7 +35,7 @@ export async function checkOrgEntitlement(
 
   let bestMembership = null;
   if (memberships && memberships.length > 0) {
-    const roleOrder: Record<string, number> = { owner: 1, admin: 2, teacher: 3, member: 4, student: 5 };
+    const roleOrder: Record<string, number> = { owner: 1, teacher: 2, student: 3 };
     memberships.sort((a: any, b: any) =>
       (roleOrder[a.role] || 99) - (roleOrder[b.role] || 99)
     );

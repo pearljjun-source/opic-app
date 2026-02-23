@@ -5,7 +5,6 @@ export {
   useUser,
   useSession,
   useIsAuthenticated,
-  useRole,
 } from './useAuth';
 export {
   useNetworkStatus,

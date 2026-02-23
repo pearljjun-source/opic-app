@@ -177,6 +177,146 @@ export interface OrgTeacherItem {
 }
 
 // ============================================================================
+// Exam Types (모의고사 / 콤보 롤플레이 / 레벨 테스트)
+// ============================================================================
+
+/** 시험 유형 */
+export type ExamType = 'mock_exam' | 'combo_roleplay' | 'level_test';
+
+/** 시험 세션 상태 */
+export type ExamSessionStatus = 'in_progress' | 'completed' | 'abandoned';
+
+/** 시험 결과 처리 상태 */
+export type ExamProcessingStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
+/** 롤플레이 문항 유형 */
+export type RoleplayType = 'ask_questions' | 'problem_solution' | 'related_experience';
+
+/** ACTFL 4차원 점수 */
+export interface ActflDimensionScores {
+  score_function: number;   // 기능/과제 수행 (0-100)
+  score_accuracy: number;   // 정확성 (0-100)
+  score_content: number;    // 내용/맥락 (0-100)
+  score_text_type: number;  // 텍스트 유형 (0-100)
+}
+
+/** 시험 문항별 AI 피드백 */
+export interface ExamQuestionFeedback extends ActflDimensionScores {
+  score: number;
+  level_indicator: OpicGrade;
+  strengths: string[];
+  improvements: string[];
+  error_analysis: Array<{
+    type: 'grammar' | 'pronunciation' | 'vocabulary' | 'l1_transfer';
+    original: string;
+    corrected: string;
+    explanation: string;
+  }>;
+}
+
+/** 전체 시험 평가 리포트 */
+export interface ExamEvaluationReport extends ActflDimensionScores {
+  estimated_grade: OpicGrade;
+  overall_score: number;
+  summary_ko: string;
+  grade_justification: string;
+  key_strengths: string[];
+  priority_improvements: Array<{ area: string; tip: string }>;
+  study_plan: string;
+  per_question: Array<ExamQuestionFeedback & { response_id: string }>;
+}
+
+/** 롤플레이 시나리오 */
+export interface RoleplayScenario {
+  id: string;
+  title_ko: string;
+  title_en: string;
+  description_ko: string | null;
+  scenario_context: string;
+  difficulty: number;
+  category: string | null;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
+/** 롤플레이 시나리오 문항 */
+export interface RoleplayScenarioQuestion {
+  id: string;
+  scenario_id: string;
+  position: number;
+  question_text: string;
+  roleplay_type: RoleplayType;
+  hint_ko: string | null;
+  audio_url: string | null;
+}
+
+/** 시험 세션 */
+export interface ExamSession {
+  id: string;
+  student_id: string;
+  organization_id: string | null;
+  exam_type: ExamType;
+  self_assessment_level: number | null;
+  status: ExamSessionStatus;
+  survey_topics: string[] | null;
+  roleplay_scenario_id: string | null;
+  started_at: string;
+  completed_at: string | null;
+  total_duration_sec: number | null;
+  estimated_grade: OpicGrade | null;
+  score_function: number | null;
+  score_accuracy: number | null;
+  score_content: number | null;
+  score_text_type: number | null;
+  overall_score: number | null;
+  evaluation_report: ExamEvaluationReport | null;
+  processing_status: ExamProcessingStatus;
+  created_at: string;
+  deleted_at: string | null;
+}
+
+/** 시험 응답 */
+export interface ExamResponse {
+  id: string;
+  exam_session_id: string;
+  question_id: string | null;
+  roleplay_question_id: string | null;
+  question_order: number;
+  combo_number: number | null;
+  combo_position: number | null;
+  audio_url: string | null;
+  duration_sec: number | null;
+  transcription: string | null;
+  score: number | null;
+  feedback: ExamQuestionFeedback | null;
+  processing_status: string;
+  is_scored: boolean;
+  created_at: string;
+}
+
+/** 시험 세션 목록 아이템 (간략 정보) */
+export interface ExamSessionListItem {
+  id: string;
+  exam_type: ExamType;
+  status: ExamSessionStatus;
+  estimated_grade: OpicGrade | null;
+  overall_score: number | null;
+  started_at: string;
+  completed_at: string | null;
+  total_duration_sec: number | null;
+}
+
+/** 녹음 임시 데이터 (시험 중 로컬 저장) */
+export interface ExamRecording {
+  questionOrder: number;
+  questionId: string;
+  questionType: 'question' | 'roleplay_question';
+  uri: string;
+  duration: number;
+}
+
+// ============================================================================
 // Derived Types (테이블 Row 타입 별칭)
 // ============================================================================
 
@@ -271,7 +411,6 @@ export interface StudentDetailInfo {
   id: string;
   email: string;
   name: string;
-  role: UserRole;
   created_at: string;
 }
 

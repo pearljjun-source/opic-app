@@ -352,7 +352,7 @@ export default function PracticeScreen() {
             practiceState === 'playing' && { backgroundColor: colors.primary },
           ]}
           onPress={handlePlayQuestion}
-          disabled={practiceState === 'recording' || practiceState === 'processing'}
+          disabled={practiceState === 'recording'}
         >
           <Ionicons
             name={practiceState === 'playing' ? 'stop' : 'play'}

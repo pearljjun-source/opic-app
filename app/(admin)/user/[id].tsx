@@ -13,14 +13,14 @@ import { showToast } from '@/lib/toast';
 
 const ROLE_LABELS: Record<string, string> = {
   super_admin: '슈퍼 관리자',
-  admin: '관리자',
+  owner: '원장',
   teacher: '강사',
   student: '학생',
 };
 
 const ROLE_BADGE_COLORS: Record<string, string> = {
   super_admin: '#DC2626',
-  admin: '#7C3AED',
+  owner: '#7C3AED',
   teacher: '#D4707F',
   student: '#E88B9A',
 };
@@ -29,7 +29,6 @@ interface UserDetail {
   id: string;
   name: string;
   email: string;
-  role: string;
   platform_role: string | null;
   effective_role: string;
   created_at: string;
@@ -173,8 +172,8 @@ export default function AdminUserDetailScreen() {
           </View>
         )}
 
-        {/* 역할 변경 — super_admin/admin에게는 표시 안 함 */}
-        {displayRole !== 'super_admin' && displayRole !== 'admin' && (
+        {/* 역할 변경 — super_admin에게는 표시 안 함 */}
+        {displayRole !== 'super_admin' && (
           <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>역할 변경</Text>
             <View style={styles.roleButtons}>

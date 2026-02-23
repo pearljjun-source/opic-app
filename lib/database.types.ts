@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       admin_audit_log: {
@@ -240,6 +215,7 @@ export type Database = {
           expires_at: string
           id: string
           organization_id: string | null
+          organization_name: string | null
           status: Database["public"]["Enums"]["invite_status"] | null
           target_role: Database["public"]["Enums"]["org_role"]
           teacher_id: string
@@ -253,6 +229,7 @@ export type Database = {
           expires_at: string
           id?: string
           organization_id?: string | null
+          organization_name?: string | null
           status?: Database["public"]["Enums"]["invite_status"] | null
           target_role?: Database["public"]["Enums"]["org_role"]
           teacher_id: string
@@ -266,6 +243,7 @@ export type Database = {
           expires_at?: string
           id?: string
           organization_id?: string | null
+          organization_name?: string | null
           status?: Database["public"]["Enums"]["invite_status"] | null
           target_role?: Database["public"]["Enums"]["org_role"]
           teacher_id?: string
@@ -1185,7 +1163,6 @@ export type Database = {
           name: string
           platform_role: Database["public"]["Enums"]["platform_role"] | null
           push_token: string | null
-          role: Database["public"]["Enums"]["user_role"]
           updated_at: string | null
         }
         Insert: {
@@ -1196,7 +1173,6 @@ export type Database = {
           name: string
           platform_role?: Database["public"]["Enums"]["platform_role"] | null
           push_token?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
         }
         Update: {
@@ -1207,7 +1183,6 @@ export type Database = {
           name?: string
           platform_role?: Database["public"]["Enums"]["platform_role"] | null
           push_token?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
         }
         Relationships: []
@@ -1217,16 +1192,47 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _entitlement_free_default: {
+        Args: { p_feature_key: string; p_org_id: string; p_user_id: string }
+        Returns: Json
+      }
       add_class_member: {
         Args: { p_class_id: string; p_student_id: string }
+        Returns: Json
+      }
+      admin_cancel_subscription: {
+        Args: { p_immediate?: boolean; p_org_id: string }
         Returns: Json
       }
       admin_change_user_role: {
         Args: { p_new_role: string; p_user_id: string }
         Returns: Json
       }
+      admin_create_owner_invite: {
+        Args: { p_expires_in_days?: number; p_org_name: string }
+        Returns: Json
+      }
       admin_delete_landing_item: { Args: { p_item_id: string }; Returns: Json }
+      admin_delete_organization: {
+        Args: { p_org_id: string; p_reason?: string }
+        Returns: Json
+      }
+      admin_delete_owner_invite: {
+        Args: { p_invite_id: string }
+        Returns: Json
+      }
+      admin_get_org_payments: {
+        Args: { p_limit?: number; p_org_id: string }
+        Returns: Json
+      }
+      admin_get_organization_detail: {
+        Args: { p_org_id: string }
+        Returns: Json
+      }
       admin_get_subscription_stats: { Args: never; Returns: Json }
+      admin_get_user_by_id: { Args: { p_user_id: string }; Returns: Json }
+      admin_list_organizations: { Args: never; Returns: Json }
+      admin_list_owner_invites: { Args: never; Returns: Json }
       admin_list_users:
         | {
             Args: {
@@ -1251,8 +1257,16 @@ export type Database = {
         Args: { p_section_key: string; p_updates: Json }
         Returns: Json
       }
+      admin_update_organization: {
+        Args: { p_org_id: string; p_updates: Json }
+        Returns: Json
+      }
       admin_update_plan: {
         Args: { p_plan_id: string; p_updates: Json }
+        Returns: Json
+      }
+      admin_update_subscription: {
+        Args: { p_org_id: string; p_plan_key: string }
         Returns: Json
       }
       admin_upsert_landing_item: { Args: { p_item: Json }; Returns: Json }
@@ -1274,6 +1288,7 @@ export type Database = {
         }
         Returns: Json
       }
+      check_org_entitlement: { Args: { p_feature_key: string }; Returns: Json }
       cleanup_expired_invites: { Args: never; Returns: number }
       create_class: {
         Args: { p_description?: string; p_name: string }
@@ -1318,17 +1333,7 @@ export type Database = {
       get_student_detail: { Args: { p_student_id: string }; Returns: Json }
       get_student_practice_stats: {
         Args: { p_student_id: string }
-        Returns: {
-          avg_reproduction_rate: number
-          avg_score: number
-          last_practice_at: string
-          prev_avg_reproduction_rate: number
-          prev_avg_score: number
-          target_opic_grade: string
-          this_week_practices: number
-          total_duration_minutes: number
-          total_practices: number
-        }[]
+        Returns: Json
       }
       get_student_practices: {
         Args: { p_student_id: string }
@@ -1509,6 +1514,10 @@ export type Database = {
         Args: { p_class_id: string; p_description?: string; p_name?: string }
         Returns: Json
       }
+      update_organization_name: {
+        Args: { p_name: string; p_org_id: string }
+        Returns: Json
+      }
       update_student_notes: {
         Args: {
           p_notes?: string
@@ -1658,9 +1667,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       api_type: ["whisper", "claude", "tts"],

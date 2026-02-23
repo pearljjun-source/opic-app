@@ -179,9 +179,8 @@ describe('user/[id].tsx: RPC 기반 사용자 상세 화면', () => {
     expect(content).toContain('organizations');
   });
 
-  it('super_admin/admin에게 역할 변경 버튼을 표시하지 않는다', () => {
+  it('super_admin에게 역할 변경 버튼을 표시하지 않는다', () => {
     expect(content).toContain("displayRole !== 'super_admin'");
-    expect(content).toContain("displayRole !== 'admin'");
   });
 
   it('RPC 비즈니스 에러를 classifyRpcError로 처리한다', () => {
