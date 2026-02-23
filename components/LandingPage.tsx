@@ -724,7 +724,7 @@ export default function LandingPage() {
               <FadeInView key={i} delay={i * 120}>
                 <HoverCard style={[s.featVisualCard, mob && s.featVisualCardM]}>
                   {f.image ? (
-                    <Image source={f.image} style={s.featVisualImg} resizeMode="cover" />
+                    <Image source={f.image} style={s.featVisualImg} resizeMode="contain" />
                   ) : (
                     <View style={[
                       s.featVisualTop,
