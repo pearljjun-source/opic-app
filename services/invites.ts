@@ -112,6 +112,39 @@ export async function getActiveInvite(targetRole?: OrgRole): Promise<{ data: Inv
 }
 
 /**
+ * 활성 초대 코드 목록 조회 (강사용)
+ * 아직 사용되지 않고 만료되지 않은 초대 코드를 모두 반환
+ * @param targetRole - 필터링할 대상 역할. 지정하면 해당 역할의 초대만 반환.
+ */
+export async function getActiveInvites(targetRole?: OrgRole): Promise<{ data: Invite[]; error: Error | null }> {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { data: [], error: new AppError('AUTH_REQUIRED') };
+  }
+
+  let query = supabase
+    .from('invites')
+    .select('*')
+    .eq('teacher_id', user.id)
+    .eq('status', 'pending')
+    .gt('expires_at', new Date().toISOString())
+    .order('created_at', { ascending: false });
+
+  if (targetRole) {
+    query = query.eq('target_role', targetRole);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    return { data: [], error: classifyError(error, { resource: 'invite' }) };
+  }
+
+  return { data: data || [], error: null };
+}
+
+/**
  * 초대 코드 삭제 (강사용)
  * soft_delete_invite RPC: 서버가 소유권 검증 + Soft Delete
  */
