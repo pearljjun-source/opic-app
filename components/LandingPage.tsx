@@ -39,7 +39,7 @@ const ICON_MAP: Record<string, React.ComponentType<any>> = {
 const ROSE = '#D4707F';
 const ROSE_LIGHT = '#FDE8EB';
 const DARK = '#111827';
-const APK_DOWNLOAD_URL = 'https://expo.dev/accounts/pearljjun/projects/opic-app/builds/0d5c1ad6-c1ba-4498-b8d1-80ac77fe0984';
+const APK_DOWNLOAD_URL = 'https://expo.dev/accounts/pearljjun/projects/opic-app/builds/3ce5748e-3335-4090-b758-c585f9a183c5';
 
 // ============================================================================
 // Animation helpers
