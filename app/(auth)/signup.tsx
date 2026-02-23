@@ -31,40 +31,51 @@ export default function SignupScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ name?: string; email?: string; password?: string; confirmPassword?: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const validateForm = (): boolean => {
-    if (!name.trim()) {
-      setError('이름을 입력해주세요.');
-      return false;
-    }
-    if (!email.trim()) {
-      setError('이메일을 입력해주세요.');
-      return false;
-    }
-    if (!email.includes('@')) {
-      setError('올바른 이메일 형식이 아닙니다.');
-      return false;
-    }
-    if (!password) {
-      setError('비밀번호를 입력해주세요.');
-      return false;
-    }
-    if (password.length < 6) {
-      setError('비밀번호는 최소 6자 이상이어야 합니다.');
-      return false;
-    }
-    if (password !== confirmPassword) {
-      setError('비밀번호가 일치하지 않습니다.');
-      return false;
-    }
-    return true;
+  const validators = {
+    name: (v: string) => !v.trim() ? '이름을 입력해주세요.' : undefined,
+    email: (v: string) => {
+      if (!v.trim()) return '이메일을 입력해주세요.';
+      if (!v.includes('@')) return '올바른 이메일 형식이 아닙니다.';
+      return undefined;
+    },
+    password: (v: string) => {
+      if (!v) return '비밀번호를 입력해주세요.';
+      if (v.length < 6) return '비밀번호는 최소 6자 이상이어야 합니다.';
+      return undefined;
+    },
+    confirmPassword: (v: string) => {
+      if (!v) return '비밀번호 확인을 입력해주세요.';
+      if (v !== password) return '비밀번호가 일치하지 않습니다.';
+      return undefined;
+    },
+  };
+
+  const handleBlur = (field: keyof typeof validators) => {
+    const value = { name, email, password, confirmPassword }[field];
+    setFieldErrors((prev) => ({ ...prev, [field]: validators[field](value) }));
+  };
+
+  const clearFieldError = (field: keyof typeof fieldErrors) => {
+    if (fieldErrors[field]) setFieldErrors((prev) => ({ ...prev, [field]: undefined }));
   };
 
   const handleSignup = async () => {
-    if (!validateForm()) return;
+    const errs = {
+      name: validators.name(name),
+      email: validators.email(email),
+      password: validators.password(password),
+      confirmPassword: validators.confirmPassword(confirmPassword),
+    };
+    if (Object.values(errs).some(Boolean)) {
+      setFieldErrors(errs);
+      return;
+    }
 
     setError(null);
+    setFieldErrors({});
     setIsSubmitting(true);
 
     try {
@@ -149,7 +160,9 @@ export default function SignupScreen() {
                 label="이름"
                 placeholder="홍길동"
                 value={name}
-                onChangeText={setName}
+                onChangeText={(v) => { setName(v); clearFieldError('name'); }}
+                onBlur={() => handleBlur('name')}
+                error={fieldErrors.name}
                 autoComplete="name"
                 leftIcon={
                   <Ionicons name="person-outline" size={20} color={colors.textDisabled} />
@@ -160,7 +173,9 @@ export default function SignupScreen() {
                 label="이메일"
                 placeholder="example@email.com"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(v) => { setEmail(v); clearFieldError('email'); }}
+                onBlur={() => handleBlur('email')}
+                error={fieldErrors.email}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoComplete="email"
@@ -173,7 +188,9 @@ export default function SignupScreen() {
                 label="비밀번호"
                 placeholder="6자 이상 입력하세요"
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(v) => { setPassword(v); clearFieldError('password'); }}
+                onBlur={() => handleBlur('password')}
+                error={fieldErrors.password}
                 isPassword
                 autoComplete="new-password"
                 leftIcon={
@@ -185,7 +202,9 @@ export default function SignupScreen() {
                 label="비밀번호 확인"
                 placeholder="비밀번호를 다시 입력하세요"
                 value={confirmPassword}
-                onChangeText={setConfirmPassword}
+                onChangeText={(v) => { setConfirmPassword(v); clearFieldError('confirmPassword'); }}
+                onBlur={() => handleBlur('confirmPassword')}
+                error={fieldErrors.confirmPassword}
                 isPassword
                 autoComplete="new-password"
                 leftIcon={

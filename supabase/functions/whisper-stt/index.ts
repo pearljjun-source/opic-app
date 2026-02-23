@@ -61,13 +61,18 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Rate limit 사전 확인 (비용 드는 API 호출 전에 차단)
-    const { data: rateLimit } = await supabaseAdmin.rpc('check_api_rate_limit', {
-      p_user_id: user.id,
-      p_api_type: 'whisper',
-      p_max_requests: 30,
-      p_window_minutes: 60,
-    });
+    // Rate limit + Storage 다운로드 동시 실행 (독립적이므로 병렬)
+    const [{ data: rateLimit }, { data: fileData, error: downloadError }] = await Promise.all([
+      supabaseAdmin.rpc('check_api_rate_limit', {
+        p_user_id: user.id,
+        p_api_type: 'whisper',
+        p_max_requests: 30,
+        p_window_minutes: 60,
+      }),
+      supabaseAdmin.storage
+        .from('practice-recordings')
+        .download(audioPath),
+    ]);
 
     if (rateLimit && !rateLimit.allowed) {
       return new Response(
@@ -82,11 +87,6 @@ serve(async (req) => {
         }
       );
     }
-
-    // Storage에서 오디오 파일 다운로드
-    const { data: fileData, error: downloadError } = await supabaseAdmin.storage
-      .from('practice-recordings')
-      .download(audioPath);
 
     if (downloadError || !fileData) {
       throw new Error(`Failed to download audio: ${downloadError?.message || 'File not found'}`);

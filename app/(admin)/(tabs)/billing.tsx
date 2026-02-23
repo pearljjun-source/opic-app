@@ -7,6 +7,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useThemeColors } from '@/hooks/useTheme';
+import { SkeletonDashboard } from '@/components/ui/Loading';
 import { getUserMessage } from '@/lib/errors';
 import {
   adminGetSubscriptionStats,
@@ -143,8 +144,8 @@ export default function AdminBillingScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.center, { backgroundColor: colors.surfaceSecondary }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary }}>
+        <SkeletonDashboard />
       </View>
     );
   }
@@ -157,7 +158,16 @@ export default function AdminBillingScreen() {
           <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={colors.primary} />
         }
       >
-        {error && <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>}
+        {error && (
+          <Pressable
+            style={{ backgroundColor: colors.accentRedBg, borderRadius: 12, padding: 14, marginBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+            onPress={handleRefresh}
+          >
+            <Ionicons name="alert-circle-outline" size={20} color={colors.error} />
+            <Text style={{ color: colors.error, fontSize: 14, flex: 1 }}>{error}</Text>
+            <Text style={{ color: colors.primary, fontSize: 13, fontFamily: 'Pretendard-SemiBold' }}>재시도</Text>
+          </Pressable>
+        )}
 
         {/* 구독 통계 */}
         <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>구독 통계</Text>

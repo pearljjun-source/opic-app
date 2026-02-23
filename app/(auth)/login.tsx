@@ -28,6 +28,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 화면 포커스 시 비밀번호 초기화 (보안: SPA에서 컴포넌트가 메모리에 잔존할 수 있음)
@@ -35,20 +36,41 @@ export default function LoginScreen() {
     useCallback(() => {
       setPassword('');
       setError(null);
+      setFieldErrors({});
     }, [])
   );
 
+  const validateEmail = (value: string) => {
+    if (!value.trim()) return '이메일을 입력해주세요.';
+    if (!value.includes('@')) return '올바른 이메일 형식이 아닙니다.';
+    return undefined;
+  };
+
+  const validatePassword = (value: string) => {
+    if (!value) return '비밀번호를 입력해주세요.';
+    return undefined;
+  };
+
+  const handleEmailBlur = () => {
+    const err = validateEmail(email);
+    setFieldErrors((prev) => ({ ...prev, email: err }));
+  };
+
+  const handlePasswordBlur = () => {
+    const err = validatePassword(password);
+    setFieldErrors((prev) => ({ ...prev, password: err }));
+  };
+
   const handleLogin = async () => {
-    if (!email.trim()) {
-      setError('이메일을 입력해주세요.');
-      return;
-    }
-    if (!password) {
-      setError('비밀번호를 입력해주세요.');
+    const emailErr = validateEmail(email);
+    const passwordErr = validatePassword(password);
+    if (emailErr || passwordErr) {
+      setFieldErrors({ email: emailErr, password: passwordErr });
       return;
     }
 
     setError(null);
+    setFieldErrors({});
     setIsSubmitting(true);
 
     try {
@@ -164,7 +186,9 @@ export default function LoginScreen() {
                 <Input
                   placeholder="example@email.com"
                   value={email}
-                  onChangeText={setEmail}
+                  onChangeText={(v) => { setEmail(v); if (fieldErrors.email) setFieldErrors((p) => ({ ...p, email: undefined })); }}
+                  onBlur={handleEmailBlur}
+                  error={fieldErrors.email}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoComplete={Platform.OS === 'web' ? 'new-password' : 'email'}
@@ -186,7 +210,9 @@ export default function LoginScreen() {
                 <Input
                   placeholder="비밀번호를 입력하세요"
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={(v) => { setPassword(v); if (fieldErrors.password) setFieldErrors((p) => ({ ...p, password: undefined })); }}
+                  onBlur={handlePasswordBlur}
+                  error={fieldErrors.password}
                   isPassword
                   autoComplete={Platform.OS === 'web' ? 'new-password' : 'password'}
                   leftIcon={

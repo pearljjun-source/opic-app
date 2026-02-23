@@ -12,6 +12,7 @@ import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useThemeColors } from '@/hooks/useTheme';
+import { SkeletonDetail } from '@/components/ui/Loading';
 import { getPracticeResult, PracticeResult } from '@/services/practices';
 import { getUserMessage } from '@/lib/errors';
 import { diffScript } from '@/lib/diff';
@@ -99,9 +100,8 @@ export default function PracticeDetailScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>결과 불러오는 중...</Text>
+      <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary }}>
+        <SkeletonDetail />
       </View>
     );
   }

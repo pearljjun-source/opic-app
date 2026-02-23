@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 
 import { useThemeColors } from '@/hooks/useTheme';
+import { SkeletonList } from '@/components/ui/Loading';
 import { COLORS } from '@/lib/constants';
 import { getUserMessage } from '@/lib/errors';
 import {
@@ -33,7 +34,7 @@ export default function AdminAcademiesScreen() {
   function StatusBadge({ status }: { status: string }) {
     const config = {
       pending: { label: '대기중', bg: colors.accentBlueBg, color: colors.primary },
-      used: { label: '사용됨', bg: colors.accentGreenBg, color: '#059669' },
+      used: { label: '사용됨', bg: colors.accentGreenBg, color: colors.accentGreenText },
       expired: { label: '만료됨', bg: colors.surfaceSecondary, color: colors.textDisabled },
     }[status] || { label: status, bg: colors.surfaceSecondary, color: colors.textDisabled };
 
@@ -86,7 +87,7 @@ export default function AdminAcademiesScreen() {
 
         {invite.status === 'used' && invite.used_by_name && (
           <View style={[styles.usedInfo, { borderTopColor: colors.border }]}>
-            <Ionicons name="checkmark-circle" size={14} color="#059669" />
+            <Ionicons name="checkmark-circle" size={14} color={colors.accentGreenText} />
             <Text style={[styles.usedText, { color: colors.textSecondary }]}>
               {invite.used_by_name} ({invite.used_by_email})
             </Text>
@@ -248,8 +249,8 @@ export default function AdminAcademiesScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.center, { backgroundColor: colors.surfaceSecondary }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary }}>
+        <SkeletonList count={5} style={{ padding: 16 }} />
       </View>
     );
   }
@@ -263,9 +264,14 @@ export default function AdminAcademiesScreen() {
         }
       >
         {error && (
-          <View style={[styles.errorContainer, { backgroundColor: colors.accentRedBg }]}>
-            <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
-          </View>
+          <Pressable
+            style={[styles.errorContainer, { backgroundColor: colors.accentRedBg, flexDirection: 'row', alignItems: 'center', gap: 8 }]}
+            onPress={fetchData}
+          >
+            <Ionicons name="alert-circle-outline" size={20} color={colors.error} />
+            <Text style={[styles.errorText, { color: colors.error, flex: 1 }]}>{error}</Text>
+            <Text style={{ color: colors.primary, fontSize: 13, fontFamily: 'Pretendard-SemiBold' }}>재시도</Text>
+          </Pressable>
         )}
 
         {/* 원장 초대 섹션 */}

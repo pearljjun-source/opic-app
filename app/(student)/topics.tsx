@@ -12,10 +12,12 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useThemeColors } from '@/hooks/useTheme';
+import { SkeletonList } from '@/components/ui/Loading';
 import { TOPIC_CATEGORY_LABELS } from '@/lib/constants';
 import { supabase } from '@/lib/supabase';
 import { getTopics, TopicListItem } from '@/services/scripts';
 import type { TopicCategory } from '@/lib/types';
+import { showToast } from '@/lib/toast';
 
 export default function TopicsScreen() {
   const colors = useThemeColors();
@@ -114,15 +116,14 @@ export default function TopicsScreen() {
     }
 
     setIsSaving(false);
-    Alert.alert('완료', '토픽이 저장되었습니다.', [
-      { text: '확인', onPress: () => router.back() },
-    ]);
+    showToast('토픽이 저장되었습니다.');
+    router.back();
   };
 
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}>
+        <SkeletonList count={4} style={{ padding: 16 }} />
       </View>
     );
   }

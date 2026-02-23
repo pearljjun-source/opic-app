@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { getUserMessage } from '@/lib/errors';
 import { getScript, updateScript, deleteScript, ScriptDetail } from '@/services/scripts';
 import { useThemeColors } from '@/hooks/useTheme';
+import { showToast } from '@/lib/toast';
 
 export default function EditScriptScreen() {
   const colors = useThemeColors();
@@ -78,12 +79,8 @@ export default function EditScriptScreen() {
       return;
     }
 
-    Alert.alert('완료', '스크립트가 수정되었습니다.', [
-      {
-        text: '확인',
-        onPress: () => router.back(),
-      },
-    ]);
+    showToast('스크립트가 수정되었습니다.');
+    router.back();
   };
 
   const handleDelete = () => {
@@ -115,19 +112,8 @@ export default function EditScriptScreen() {
       return;
     }
 
-    Alert.alert('완료', '스크립트가 삭제되었습니다.', [
-      {
-        text: '확인',
-        onPress: () => {
-          // 학생 상세 화면으로 돌아가기
-          if (script?.student_id) {
-            router.navigate(`/(teacher)/student/${script.student_id}`);
-          } else {
-            router.back();
-          }
-        },
-      },
-    ]);
+    showToast('스크립트가 삭제되었습니다.');
+    router.back();
   };
 
   if (isLoading) {

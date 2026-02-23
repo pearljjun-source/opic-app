@@ -24,6 +24,7 @@ import { notifyAction, deliverNotification } from '@/services/notifications';
 import { NOTIFICATION_TYPES } from '@/lib/constants';
 import { getUserMessage } from '@/lib/errors';
 import { useThemeColors } from '@/hooks/useTheme';
+import { showToast } from '@/lib/toast';
 
 export default function TeacherPracticeDetailScreen() {
   const colors = useThemeColors();
@@ -148,7 +149,7 @@ export default function TeacherPracticeDetailScreen() {
       });
     }
 
-    Alert.alert('완료', '피드백이 저장되었습니다.');
+    showToast('피드백이 저장되었습니다.');
 
     // 기존 피드백 업데이트
     if (practice && data) {

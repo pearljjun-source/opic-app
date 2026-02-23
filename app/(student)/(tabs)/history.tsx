@@ -12,6 +12,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useThemeColors } from '@/hooks/useTheme';
+import { SkeletonList } from '@/components/ui/Loading';
 import { getMyPractices } from '@/services/practices';
 import { getUserMessage } from '@/lib/errors';
 
@@ -75,8 +76,8 @@ export default function HistoryScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}>
+        <SkeletonList count={5} style={{ padding: 16 }} />
       </View>
     );
   }

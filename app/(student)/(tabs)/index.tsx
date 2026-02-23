@@ -10,6 +10,7 @@ import { getMyPracticeStats, getMyStreak } from '@/services/practices';
 import { TopicCard } from '@/components/student/TopicCard';
 import { CompactStatsStrip } from '@/components/student/CompactStatsStrip';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { SkeletonDashboard } from '@/components/ui/Loading';
 import { getUserMessage } from '@/lib/errors';
 import type { StudentTopicWithProgress, StudentPracticeStats } from '@/lib/types';
 
@@ -84,8 +85,7 @@ export default function StudentDashboard() {
   if (isLoading) {
     return (
       <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>불러오는 중...</Text>
+        <SkeletonDashboard />
       </View>
     );
   }

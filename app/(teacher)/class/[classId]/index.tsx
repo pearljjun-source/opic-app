@@ -216,10 +216,10 @@ export default function ClassDetailScreen() {
         </Pressable>
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]} numberOfLines={1}>{className}</Text>
         <View style={styles.headerActions}>
-          <Pressable onPress={handleOpenEdit} style={styles.headerActionButton}>
+          <Pressable onPress={handleOpenEdit} style={styles.headerActionButton} hitSlop={4}>
             <Ionicons name="pencil-outline" size={20} color={colors.primary} />
           </Pressable>
-          <Pressable onPress={handleDeleteClass} style={styles.headerActionButton}>
+          <Pressable onPress={handleDeleteClass} style={styles.headerActionButton} hitSlop={4}>
             <Ionicons name="trash-outline" size={20} color={colors.error} />
           </Pressable>
         </View>

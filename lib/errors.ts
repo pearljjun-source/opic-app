@@ -710,6 +710,9 @@ function classifyFunctionsError(error: unknown, context?: ErrorContext): AppErro
   if (msgLower.includes('rate limit')) {
     return classifyRateLimitError(error, context);
   }
+  if (msgLower.includes('feature_not_available') || msgLower.includes('free_plan')) {
+    return new AppError(ERROR_CODES.BILLING_FEATURE_NOT_AVAILABLE, { originalError: error });
+  }
 
   // apiType context에 의한 fallback
   if (context?.apiType === 'whisper') return new AppError(ERROR_CODES.SVR_WHISPER_API, { originalError: error });

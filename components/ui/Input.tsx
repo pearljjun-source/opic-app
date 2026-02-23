@@ -76,11 +76,11 @@ export const Input = forwardRef<TextInput, InputProps>(
             placeholderTextColor={colors.textDisabled}
             editable={!disabled}
             secureTextEntry={isPassword && !showPassword}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
             accessibilityLabel={label}
             accessibilityState={{ disabled }}
             {...props}
+            onFocus={(e) => { setIsFocused(true); props.onFocus?.(e); }}
+            onBlur={(e) => { setIsFocused(false); props.onBlur?.(e); }}
           />
 
           {isPassword && (

@@ -228,7 +228,7 @@ export default function PlanSelectScreen() {
   if (success) {
     return (
       <View style={[styles.center, { backgroundColor: colors.surfaceSecondary }]}>
-        <Ionicons name="checkmark-circle" size={64} color="#10B981" />
+        <Ionicons name="checkmark-circle" size={64} color={colors.success} />
         <Text style={[styles.successTitle, { color: colors.textPrimary }]}>
           구독이 완료되었습니다
         </Text>
@@ -257,9 +257,9 @@ export default function PlanSelectScreen() {
       contentContainerStyle={styles.content}
     >
       {error && (
-        <View style={[styles.errorCard, { backgroundColor: '#FEE2E2', borderColor: '#FECACA' }]}>
-          <Ionicons name="alert-circle" size={18} color="#EF4444" />
-          <Text style={styles.errorText}>{error}</Text>
+        <View style={[styles.errorCard, { backgroundColor: colors.accentRedBg, borderColor: colors.error }]}>
+          <Ionicons name="alert-circle" size={18} color={colors.error} />
+          <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
         </View>
       )}
 
@@ -280,7 +280,7 @@ export default function PlanSelectScreen() {
               styles.planCard,
               {
                 backgroundColor: colors.surface,
-                borderColor: isCurrent ? colors.primary : isHighlighted ? '#D4707F' : colors.border,
+                borderColor: isCurrent ? colors.primary : isHighlighted ? colors.primary : colors.border,
               },
               (isCurrent || isHighlighted) && { borderWidth: 2 },
             ]}
@@ -293,7 +293,7 @@ export default function PlanSelectScreen() {
                 </View>
               )}
               {isHighlighted && !isCurrent && (
-                <View style={[styles.badge, { backgroundColor: '#D4707F' }]}>
+                <View style={[styles.badge, { backgroundColor: colors.primary }]}>
                   <Text style={styles.badgeText}>추천</Text>
                 </View>
               )}
@@ -338,7 +338,7 @@ export default function PlanSelectScreen() {
                 style={[
                   styles.ctaButton,
                   isUpgradeable
-                    ? { backgroundColor: isHighlighted ? '#D4707F' : colors.primary }
+                    ? { backgroundColor: colors.primary }
                     : { backgroundColor: colors.surfaceSecondary },
                 ]}
                 onPress={() => isUpgradeable && handleSelectPlan(plan)}
@@ -375,7 +375,7 @@ function FeatureItem({ label, enabled, colors }: { label: string; enabled: boole
       <Ionicons
         name={enabled ? 'checkmark-circle' : 'close-circle-outline'}
         size={16}
-        color={enabled ? '#10B981' : colors.textDisabled}
+        color={enabled ? colors.success : colors.textDisabled}
       />
       <Text style={[
         styles.featureText,
@@ -410,7 +410,6 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 13,
     fontFamily: 'Pretendard-Medium',
-    color: '#EF4444',
     flex: 1,
   },
 

@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert, ScrollView, RefreshControl } from 'react-native';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'expo-router';
 
@@ -235,7 +235,11 @@ export default function InviteScreen() {
 
   // owner: 학생 + 강사 초대를 독립적으로 관리
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.surfaceSecondary }]} contentContainerStyle={styles.scrollContent}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}
+      contentContainerStyle={styles.scrollContent}
+      refreshControl={<RefreshControl refreshing={false} onRefresh={fetchActiveInvites} tintColor={colors.primary} />}
+    >
       {error && (
         <View style={[styles.errorContainer, { backgroundColor: colors.accentRedBg }]}>
           <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>

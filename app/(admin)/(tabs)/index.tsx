@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useThemeColors } from '@/hooks/useTheme';
+import { SkeletonDashboard } from '@/components/ui/Loading';
 import { getUserMessage } from '@/lib/errors';
 import { getAdminDashboardStats, listOrganizations } from '@/services/admin';
 import { adminGetSubscriptionStats } from '@/services/billing';
@@ -67,8 +68,8 @@ export default function AdminDashboard() {
 
   if (isLoading) {
     return (
-      <View style={[styles.center, { backgroundColor: colors.surfaceSecondary }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary }}>
+        <SkeletonDashboard />
       </View>
     );
   }
@@ -76,7 +77,14 @@ export default function AdminDashboard() {
   if (error) {
     return (
       <View style={[styles.center, { backgroundColor: colors.surfaceSecondary }]}>
+        <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
         <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+        <Pressable
+          style={{ backgroundColor: colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, marginTop: 16 }}
+          onPress={handleRefresh}
+        >
+          <Text style={{ color: '#FFFFFF', fontSize: 14, fontFamily: 'Pretendard-SemiBold' }}>다시 시도</Text>
+        </Pressable>
       </View>
     );
   }

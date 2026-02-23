@@ -544,8 +544,15 @@ export default function AdminLandingScreen() {
 
       {/* 아이템 목록 */}
       {error ? (
-        <View style={styles.center}>
+        <View style={[styles.center, { gap: 12 }]}>
+          <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
           <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+          <Pressable
+            style={{ backgroundColor: colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 }}
+            onPress={() => selectedSection ? fetchItems(selectedSection.id) : fetchSections()}
+          >
+            <Text style={{ color: '#FFFFFF', fontSize: 14, fontFamily: 'Pretendard-SemiBold' }}>다시 시도</Text>
+          </Pressable>
         </View>
       ) : isItemsLoading ? (
         <View style={styles.center}>

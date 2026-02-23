@@ -9,6 +9,7 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { getRemainingQuota, getPaymentHistory, cancelSubscription } from '@/services/billing';
 import { getUserMessage } from '@/lib/errors';
 import type { PaymentRecord } from '@/lib/types';
+import { showToast } from '@/lib/toast';
 
 export default function SubscriptionScreen() {
   const colors = useThemeColors();
@@ -63,7 +64,7 @@ export default function SubscriptionScreen() {
             if (error) {
               Alert.alert('오류', getUserMessage(error));
             } else {
-              Alert.alert('완료', '구독 취소가 예약되었습니다.');
+              showToast('구독 취소가 예약되었습니다.');
               refresh();
             }
           },
@@ -119,11 +120,11 @@ export default function SubscriptionScreen() {
           <View style={styles.statusRow}>
             <View style={[
               styles.statusBadge,
-              { backgroundColor: isActive ? '#10B98120' : '#EF444420' },
+              { backgroundColor: isActive ? colors.accentGreenBg : colors.accentRedBg },
             ]}>
               <Text style={[
                 styles.statusText,
-                { color: isActive ? '#10B981' : '#EF4444' },
+                { color: isActive ? colors.accentGreenText : colors.accentRedText },
               ]}>
                 {subscription.status === 'active' ? '활성' :
                  subscription.status === 'trialing' ? '체험' :
@@ -140,7 +141,7 @@ export default function SubscriptionScreen() {
         )}
 
         {subscription?.cancel_at_period_end && (
-          <Text style={[styles.cancelNote, { color: '#F59E0B' }]}>
+          <Text style={[styles.cancelNote, { color: colors.warning }]}>
             기간 만료 시 구독이 종료됩니다
           </Text>
         )}
@@ -168,7 +169,7 @@ export default function SubscriptionScreen() {
           <Ionicons
             name={plan?.ai_feedback_enabled ? 'checkmark-circle' : 'close-circle'}
             size={20}
-            color={plan?.ai_feedback_enabled ? '#10B981' : colors.textDisabled}
+            color={plan?.ai_feedback_enabled ? colors.success : colors.textDisabled}
           />
         </View>
         <View style={styles.featureRow}>
@@ -176,7 +177,7 @@ export default function SubscriptionScreen() {
           <Ionicons
             name={plan?.tts_enabled ? 'checkmark-circle' : 'close-circle'}
             size={20}
-            color={plan?.tts_enabled ? '#10B981' : colors.textDisabled}
+            color={plan?.tts_enabled ? colors.success : colors.textDisabled}
           />
         </View>
       </View>
@@ -228,7 +229,7 @@ export default function SubscriptionScreen() {
                 </Text>
                 <Text style={[
                   styles.paymentStatus,
-                  { color: payment.status === 'paid' ? '#10B981' : '#EF4444' },
+                  { color: payment.status === 'paid' ? colors.success : colors.error },
                 ]}>
                   {payment.status === 'paid' ? '완료' :
                    payment.status === 'failed' ? '실패' :
@@ -243,10 +244,10 @@ export default function SubscriptionScreen() {
       {/* 구독 취소 버튼 */}
       {isOwner && isActive && !subscription?.cancel_at_period_end && planKey !== 'free' && (
         <Pressable
-          style={[styles.cancelButton, { borderColor: '#EF4444' }]}
+          style={[styles.cancelButton, { borderColor: colors.error }]}
           onPress={handleCancel}
         >
-          <Text style={styles.cancelButtonText}>구독 취소</Text>
+          <Text style={[styles.cancelButtonText, { color: colors.error }]}>구독 취소</Text>
         </Pressable>
       )}
 
@@ -382,7 +383,6 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     fontSize: 14,
     fontFamily: 'Pretendard-SemiBold',
-    color: '#EF4444',
   },
   note: {
     fontSize: 12,

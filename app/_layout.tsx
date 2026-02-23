@@ -15,6 +15,7 @@ import { useColorScheme } from 'nativewind';
 import { AuthProvider } from '@/hooks/useAuth';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { loadThemePreference } from '@/hooks/useTheme';
+import { Toast } from '@/components/ui/Toast';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -85,6 +86,7 @@ function RootLayoutNav() {
             <Stack.Screen name="(student)" />
             <Stack.Screen name="+not-found" />
           </Stack>
+          <Toast />
         </ThemeProvider>
       </AuthProvider>
     </SafeAreaProvider>

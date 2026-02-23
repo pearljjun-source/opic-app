@@ -26,32 +26,20 @@ export async function checkOrgEntitlement(
   userId: string,
   feature: string
 ): Promise<EntitlementResult> {
-  // 1. 사용자의 가장 높은 권한 org 조회
-  const { data: membership } = await supabaseAdmin
+  // 1. 사용자의 가장 높은 권한 org 조회 (단일 쿼리)
+  const { data: memberships } = await supabaseAdmin
     .from('organization_members')
     .select('organization_id, role')
     .eq('user_id', userId)
-    .is('deleted_at', null)
-    .order('role', { ascending: true }) // owner < student < teacher (alphabetical)
-    .limit(1);
+    .is('deleted_at', null);
 
-  // org 멤버십 정렬: owner 우선 (alphabetical로 owner가 먼저)
-  // 정확한 우선순위를 위해 수동 정렬
   let bestMembership = null;
-  if (membership && membership.length > 0) {
-    const { data: allMemberships } = await supabaseAdmin
-      .from('organization_members')
-      .select('organization_id, role')
-      .eq('user_id', userId)
-      .is('deleted_at', null);
-
-    if (allMemberships && allMemberships.length > 0) {
-      const roleOrder: Record<string, number> = { owner: 1, teacher: 2, student: 3 };
-      allMemberships.sort((a: any, b: any) =>
-        (roleOrder[a.role] || 99) - (roleOrder[b.role] || 99)
-      );
-      bestMembership = allMemberships[0];
-    }
+  if (memberships && memberships.length > 0) {
+    const roleOrder: Record<string, number> = { owner: 1, admin: 2, teacher: 3, member: 4, student: 5 };
+    memberships.sort((a: any, b: any) =>
+      (roleOrder[a.role] || 99) - (roleOrder[b.role] || 99)
+    );
+    bestMembership = memberships[0];
   }
 
   if (!bestMembership) {

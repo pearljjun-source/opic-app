@@ -19,6 +19,7 @@ import type {
   AdminOrganizationItem, AdminOrgMemberItem, AdminOrgSubscription,
   PaymentRecord, SubscriptionPlan,
 } from '@/lib/types';
+import { showToast } from '@/lib/toast';
 
 // ============================================================================
 // Main
@@ -172,7 +173,7 @@ export default function AcademyDetailScreen() {
     } else {
       setShowPlanModal(false);
       const actionText = result.data?.action === 'subscription_create' ? '구독이 생성되었습니다.' : '플랜이 변경되었습니다.';
-      Alert.alert('완료', actionText);
+      showToast(actionText);
       await fetchData();
     }
   };
@@ -190,7 +191,7 @@ export default function AcademyDetailScreen() {
             if (result.error) {
               Alert.alert('오류', getUserMessage(result.error));
             } else {
-              Alert.alert('완료', '기간 만료 시 자동 해지됩니다.');
+              showToast('기간 만료 시 자동 해지됩니다.');
               await fetchData();
             }
           },
@@ -203,7 +204,7 @@ export default function AcademyDetailScreen() {
             if (result.error) {
               Alert.alert('오류', getUserMessage(result.error));
             } else {
-              Alert.alert('완료', '구독이 즉시 취소되었습니다.');
+              showToast('구독이 즉시 취소되었습니다.');
               await fetchData();
             }
           },
@@ -222,9 +223,8 @@ export default function AcademyDetailScreen() {
       Alert.alert('오류', getUserMessage(result.error));
     } else {
       setShowDeleteModal(false);
-      Alert.alert('완료', '학원이 삭제되었습니다.', [
-        { text: '확인', onPress: () => router.back() },
-      ]);
+      showToast('학원이 삭제되었습니다.');
+      router.back();
     }
   };
 
@@ -257,7 +257,16 @@ export default function AcademyDetailScreen() {
           <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={colors.primary} />
         }
       >
-        {error && <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>}
+        {error && (
+          <Pressable
+            style={{ backgroundColor: colors.accentRedBg, borderRadius: 12, padding: 14, marginBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+            onPress={handleRefresh}
+          >
+            <Ionicons name="alert-circle-outline" size={20} color={colors.error} />
+            <Text style={{ color: colors.error, fontSize: 14, flex: 1 }}>{error}</Text>
+            <Text style={{ color: colors.primary, fontSize: 13, fontFamily: 'Pretendard-SemiBold' }}>재시도</Text>
+          </Pressable>
+        )}
 
         {org && (
           <>
@@ -270,7 +279,7 @@ export default function AcademyDetailScreen() {
                 <View style={{ flex: 1 }}>
                   <View style={styles.orgNameRow}>
                     <Text style={[styles.orgName, { color: colors.textPrimary }]}>{org.name}</Text>
-                    <Pressable onPress={handleEditOrg} hitSlop={8}>
+                    <Pressable onPress={handleEditOrg} hitSlop={12}>
                       <Ionicons name="create-outline" size={18} color={colors.primary} />
                     </Pressable>
                   </View>
@@ -321,11 +330,11 @@ export default function AcademyDetailScreen() {
                   만료: {new Date(subscription.current_period_end).toLocaleDateString('ko-KR')}
                 </Text>
                 <View style={[styles.subActions, { borderTopColor: colors.border }]}>
-                  <Pressable style={styles.subActionBtn} onPress={handleOpenPlanModal}>
+                  <Pressable style={styles.subActionBtn} onPress={handleOpenPlanModal} hitSlop={8}>
                     <Ionicons name="swap-horizontal" size={16} color={colors.primary} />
                     <Text style={[styles.subActionText, { color: colors.primary }]}>플랜 변경</Text>
                   </Pressable>
-                  <Pressable style={styles.subActionBtn} onPress={handleCancelSubscription}>
+                  <Pressable style={styles.subActionBtn} onPress={handleCancelSubscription} hitSlop={8}>
                     <Ionicons name="close-circle-outline" size={16} color={colors.error} />
                     <Text style={[styles.subActionText, { color: colors.error }]}>구독 취소</Text>
                   </Pressable>

@@ -8,6 +8,7 @@ import { getTeacherClasses } from '@/services/classes';
 import { ClassCard } from '@/components/teacher';
 import type { TeacherClassListItem } from '@/lib/types';
 import { getUserMessage } from '@/lib/errors';
+import { SkeletonList } from '@/components/ui/Loading';
 import { useThemeColors } from '@/hooks/useTheme';
 
 export default function ClassesTab() {
@@ -52,8 +53,8 @@ export default function ClassesTab() {
 
   if (isLoading && classes.length === 0) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary }}>
+        <SkeletonList count={4} style={{ padding: 16 }} />
       </View>
     );
   }

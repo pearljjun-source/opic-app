@@ -36,6 +36,7 @@ import { PracticeListItem } from '@/components/teacher/PracticeListItem';
 import { TopicProgressCard } from '@/components/teacher/TopicProgressCard';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { getUserMessage } from '@/lib/errors';
+import { SkeletonDetail } from '@/components/ui/Loading';
 import { useAuth } from '@/hooks/useAuth';
 import { canManageOrg } from '@/lib/permissions';
 import { removeOrgMember } from '@/services/organizations';
@@ -355,9 +356,8 @@ export default function StudentDetailScreen() {
   // Loading state
   if (isLoading) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>불러오는 중...</Text>
+      <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary }}>
+        <SkeletonDetail />
       </View>
     );
   }
@@ -385,6 +385,7 @@ export default function StudentDetailScreen() {
             <Pressable
               onPress={handleMoreMenu}
               style={styles.headerButton}
+              hitSlop={8}
             >
               <Ionicons name="ellipsis-vertical" size={22} color={colors.textPrimary} />
             </Pressable>
@@ -402,7 +403,7 @@ export default function StudentDetailScreen() {
         <View style={[styles.modalContainer, { backgroundColor: colors.surfaceSecondary }]}>
           <View style={[styles.modalHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
             <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>메모 / 목표 등급</Text>
-            <Pressable onPress={() => setIsNotesModalVisible(false)}>
+            <Pressable onPress={() => setIsNotesModalVisible(false)} hitSlop={10}>
               <Ionicons name="close" size={24} color={colors.textPrimary} />
             </Pressable>
           </View>

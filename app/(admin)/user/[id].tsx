@@ -9,6 +9,7 @@ import { getUserMessage, classifyRpcError } from '@/lib/errors';
 import { changeUserRole, getAuditLogs } from '@/services/admin';
 import { supabase } from '@/lib/supabase';
 import type { AdminAuditLog } from '@/lib/types';
+import { showToast } from '@/lib/toast';
 
 const ROLE_LABELS: Record<string, string> = {
   super_admin: '슈퍼 관리자',
@@ -101,7 +102,7 @@ export default function AdminUserDetailScreen() {
             if (changeError) {
               Alert.alert('오류', getUserMessage(changeError));
             } else {
-              Alert.alert('완료', '역할이 변경되었습니다.');
+              showToast('역할이 변경되었습니다.');
               // RPC로 최신 데이터 다시 가져오기
               await fetchUser();
             }

@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useThemeColors } from '@/hooks/useTheme';
+import { SkeletonList } from '@/components/ui/Loading';
 import { getUserMessage } from '@/lib/errors';
 import { listUsers } from '@/services/admin';
 import type { AdminUserListItem, EffectiveRole } from '@/lib/types';
@@ -111,7 +112,7 @@ export default function AdminUsersScreen() {
           onChangeText={setSearch}
         />
         {search.length > 0 && (
-          <Pressable onPress={() => setSearch('')}>
+          <Pressable onPress={() => setSearch('')} hitSlop={10}>
             <Ionicons name="close-circle" size={18} color={colors.textDisabled} />
           </Pressable>
         )}
@@ -138,12 +139,17 @@ export default function AdminUsersScreen() {
 
       {/* 목록 */}
       {isLoading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <SkeletonList count={6} style={{ padding: 16 }} />
       ) : error ? (
-        <View style={styles.center}>
+        <View style={[styles.center, { gap: 12 }]}>
+          <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
           <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+          <Pressable
+            style={{ backgroundColor: colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 }}
+            onPress={fetchUsers}
+          >
+            <Text style={{ color: '#FFFFFF', fontSize: 14, fontFamily: 'Pretendard-SemiBold' }}>다시 시도</Text>
+          </Pressable>
         </View>
       ) : (
         <ScrollView

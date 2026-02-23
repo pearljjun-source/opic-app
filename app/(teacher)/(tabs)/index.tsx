@@ -9,6 +9,7 @@ import { getConnectedStudents } from '@/services/students';
 import { StudentCard, AttentionSection, TeacherCompactStatsStrip } from '@/components/teacher';
 import type { TeacherStudentListItem } from '@/lib/types';
 import { getUserMessage } from '@/lib/errors';
+import { SkeletonDashboard } from '@/components/ui/Loading';
 import { useThemeColors } from '@/hooks/useTheme';
 
 export default function TeacherDashboard() {
@@ -64,8 +65,8 @@ export default function TeacherDashboard() {
 
   if (isLoading) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary }}>
+        <SkeletonDashboard />
       </View>
     );
   }

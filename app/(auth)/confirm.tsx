@@ -146,7 +146,7 @@ export default function AuthConfirmScreen() {
           <>
             <View style={{
               width: 80, height: 80, borderRadius: 40,
-              backgroundColor: '#DCFCE7',
+              backgroundColor: colors.accentGreenBg,
               justifyContent: 'center', alignItems: 'center', marginBottom: 24,
             }}>
               <Ionicons name="checkmark-circle" size={48} color={colors.success} />

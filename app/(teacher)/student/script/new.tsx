@@ -18,6 +18,7 @@ import { createScript } from '@/services/scripts';
 import { notifyAction, deliverNotification } from '@/services/notifications';
 import { getUserMessage } from '@/lib/errors';
 import { useThemeColors } from '@/hooks/useTheme';
+import { showToast } from '@/lib/toast';
 import { getRemainingQuota } from '@/services/billing';
 
 export default function NewScriptScreen() {
@@ -82,15 +83,8 @@ export default function NewScriptScreen() {
       });
     }
 
-    Alert.alert('완료', '스크립트가 저장되었습니다.', [
-      {
-        text: '확인',
-        onPress: () => {
-          // 학생 상세 화면으로 돌아가기
-          router.navigate(`/(teacher)/student/${studentId}`);
-        },
-      },
-    ]);
+    showToast('스크립트가 저장되었습니다.');
+    router.navigate(`/(teacher)/student/${studentId}`);
   };
 
   return (

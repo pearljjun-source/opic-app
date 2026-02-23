@@ -127,8 +127,17 @@ serve(async (req) => {
       );
     }
 
-    // 구독 entitlement 체크 (비용 드는 API 호출 전)
-    const entitlement = await checkOrgEntitlement(supabaseAdmin, user.id, 'tts');
+    // 구독 entitlement + rate limit 동시 체크 (독립적이므로 병렬)
+    const [entitlement, { data: rateLimit }] = await Promise.all([
+      checkOrgEntitlement(supabaseAdmin, user.id, 'tts'),
+      supabaseAdmin.rpc('check_api_rate_limit', {
+        p_user_id: user.id,
+        p_api_type: 'tts',
+        p_max_requests: 50,
+        p_window_minutes: 60,
+      }),
+    ]);
+
     if (!entitlement.allowed) {
       return new Response(
         JSON.stringify({
@@ -141,14 +150,6 @@ serve(async (req) => {
         }
       );
     }
-
-    // Rate limit 사전 확인 (비용 드는 API 호출 전에 차단)
-    const { data: rateLimit } = await supabaseAdmin.rpc('check_api_rate_limit', {
-      p_user_id: user.id,
-      p_api_type: 'tts',
-      p_max_requests: 50,
-      p_window_minutes: 60,
-    });
 
     if (rateLimit && !rateLimit.allowed) {
       return new Response(

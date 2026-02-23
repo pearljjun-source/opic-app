@@ -123,9 +123,14 @@ export default function TeacherManagementScreen() {
       </View>
 
       {error && (
-        <View style={[styles.errorContainer, { backgroundColor: colors.accentRedBg }]}>
-          <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
-        </View>
+        <Pressable
+          style={[styles.errorContainer, { backgroundColor: colors.accentRedBg, flexDirection: 'row', alignItems: 'center', gap: 8 }]}
+          onPress={fetchTeachers}
+        >
+          <Ionicons name="alert-circle-outline" size={20} color={colors.error} />
+          <Text style={[styles.errorText, { color: colors.error, flex: 1 }]}>{error}</Text>
+          <Text style={{ color: colors.primary, fontSize: 13, fontFamily: 'Pretendard-SemiBold' }}>재시도</Text>
+        </Pressable>
       )}
 
       {isLoading ? (
