@@ -323,7 +323,7 @@ describe('homeForUser 라우팅 로직 시뮬레이션', () => {
 // P5: 웹 로그인 autoComplete 값 검증
 // ============================================================================
 
-describe('login.tsx: 웹 autoComplete="new-password"', () => {
+describe('login.tsx: 웹 autoComplete 설정', () => {
   const loginPath = path.resolve(__dirname, '../../app/(auth)/login.tsx');
   let content: string;
 
@@ -331,12 +331,12 @@ describe('login.tsx: 웹 autoComplete="new-password"', () => {
     content = fs.readFileSync(loginPath, 'utf8');
   });
 
-  it('이메일 Input에 웹용 new-password가 설정된다', () => {
-    expect(content).toContain("autoComplete={Platform.OS === 'web' ? 'new-password' : 'email'}");
+  it('이메일 Input에 웹용 username이 설정된다', () => {
+    expect(content).toContain("autoComplete={Platform.OS === 'web' ? 'username' : 'email'}");
   });
 
-  it('비밀번호 Input에 웹용 new-password가 설정된다', () => {
-    expect(content).toContain("autoComplete={Platform.OS === 'web' ? 'new-password' : 'password'}");
+  it('비밀번호 Input에 웹용 current-password가 설정된다', () => {
+    expect(content).toContain("autoComplete={Platform.OS === 'web' ? 'current-password' : 'password'}");
   });
 
   it('autoComplete="off"가 더 이상 사용되지 않는다 (Chrome이 무시함)', () => {
