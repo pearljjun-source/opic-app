@@ -1003,7 +1003,7 @@ const s = StyleSheet.create({
   featVisualCard: { width: 230, borderRadius: 16, overflow: 'hidden', backgroundColor: '#1a1a2e' },
   featVisualCardM: { width: '100%', maxWidth: 340 },
   featVisualTop: { height: 400, justifyContent: 'center', alignItems: 'center' },
-  featVisualImg: { width: '100%', height: 400 },
+  featVisualImg: { width: '100%', height: 400, borderRadius: 24 },
   featVisualBottom: { padding: 20 },
   featVisualTitle: { fontSize: 16, fontFamily: 'Pretendard-Bold', color: '#fff', marginBottom: 6 },
   featVisualDesc: { fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 20, fontFamily: 'Pretendard-Regular' },
