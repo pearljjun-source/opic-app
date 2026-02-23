@@ -557,11 +557,11 @@ BEGIN
     'total_practices', (SELECT COUNT(*) FROM public.practices WHERE deleted_at IS NULL),
     'total_scripts', (SELECT COUNT(*) FROM public.scripts WHERE deleted_at IS NULL),
     'active_users_7d', (
-      SELECT COUNT(DISTINCT user_id) FROM public.practices
+      SELECT COUNT(DISTINCT student_id) FROM public.practices
       WHERE created_at > now() - INTERVAL '7 days' AND deleted_at IS NULL
     ),
     'active_users_30d', (
-      SELECT COUNT(DISTINCT user_id) FROM public.practices
+      SELECT COUNT(DISTINCT student_id) FROM public.practices
       WHERE created_at > now() - INTERVAL '30 days' AND deleted_at IS NULL
     ),
     'total_subscribers', (
