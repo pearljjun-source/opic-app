@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -25,6 +25,17 @@ export default function PracticeDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const soundRef = useRef<Audio.Sound | null>(null);
+
+  // 화면 이탈 시 오디오 정리
+  useEffect(() => {
+    return () => {
+      if (soundRef.current) {
+        soundRef.current.unloadAsync();
+        soundRef.current = null;
+      }
+    };
+  }, []);
 
   const scriptDiff = useMemo(
     () => result ? diffScript(result.script_content, result.transcription || '') : [],
@@ -56,20 +67,32 @@ export default function PracticeDetailScreen() {
   const handlePlayAudio = async () => {
     if (!result?.audio_url) return;
 
+    // 재생 중이면 정지
+    if (isPlaying && soundRef.current) {
+      await soundRef.current.stopAsync();
+      await soundRef.current.unloadAsync();
+      soundRef.current = null;
+      setIsPlaying(false);
+      return;
+    }
+
     try {
       setIsPlaying(true);
       const { sound } = await Audio.Sound.createAsync(
         { uri: result.audio_url },
         { shouldPlay: true }
       );
+      soundRef.current = sound;
 
       sound.setOnPlaybackStatusUpdate((status) => {
         if (status.isLoaded && status.didJustFinish) {
           sound.unloadAsync();
+          soundRef.current = null;
           setIsPlaying(false);
         }
       });
     } catch {
+      soundRef.current = null;
       setIsPlaying(false);
     }
   };
@@ -129,15 +152,14 @@ export default function PracticeDetailScreen() {
         <Pressable
           style={[styles.playButton, { backgroundColor: colors.primary + '15' }, isPlaying && { backgroundColor: colors.primary }]}
           onPress={handlePlayAudio}
-          disabled={isPlaying}
         >
           <Ionicons
-            name={isPlaying ? 'volume-high' : 'play'}
+            name={isPlaying ? 'stop' : 'play'}
             size={20}
             color={isPlaying ? '#FFFFFF' : colors.primary}
           />
           <Text style={[styles.playButtonText, { color: colors.primary }, isPlaying && { color: '#FFFFFF' }]}>
-            {isPlaying ? '재생 중...' : '내 녹음 듣기'}
+            {isPlaying ? '정지' : '내 녹음 듣기'}
           </Text>
         </Pressable>
       )}

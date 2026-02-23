@@ -49,6 +49,7 @@ export default function PracticeScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const recordingRef = useRef<Audio.Recording | null>(null);
+  const soundRef = useRef<Audio.Sound | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // 스크립트 로드
@@ -79,12 +80,25 @@ export default function PracticeScreen() {
       if (recordingRef.current) {
         recordingRef.current.stopAndUnloadAsync();
       }
+      if (soundRef.current) {
+        soundRef.current.unloadAsync();
+        soundRef.current = null;
+      }
     };
   }, []);
 
   // 질문 오디오 재생 (TTS - 캐싱 지원)
   const handlePlayQuestion = async () => {
     if (!script) return;
+
+    // 재생 중이면 정지
+    if (practiceState === 'playing' && soundRef.current) {
+      await soundRef.current.stopAsync();
+      await soundRef.current.unloadAsync();
+      soundRef.current = null;
+      setPracticeState('ready');
+      return;
+    }
 
     try {
       setPracticeState('playing');
@@ -121,16 +135,19 @@ export default function PracticeScreen() {
         { uri: audioUrl },
         { shouldPlay: true }
       );
+      soundRef.current = sound;
 
       sound.setOnPlaybackStatusUpdate((status) => {
         if (status.isLoaded && status.didJustFinish) {
           sound.unloadAsync();
+          soundRef.current = null;
           setPracticeState('ready');
         }
       });
     } catch (err) {
       if (__DEV__) console.warn('[AppError] Error playing audio:', err);
       Alert.alert('오류', '오디오 재생에 실패했습니다.');
+      soundRef.current = null;
       setPracticeState('ready');
     }
   };
@@ -356,10 +373,10 @@ export default function PracticeScreen() {
             practiceState === 'playing' && { backgroundColor: colors.primary },
           ]}
           onPress={handlePlayQuestion}
-          disabled={practiceState !== 'ready'}
+          disabled={practiceState === 'recording' || practiceState === 'processing'}
         >
           <Ionicons
-            name={practiceState === 'playing' ? 'volume-high' : 'play'}
+            name={practiceState === 'playing' ? 'stop' : 'play'}
             size={24}
             color={practiceState === 'playing' ? '#FFFFFF' : colors.primary}
           />
@@ -370,7 +387,7 @@ export default function PracticeScreen() {
               practiceState === 'playing' && { color: '#FFFFFF' },
             ]}
           >
-            {practiceState === 'playing' ? '재생 중...' : '질문 듣기'}
+            {practiceState === 'playing' ? '정지' : '질문 듣기'}
           </Text>
         </Pressable>
       </View>
