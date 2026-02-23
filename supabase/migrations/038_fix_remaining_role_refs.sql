@@ -454,3 +454,54 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.get_topic_questions_with_scripts IS '토픽별 질문 + 스크립트/연습 현황 조회 (role 제거, 관계 기반 인가)';
+
+-- ============================================================================
+-- 8. set_student_topics — role 기반 인가 → 관계 기반 인가
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION public.set_student_topics(
+  p_student_id uuid,
+  p_topic_ids uuid[]
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_teacher_id uuid;
+  v_topic_id uuid;
+BEGIN
+  v_teacher_id := auth.uid();
+  IF v_teacher_id IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'NOT_AUTHENTICATED');
+  END IF;
+
+  -- 강사 역할 검증: teacher_student 연결 또는 super_admin
+  IF NOT public.is_super_admin() AND NOT EXISTS (
+    SELECT 1 FROM public.teacher_student
+    WHERE teacher_id = v_teacher_id
+      AND student_id = p_student_id
+      AND deleted_at IS NULL
+  ) THEN
+    RETURN jsonb_build_object('success', false, 'error', 'NOT_CONNECTED');
+  END IF;
+
+  -- 기존 배정 hard delete (junction 테이블이므로 감사 불필요)
+  DELETE FROM public.student_topics
+  WHERE student_id = p_student_id;
+
+  -- 새 토픽 배정
+  FOREACH v_topic_id IN ARRAY p_topic_ids
+  LOOP
+    IF EXISTS (SELECT 1 FROM public.topics WHERE id = v_topic_id AND is_active = true) THEN
+      INSERT INTO public.student_topics (student_id, topic_id)
+      VALUES (p_student_id, v_topic_id);
+    END IF;
+  END LOOP;
+
+  RETURN jsonb_build_object('success', true);
+END;
+$$;
+
+COMMENT ON FUNCTION public.set_student_topics IS '강사가 학생에게 토픽 배정 (role 제거, 관계 기반 인가)';
