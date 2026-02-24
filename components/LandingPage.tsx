@@ -731,9 +731,8 @@ export default function LandingPage() {
                         style={{
                           width: '100%',
                           height: 400,
-                          objectFit: 'contain',
+                          objectFit: 'cover',
                           borderRadius: 24,
-                          padding: 8,
                         }}
                       />
                     ) : (
