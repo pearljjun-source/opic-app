@@ -725,16 +725,23 @@ export default function LandingPage() {
                 <HoverCard style={[s.featVisualCard, mob && s.featVisualCardM]}>
                   {f.image ? (
                     Platform.OS === 'web' ? (
-                      <img
-                        src={typeof f.image === 'string' ? f.image : f.image.uri}
-                        alt={f.title}
-                        style={{
-                          width: '100%',
-                          height: 400,
-                          objectFit: 'cover',
-                          borderRadius: 24,
-                        }}
-                      />
+                      <div style={{
+                        width: '100%',
+                        height: 400,
+                        borderRadius: 24,
+                        overflow: 'hidden',
+                        backgroundColor: '#0d0d1a',
+                      }}>
+                        <img
+                          src={typeof f.image === 'string' ? f.image : f.image.uri}
+                          alt={f.title}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'contain',
+                          }}
+                        />
+                      </div>
                     ) : (
                       <Image source={f.image} style={s.featVisualImg} resizeMode="contain" />
                     )
