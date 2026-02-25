@@ -52,7 +52,7 @@ Always find something positive, even in weak answers. Look for:
 - Confident additions or personal touches
 
 ## Output Format
-Return ONLY valid JSON (no markdown, no backticks, no text outside JSON):
+Fill in the following JSON structure:
 
 {
   "overall_score": <0-100, holistic score weighing: script coverage 60%, creative additions 15%, accuracy 15%, fluency 10%>,
@@ -97,6 +97,69 @@ Return ONLY valid JSON (no markdown, no backticks, no text outside JSON):
 - priority_improvements: Max 3 items, most impactful first
 - strengths: At least 1, even for weak answers
 - If transcription is empty or very short: overall_score < 20, encourage trying again`;
+
+// Structured Outputs JSON 스키마 — API가 스키마 준수를 강제하여 파싱 실패 방지
+const FEEDBACK_SCHEMA = {
+  type: 'object',
+  properties: {
+    overall_score: { type: 'integer', description: 'Holistic score 0-100: script coverage 60%, creative additions 15%, accuracy 15%, fluency 10%' },
+    summary: { type: 'string', description: '2-3 sentence overall assessment in Korean' },
+    reproduction_rate: { type: 'integer', description: '0-100, percentage of key script meaning reproduced' },
+    missed_phrases: { type: 'array', items: { type: 'string' } },
+    extra_phrases: { type: 'array', items: { type: 'string' } },
+    creative_additions: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          phrase: { type: 'string', description: 'The added expression' },
+          evaluation: { type: 'string', enum: ['positive', 'neutral', 'negative'] },
+          comment: { type: 'string', description: 'Korean explanation' },
+        },
+        required: ['phrase', 'evaluation', 'comment'],
+        additionalProperties: false,
+      },
+    },
+    error_analysis: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          type: { type: 'string', enum: ['grammar', 'pronunciation', 'vocabulary', 'l1_transfer'] },
+          original: { type: 'string', description: 'What student said' },
+          corrected: { type: 'string', description: 'Corrected version' },
+          explanation: { type: 'string', description: 'Korean explanation' },
+        },
+        required: ['type', 'original', 'corrected', 'explanation'],
+        additionalProperties: false,
+      },
+    },
+    strengths: { type: 'array', items: { type: 'string' }, description: 'Korean, at least 1 item' },
+    priority_improvements: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          area: { type: 'string', description: 'Improvement area (Korean)' },
+          tip: { type: 'string', description: 'Specific, actionable tip (Korean)' },
+        },
+        required: ['area', 'tip'],
+        additionalProperties: false,
+      },
+    },
+    encouragement: { type: 'string', description: 'One motivating sentence in Korean' },
+    pronunciation_tips: { type: 'array', items: { type: 'string' } },
+    grammar_issues: { type: 'array', items: { type: 'string' } },
+    suggestions: { type: 'array', items: { type: 'string' }, description: 'Actionable improvement suggestions (Korean)' },
+  },
+  required: [
+    'overall_score', 'summary', 'reproduction_rate', 'missed_phrases',
+    'extra_phrases', 'creative_additions', 'error_analysis', 'strengths',
+    'priority_improvements', 'encouragement', 'pronunciation_tips',
+    'grammar_issues', 'suggestions',
+  ],
+  additionalProperties: false,
+};
 
 serve(async (req) => {
   // CORS preflight
@@ -205,11 +268,17 @@ Please analyze and compare these two texts.`;
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 2048,
+        max_tokens: 4096,
         system: SYSTEM_PROMPT,
         messages: [
           { role: 'user', content: userMessage },
         ],
+        output_config: {
+          format: {
+            type: 'json_schema',
+            schema: FEEDBACK_SCHEMA,
+          },
+        },
       }),
     });
 
@@ -219,34 +288,14 @@ Please analyze and compare these two texts.`;
     }
 
     const claudeResult = await claudeResponse.json();
-    const responseText = claudeResult.content?.[0]?.text || '';
 
-    // JSON 파싱 (Claude가 ```json ... ``` 으로 감쌀 수 있음)
-    let feedback;
-    try {
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error('No JSON found in response');
-      }
-      feedback = JSON.parse(jsonMatch[0]);
-    } catch {
-      // 파싱 실패 시 기본 피드백 반환
-      feedback = {
-        summary: '분석 결과를 처리하는 중 오류가 발생했습니다. 다시 시도해주세요.',
-        overall_score: 0,
-        reproduction_rate: 0,
-        missed_phrases: [],
-        extra_phrases: [],
-        creative_additions: [],
-        error_analysis: [],
-        strengths: [],
-        priority_improvements: [],
-        encouragement: '다시 한번 도전해보세요!',
-        pronunciation_tips: [],
-        grammar_issues: [],
-        suggestions: ['다시 한번 연습해보세요.'],
-      };
+    // Structured Outputs: stop_reason이 'end_turn'이면 스키마 준수 보장
+    if (claudeResult.stop_reason !== 'end_turn') {
+      throw new Error(`Claude response incomplete: ${claudeResult.stop_reason}`);
     }
+
+    const responseText = claudeResult.content?.[0]?.text || '';
+    const feedback = JSON.parse(responseText);
 
     // 점수 계산: Claude의 overall_score 우선, 없으면 reproduction_rate 기반 폴백
     const reproductionRate = Math.min(100, Math.max(0, feedback.reproduction_rate || 0));

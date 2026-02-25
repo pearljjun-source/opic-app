@@ -67,7 +67,7 @@ serve(async (req) => {
       // 소유권 검증: 본인 스크립트(학생) 또는 본인이 작성한 스크립트(강사)
       const { data: script, error: scriptError } = await supabaseAdmin
         .from('scripts')
-        .select('content, student_id, teacher_id')
+        .select('content, student_id, teacher_id, updated_at')
         .eq('id', scriptId)
         .eq('status', 'complete')
         .is('deleted_at', null)
@@ -84,16 +84,23 @@ serve(async (req) => {
       text = script.content;
       filePath = `scripts/${scriptId}.mp3`;
 
-      // Storage 기반 캐싱: 파일이 이미 존재하면 반환
+      // Storage 기반 캐싱: 파일이 존재하고 스크립트보다 최신이면 반환
       const { data: existingFile } = await supabaseAdmin.storage
         .from('question-audio')
         .list('scripts', { search: `${scriptId}.mp3` });
 
       if (existingFile && existingFile.length > 0) {
-        const { data: urlData } = supabaseAdmin.storage
-          .from('question-audio')
-          .getPublicUrl(filePath);
-        cachedUrl = urlData.publicUrl;
+        const fileUpdated = new Date(existingFile[0].updated_at || existingFile[0].created_at);
+        const scriptUpdated = new Date(script.updated_at);
+
+        if (fileUpdated >= scriptUpdated) {
+          // 캐시 유효: 스크립트 수정 이후 TTS가 생성된 적 없음
+          const { data: urlData } = supabaseAdmin.storage
+            .from('question-audio')
+            .getPublicUrl(filePath);
+          cachedUrl = urlData.publicUrl;
+        }
+        // 캐시 무효: 스크립트가 TTS 이후 수정됨 → cachedUrl = null → 아래에서 재생성
       }
     } else {
       // ── 질문 TTS ──
