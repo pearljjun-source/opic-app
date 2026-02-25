@@ -31,9 +31,10 @@ export default function LoginScreen() {
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 화면 포커스 시 비밀번호 초기화 (보안: SPA에서 컴포넌트가 메모리에 잔존할 수 있음)
+  // 화면 포커스 시 폼 초기화 (보안: SPA에서 컴포넌트가 메모리에 잔존할 수 있음)
   useFocusEffect(
     useCallback(() => {
+      setEmail('');
       setPassword('');
       setError(null);
       setFieldErrors({});
@@ -191,7 +192,7 @@ export default function LoginScreen() {
                   error={fieldErrors.email}
                   keyboardType="email-address"
                   autoCapitalize="none"
-                  autoComplete={Platform.OS === 'web' ? 'username' : 'email'}
+                  autoComplete={Platform.OS === 'web' ? 'off' : 'email'}
                   leftIcon={
                     <Ionicons name="mail-outline" size={20} color={colors.textDisabled} />
                   }
@@ -214,7 +215,7 @@ export default function LoginScreen() {
                   onBlur={handlePasswordBlur}
                   error={fieldErrors.password}
                   isPassword
-                  autoComplete={Platform.OS === 'web' ? 'current-password' : 'password'}
+                  autoComplete={Platform.OS === 'web' ? 'off' : 'password'}
                   leftIcon={
                     <Ionicons name="lock-closed-outline" size={20} color={colors.textDisabled} />
                   }
