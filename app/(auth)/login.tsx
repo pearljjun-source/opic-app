@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, createElement } from 'react';
 import {
   View,
   Text,
@@ -175,6 +175,14 @@ export default function LoginScreen() {
 
             {/* Form */}
             <FormView onSubmit={handleLogin} autoComplete="off" style={{ gap: 16 }}>
+              {/* Hidden trap: Chrome이 이 필드를 대신 autofill → 실제 필드는 비어있음 */}
+              {Platform.OS === 'web' && createElement('div', {
+                style: { position: 'absolute', opacity: 0, height: 0, width: 0, overflow: 'hidden', pointerEvents: 'none' },
+                'aria-hidden': true,
+              },
+                createElement('input', { type: 'text', name: 'email_trap', autoComplete: 'username', tabIndex: -1 }),
+                createElement('input', { type: 'password', name: 'password_trap', autoComplete: 'current-password', tabIndex: -1 }),
+              )}
               <View>
                 <Text style={{
                   fontSize: 15,
