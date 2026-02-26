@@ -30,12 +30,13 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formKey, setFormKey] = useState(0);
   const [webFormReady, setWebFormReady] = useState(Platform.OS !== 'web');
 
   // 화면 포커스 시 폼 초기화
-  // 웹: Chrome이 autocomplete="off"를 무시하고 페이지 로드 후 autofill을 실행함.
-  // autofill이 onChangeText를 트리거해 React 상태를 덮어쓰므로,
-  // 딜레이 후 한번 더 초기화 + 초기화 전 opacity:0으로 깜빡임 방지.
+  // 웹: Chrome이 autocomplete="off"를 무시하고 DOM을 직접 수정해 autofill함.
+  // React 이벤트를 우회하므로 상태 초기화만으로는 DOM이 갱신되지 않음.
+  // key 변경으로 폼 DOM을 완전 파괴/재생성하여 autofill된 값을 제거.
   useFocusEffect(
     useCallback(() => {
       setEmail('');
@@ -46,10 +47,11 @@ export default function LoginScreen() {
       if (Platform.OS === 'web') {
         setWebFormReady(false);
         const timer = setTimeout(() => {
+          setFormKey(k => k + 1);
           setEmail('');
           setPassword('');
           setWebFormReady(true);
-        }, 120);
+        }, 150);
         return () => clearTimeout(timer);
       }
     }, [])
@@ -188,7 +190,7 @@ export default function LoginScreen() {
             )}
 
             {/* Form */}
-            <FormView onSubmit={handleLogin} autoComplete="off" style={{
+            <FormView key={formKey} onSubmit={handleLogin} autoComplete="off" style={{
               gap: 16,
               ...(Platform.OS === 'web' && !webFormReady ? { opacity: 0 } : {}),
             }}>
