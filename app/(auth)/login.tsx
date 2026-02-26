@@ -1,4 +1,4 @@
-import { useState, useCallback, createElement } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -30,14 +30,28 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [webFormReady, setWebFormReady] = useState(Platform.OS !== 'web');
 
-  // 화면 포커스 시 폼 초기화 (보안: SPA에서 컴포넌트가 메모리에 잔존할 수 있음)
+  // 화면 포커스 시 폼 초기화
+  // 웹: Chrome이 autocomplete="off"를 무시하고 페이지 로드 후 autofill을 실행함.
+  // autofill이 onChangeText를 트리거해 React 상태를 덮어쓰므로,
+  // 딜레이 후 한번 더 초기화 + 초기화 전 opacity:0으로 깜빡임 방지.
   useFocusEffect(
     useCallback(() => {
       setEmail('');
       setPassword('');
       setError(null);
       setFieldErrors({});
+
+      if (Platform.OS === 'web') {
+        setWebFormReady(false);
+        const timer = setTimeout(() => {
+          setEmail('');
+          setPassword('');
+          setWebFormReady(true);
+        }, 120);
+        return () => clearTimeout(timer);
+      }
     }, [])
   );
 
@@ -174,15 +188,10 @@ export default function LoginScreen() {
             )}
 
             {/* Form */}
-            <FormView onSubmit={handleLogin} autoComplete="off" style={{ gap: 16 }}>
-              {/* Hidden trap: Chrome이 이 필드를 대신 autofill → 실제 필드는 비어있음 */}
-              {Platform.OS === 'web' && createElement('div', {
-                style: { position: 'absolute', opacity: 0, height: 0, width: 0, overflow: 'hidden', pointerEvents: 'none' },
-                'aria-hidden': true,
-              },
-                createElement('input', { type: 'text', name: 'email_trap', autoComplete: 'username', tabIndex: -1 }),
-                createElement('input', { type: 'password', name: 'password_trap', autoComplete: 'current-password', tabIndex: -1 }),
-              )}
+            <FormView onSubmit={handleLogin} autoComplete="off" style={{
+              gap: 16,
+              ...(Platform.OS === 'web' && !webFormReady ? { opacity: 0 } : {}),
+            }}>
               <View>
                 <Text style={{
                   fontSize: 15,
