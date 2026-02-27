@@ -30,30 +30,13 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formKey, setFormKey] = useState(0);
-  const [webFormReady, setWebFormReady] = useState(Platform.OS !== 'web');
 
-  // 화면 포커스 시 폼 초기화
-  // 웹: Chrome이 autocomplete="off"를 무시하고 DOM을 직접 수정해 autofill함.
-  // React 이벤트를 우회하므로 상태 초기화만으로는 DOM이 갱신되지 않음.
-  // key 변경으로 폼 DOM을 완전 파괴/재생성하여 autofill된 값을 제거.
+  // 화면 포커스 시 비밀번호 초기화 (보안: SPA에서 컴포넌트가 메모리에 잔존할 수 있음)
   useFocusEffect(
     useCallback(() => {
-      setEmail('');
       setPassword('');
       setError(null);
       setFieldErrors({});
-
-      if (Platform.OS === 'web') {
-        setWebFormReady(false);
-        const timer = setTimeout(() => {
-          setFormKey(k => k + 1);
-          setEmail('');
-          setPassword('');
-          setWebFormReady(true);
-        }, 150);
-        return () => clearTimeout(timer);
-      }
     }, [])
   );
 
@@ -190,10 +173,7 @@ export default function LoginScreen() {
             )}
 
             {/* Form */}
-            <FormView key={formKey} onSubmit={handleLogin} autoComplete="off" style={{
-              gap: 16,
-              ...(Platform.OS === 'web' && !webFormReady ? { opacity: 0 } : {}),
-            }}>
+            <FormView onSubmit={handleLogin} autoComplete="off" style={{ gap: 16 }}>
               <View>
                 <Text style={{
                   fontSize: 15,
@@ -211,7 +191,7 @@ export default function LoginScreen() {
                   error={fieldErrors.email}
                   keyboardType="email-address"
                   autoCapitalize="none"
-                  autoComplete={Platform.OS === 'web' ? 'off' : 'email'}
+                  autoComplete={Platform.OS === 'web' ? 'username' : 'email'}
                   leftIcon={
                     <Ionicons name="mail-outline" size={20} color={colors.textDisabled} />
                   }
@@ -234,7 +214,7 @@ export default function LoginScreen() {
                   onBlur={handlePasswordBlur}
                   error={fieldErrors.password}
                   isPassword
-                  autoComplete={Platform.OS === 'web' ? 'off' : 'password'}
+                  autoComplete={Platform.OS === 'web' ? 'current-password' : 'password'}
                   leftIcon={
                     <Ionicons name="lock-closed-outline" size={20} color={colors.textDisabled} />
                   }
