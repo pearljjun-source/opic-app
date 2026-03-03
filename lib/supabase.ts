@@ -39,10 +39,6 @@ export async function invokeFunction<T = Record<string, unknown>>(
   name: string,
   body: Record<string, unknown>,
 ): Promise<{ data: T | null; error: Error | null }> {
-  // DEBUG: 프로덕션에서 401 원인 파악용 (임시 — 해결 후 제거)
-  const { data: { session: _dbgSession } } = await supabase.auth.getSession();
-  console.warn(`[EdgeFn-debug] ${name}: session=${!!_dbgSession}, token=${_dbgSession?.access_token?.substring(0, 20)}...`);
-
   const { data, error } = await supabase.functions.invoke(name, { body });
 
   if (error) {

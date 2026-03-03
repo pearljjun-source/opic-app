@@ -126,13 +126,38 @@ export default function PracticeScreen() {
       );
       soundRef.current = sound;
 
+      let didFinish = false;
+      const onPlaybackFinish = () => {
+        if (didFinish) return;
+        didFinish = true;
+        sound.unloadAsync();
+        soundRef.current = null;
+        setPracticeState('ready');
+      };
+
       sound.setOnPlaybackStatusUpdate((status) => {
         if (status.isLoaded && status.didJustFinish) {
-          sound.unloadAsync();
-          soundRef.current = null;
-          setPracticeState('ready');
+          onPlaybackFinish();
         }
       });
+
+      // Web: ontimeupdate 이벤트가 ended 후에 발생하지 않아 didJustFinish 콜백이 누락됨
+      // getStatusAsync()로 폴링하여 재생 완료를 감지
+      if (Platform.OS === 'web') {
+        const pollId = setInterval(async () => {
+          if (didFinish) { clearInterval(pollId); return; }
+          try {
+            const status = await sound.getStatusAsync();
+            if (!status.isLoaded || (status.isLoaded && status.didJustFinish)) {
+              clearInterval(pollId);
+              onPlaybackFinish();
+            }
+          } catch {
+            clearInterval(pollId);
+            onPlaybackFinish();
+          }
+        }, 500);
+      }
     } catch (err) {
       if (__DEV__) console.warn('[AppError] Error playing audio:', err);
       Alert.alert('오류', '오디오 재생에 실패했습니다.');
@@ -144,12 +169,20 @@ export default function PracticeScreen() {
   // 녹음 시작
   const handleStartRecording = async () => {
     try {
+      // Web: mediaDevices 사용 가능 여부 확인
+      if (Platform.OS === 'web' && (typeof navigator === 'undefined' || !navigator.mediaDevices)) {
+        Alert.alert('오류', '이 브라우저에서는 녹음을 지원하지 않습니다.');
+        return;
+      }
+
       // 권한 요청
       const { granted } = await Audio.requestPermissionsAsync();
       if (!granted) {
         Alert.alert(
           '권한 필요',
-          '녹음을 위해 마이크 권한이 필요합니다.',
+          Platform.OS === 'web'
+            ? '마이크 권한이 거부되었습니다. 브라우저 주소창의 자물쇠 아이콘을 클릭하여 마이크를 허용해주세요.'
+            : '녹음을 위해 마이크 권한이 필요합니다.',
           [{ text: '확인' }]
         );
         return;
