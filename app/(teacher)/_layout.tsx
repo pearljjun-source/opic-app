@@ -7,6 +7,7 @@ export default function TeacherLayout() {
       <Stack.Screen name="student" />
       <Stack.Screen name="class" />
       <Stack.Screen name="manage" />
+      <Stack.Screen name="exam" />
     </Stack>
   );
 }

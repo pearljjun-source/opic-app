@@ -345,6 +345,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // SIGNED_IN: 로그인 성공 — 즉시 인증 상태로, 프로필은 lock 밖에서
         // ----------------------------------------------------------------
         } else if (event === 'SIGNED_IN' && session?.user) {
+          // FunctionsClient는 정적 헤더를 사용하므로 토큰 갱신 시 수동 동기화 필요
+          supabase.functions.setAuth(session.access_token);
           setState(prev => ({
             ...prev,
             session,
@@ -366,6 +368,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // TOKEN_REFRESHED: 토큰 갱신 — 프로필 lock 밖에서 갱신
         // ----------------------------------------------------------------
         } else if (event === 'TOKEN_REFRESHED' && session) {
+          // FunctionsClient는 정적 헤더를 사용하므로 토큰 갱신 시 수동 동기화 필요
+          supabase.functions.setAuth(session.access_token);
           setTimeout(() => { loadProfile(session).catch(() => {}); }, 0);
         }
 

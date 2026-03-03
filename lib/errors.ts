@@ -146,6 +146,16 @@ export const ERROR_CODES = {
   ORG_NAME_REQUIRED: 'ORG_NAME_REQUIRED',
   ORG_NAME_TOO_LONG: 'ORG_NAME_TOO_LONG',
 
+  // EXAM (8)
+  EXAM_RATE_LIMIT: 'EXAM_RATE_LIMIT',
+  EXAM_INSUFFICIENT_QUOTA: 'EXAM_INSUFFICIENT_QUOTA',
+  EXAM_PROCESSING_FAILED: 'EXAM_PROCESSING_FAILED',
+  EXAM_PARTIAL_STT: 'EXAM_PARTIAL_STT',
+  EXAM_SESSION_NOT_FOUND: 'EXAM_SESSION_NOT_FOUND',
+  EXAM_ALREADY_COMPLETED: 'EXAM_ALREADY_COMPLETED',
+  EXAM_ALREADY_PROCESSING: 'EXAM_ALREADY_PROCESSING',
+  EXAM_NO_RECORDINGS: 'EXAM_NO_RECORDINGS',
+
   // SERVER (10)
   SVR_WHISPER_API: 'SVR_WHISPER_API',
   SVR_TTS_API: 'SVR_TTS_API',
@@ -162,7 +172,7 @@ export const ERROR_CODES = {
 export type ErrorCode = typeof ERROR_CODES[keyof typeof ERROR_CODES];
 
 export interface ErrorContext {
-  resource?: 'script' | 'practice' | 'invite' | 'connection' | 'user' | 'student' | 'teacher' | 'question' | 'notification' | 'audio' | 'class' | 'topic' | 'subscription' | 'plan' | 'landing_section' | 'landing_item' | 'organization';
+  resource?: 'script' | 'practice' | 'invite' | 'connection' | 'user' | 'student' | 'teacher' | 'question' | 'notification' | 'audio' | 'class' | 'topic' | 'subscription' | 'plan' | 'landing_section' | 'landing_item' | 'organization' | 'exam_session' | 'exam_response' | 'roleplay_scenario';
   field?: string;
   apiType?: 'whisper' | 'tts' | 'claude' | 'push';
 }
@@ -283,6 +293,16 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   ORG_NAME_REQUIRED: '학원 이름을 입력해주세요',
   ORG_NAME_TOO_LONG: '학원 이름은 100자 이내로 입력해주세요',
 
+  // EXAM
+  EXAM_RATE_LIMIT: '시험 횟수가 제한을 초과했습니다 (시간당 2회)',
+  EXAM_INSUFFICIENT_QUOTA: 'AI 분석 잔여 횟수가 부족합니다',
+  EXAM_PROCESSING_FAILED: '시험 결과 처리에 실패했습니다',
+  EXAM_PARTIAL_STT: '일부 답변의 음성 인식에 실패했습니다',
+  EXAM_SESSION_NOT_FOUND: '시험을 찾을 수 없습니다',
+  EXAM_ALREADY_COMPLETED: '이미 완료된 시험입니다',
+  EXAM_ALREADY_PROCESSING: '시험 결과를 처리 중입니다',
+  EXAM_NO_RECORDINGS: '녹음된 답변이 없습니다',
+
   // SERVER
   SVR_WHISPER_API: '음성 변환에 실패했습니다. 다시 시도해주세요',
   SVR_TTS_API: '오디오 생성에 실패했습니다. 다시 시도해주세요',
@@ -373,6 +393,14 @@ const ERROR_CODE_CATEGORY: Record<ErrorCode, ErrorCategory> = {
   ORG_NO_MEMBERSHIP: 'permission',
   ORG_NAME_REQUIRED: 'validation',
   ORG_NAME_TOO_LONG: 'validation',
+  EXAM_RATE_LIMIT: 'rate_limit',
+  EXAM_INSUFFICIENT_QUOTA: 'rate_limit',
+  EXAM_PROCESSING_FAILED: 'server',
+  EXAM_PARTIAL_STT: 'server',
+  EXAM_SESSION_NOT_FOUND: 'not_found',
+  EXAM_ALREADY_COMPLETED: 'conflict',
+  EXAM_ALREADY_PROCESSING: 'conflict',
+  EXAM_NO_RECORDINGS: 'validation',
   SVR_WHISPER_API: 'server',
   SVR_TTS_API: 'server',
   SVR_CLAUDE_API: 'server',
@@ -485,6 +513,15 @@ const RPC_ERROR_MAP: Record<string, ErrorCode> = {
   'SECTION_NOT_FOUND': ERROR_CODES.NF_LANDING_SECTION,
   'PLAN_NOT_FOUND': ERROR_CODES.NF_PLAN,
   'SAME_PLAN': ERROR_CODES.ADMIN_SUB_SAME_PLAN,
+  'NOT_MEMBER': ERROR_CODES.ORG_NO_MEMBERSHIP,
+  // Exam RPC errors
+  'EXAM_RATE_LIMIT': ERROR_CODES.EXAM_RATE_LIMIT,
+  'EXAM_INSUFFICIENT_QUOTA': ERROR_CODES.EXAM_INSUFFICIENT_QUOTA,
+  'EXAM_PROCESSING_FAILED': ERROR_CODES.EXAM_PROCESSING_FAILED,
+  'EXAM_SESSION_NOT_FOUND': ERROR_CODES.EXAM_SESSION_NOT_FOUND,
+  'EXAM_ALREADY_COMPLETED': ERROR_CODES.EXAM_ALREADY_COMPLETED,
+  'EXAM_ALREADY_PROCESSING': ERROR_CODES.EXAM_ALREADY_PROCESSING,
+  'EXAM_NO_RECORDINGS': ERROR_CODES.EXAM_NO_RECORDINGS,
   // Subscription / Feature gating
   'FEATURE_NOT_AVAILABLE': ERROR_CODES.BILLING_FEATURE_NOT_AVAILABLE,
   'FREE_PLAN': ERROR_CODES.BILLING_FEATURE_NOT_AVAILABLE,
@@ -588,6 +625,9 @@ function classifyNotFoundByContext(context?: ErrorContext, originalError?: unkno
     landing_section: ERROR_CODES.NF_LANDING_SECTION,
     landing_item: ERROR_CODES.NF_LANDING_SECTION,
     organization: ERROR_CODES.ORG_NOT_FOUND,
+    exam_session: ERROR_CODES.EXAM_SESSION_NOT_FOUND,
+    exam_response: ERROR_CODES.EXAM_SESSION_NOT_FOUND,
+    roleplay_scenario: ERROR_CODES.SVR_DATABASE,
   };
 
   const code = context?.resource
@@ -663,7 +703,10 @@ function classifyRateLimitError(error: unknown, context?: ErrorContext): AppErro
 
 function classifyFunctionsError(error: unknown, context?: ErrorContext): AppError {
   const obj = error as Record<string, unknown>;
-  const ctx = obj.context as Record<string, unknown> | undefined;
+
+  // supabase-js v2.94+: invokeFunction wrapper가 파싱한 body 우선 사용
+  const parsedBody = obj._parsedBody as Record<string, unknown> | undefined;
+  const ctx = parsedBody || obj.context as Record<string, unknown> | undefined;
 
   let errorMessage = '';
   if (ctx && typeof ctx === 'object' && typeof ctx.error === 'string') {

@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
@@ -9,9 +8,21 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from './useAuth';
 
 // ============================================================================
+// expo-notifications 안전 로드
+// Expo Go SDK 54에서 push 기능이 제거됨 → import 시 fatal error 발생
+// EAS Build (standalone)에서만 사용 가능
+// ============================================================================
+let Notifications: typeof import('expo-notifications') | null = null;
+try {
+  Notifications = require('expo-notifications');
+} catch {
+  if (__DEV__) console.warn('[Push] expo-notifications unavailable (Expo Go?)');
+}
+
+// ============================================================================
 // 알림 핸들러 설정 (포그라운드 알림 표시)
 // ============================================================================
-if (Platform.OS !== 'web') {
+if (Platform.OS !== 'web' && Notifications) {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowAlert: true,
@@ -28,6 +39,9 @@ if (Platform.OS !== 'web') {
 // ============================================================================
 
 async function registerForPushNotifications(): Promise<string | null> {
+  // expo-notifications 미사용 가능 (Expo Go)
+  if (!Notifications) return null;
+
   // 물리 디바이스에서만 동작
   if (!Device.isDevice) {
     if (__DEV__) {
@@ -85,13 +99,13 @@ async function registerForPushNotifications(): Promise<string | null> {
 export function usePushNotifications() {
   const { isAuthenticated, user } = useAuth();
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
-  const notificationListener = useRef<Notifications.EventSubscription | null>(null);
-  const responseListener = useRef<Notifications.EventSubscription | null>(null);
+  const notificationListener = useRef<{ remove(): void } | null>(null);
+  const responseListener = useRef<{ remove(): void } | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated || !user) return;
-    // 웹에서는 push notification 미지원
-    if (Platform.OS === 'web') return;
+    // 웹 또는 expo-notifications 미사용 가능 → skip
+    if (Platform.OS === 'web' || !Notifications) return;
 
     // 1. Push token 등록
     registerForPushNotifications().then(async (token) => {

@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { supabase, invokeFunction } from '@/lib/supabase';
 import { AppError, classifyError, classifyRpcError } from '@/lib/errors';
 import { safeParse } from 'valibot';
 import { BillingKeySchema, PlanUpdateSchema } from '@/lib/validations';
@@ -92,16 +92,13 @@ export async function issueBillingKey(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { data: null, error: new AppError('AUTH_REQUIRED') };
 
-  const { data, error } = await supabase.functions.invoke('billing-key', {
-    body: { planKey: result.output.planKey, authKey: result.output.authKey, orgId },
-  });
+  const { data, error } = await invokeFunction<{ subscriptionId: string }>(
+    'billing-key',
+    { planKey: result.output.planKey, authKey: result.output.authKey, orgId },
+  );
 
   if (error) {
     return { data: null, error: classifyError(error, { resource: 'subscription' }) };
-  }
-
-  if (data?.error) {
-    return { data: null, error: classifyRpcError(data.error, { resource: 'subscription' }) };
   }
 
   return { data: { subscriptionId: data?.subscriptionId || '' }, error: null };

@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { supabase } from '@/lib/supabase';
+import { supabase, invokeFunction } from '@/lib/supabase';
 import type { Database } from '@/lib/database.types';
 import type { AIFeedback, StudentPracticeStats } from '@/lib/types';
 import { AppError, classifyError, classifyRpcError } from '@/lib/errors';
@@ -525,20 +525,14 @@ export async function transcribeAudio(audioPath: string): Promise<{
   error: Error | null;
 }> {
   try {
-    const { data, error } = await supabase.functions.invoke('whisper-stt', {
-      body: { audioPath },
-    });
+    const { data, error } = await invokeFunction<{ transcription: string }>('whisper-stt', { audioPath });
 
     if (error) {
       return { data: null, error: classifyError(error, { apiType: 'whisper' }) };
     }
 
-    if (data?.error) {
-      return { data: null, error: classifyError(data.error, { apiType: 'whisper' }) };
-    }
-
     return {
-      data: { transcription: data.transcription || '' },
+      data: { transcription: data?.transcription || '' },
       error: null,
     };
   } catch (err) {
@@ -563,23 +557,25 @@ export async function generateFeedback(
   error: Error | null;
 }> {
   try {
-    const { data, error } = await supabase.functions.invoke('claude-feedback', {
-      body: { scriptContent, transcription, questionType: questionType || undefined },
+    const { data, error } = await invokeFunction<{
+      score: number;
+      reproductionRate: number;
+      feedback: AIFeedback;
+    }>('claude-feedback', {
+      scriptContent,
+      transcription,
+      questionType: questionType || undefined,
     });
 
     if (error) {
       return { data: null, error: classifyError(error, { apiType: 'claude' }) };
     }
 
-    if (data?.error) {
-      return { data: null, error: classifyError(data.error, { apiType: 'claude' }) };
-    }
-
     return {
       data: {
-        score: data.score ?? 0,
-        reproductionRate: data.reproductionRate ?? 0,
-        feedback: data.feedback as AIFeedback,
+        score: data?.score ?? 0,
+        reproductionRate: data?.reproductionRate ?? 0,
+        feedback: data?.feedback as AIFeedback,
       },
       error: null,
     };
@@ -604,22 +600,19 @@ export async function generateQuestionAudio(
   error: Error | null;
 }> {
   try {
-    const { data, error } = await supabase.functions.invoke('tts-generate', {
-      body: { questionId },
-    });
+    const { data, error } = await invokeFunction<{ audioUrl: string; cached: boolean }>(
+      'tts-generate',
+      { questionId },
+    );
 
     if (error) {
       return { data: null, error: classifyError(error, { apiType: 'tts' }) };
     }
 
-    if (data?.error) {
-      return { data: null, error: classifyError(data.error, { apiType: 'tts' }) };
-    }
-
     return {
       data: {
-        audioUrl: data.audioUrl,
-        cached: data.cached ?? false,
+        audioUrl: data!.audioUrl,
+        cached: data!.cached ?? false,
       },
       error: null,
     };
@@ -641,22 +634,19 @@ export async function generateScriptAudio(
   error: Error | null;
 }> {
   try {
-    const { data, error } = await supabase.functions.invoke('tts-generate', {
-      body: { scriptId },
-    });
+    const { data, error } = await invokeFunction<{ audioUrl: string; cached: boolean }>(
+      'tts-generate',
+      { scriptId },
+    );
 
     if (error) {
       return { data: null, error: classifyError(error, { apiType: 'tts' }) };
     }
 
-    if (data?.error) {
-      return { data: null, error: classifyError(data.error, { apiType: 'tts' }) };
-    }
-
     return {
       data: {
-        audioUrl: data.audioUrl,
-        cached: data.cached ?? false,
+        audioUrl: data!.audioUrl,
+        cached: data!.cached ?? false,
       },
       error: null,
     };

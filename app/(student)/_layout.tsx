@@ -33,6 +33,7 @@ export default function StudentLayout() {
       />
       <Stack.Screen name="script" options={{ contentStyle: safeContentStyle }} />
       <Stack.Screen name="topic" options={{ contentStyle: safeContentStyle }} />
+      <Stack.Screen name="exam" options={{ contentStyle: safeContentStyle }} />
     </Stack>
   );
 }

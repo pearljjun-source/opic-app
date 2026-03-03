@@ -91,6 +91,15 @@ export default function TeacherTabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="exam"
+        options={{
+          title: '모의고사',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? 'document-text' : 'document-text-outline'} size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
           title: '설정',

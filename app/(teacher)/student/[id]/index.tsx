@@ -20,6 +20,7 @@ import type {
   StudentScriptListItem,
   StudentPracticeListItem,
   StudentTopicWithProgress,
+  ExamSessionListItem,
   OpicGrade,
 } from '@/lib/types';
 import {
@@ -35,6 +36,8 @@ import { ScriptListItem } from '@/components/teacher/ScriptListItem';
 import { PracticeListItem } from '@/components/teacher/PracticeListItem';
 import { TopicProgressCard } from '@/components/teacher/TopicProgressCard';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { EXAM_TYPE_LABELS } from '@/lib/constants';
+import { getStudentExamSessions } from '@/services/exams';
 import { getUserMessage } from '@/lib/errors';
 import { SkeletonDetail } from '@/components/ui/Loading';
 import { useAuth } from '@/hooks/useAuth';
@@ -42,7 +45,7 @@ import { canManageOrg } from '@/lib/permissions';
 import { removeOrgMember } from '@/services/organizations';
 import { useThemeColors } from '@/hooks/useTheme';
 
-type TabType = 'topics' | 'scripts' | 'practices';
+type TabType = 'topics' | 'scripts' | 'practices' | 'exams';
 
 export default function StudentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -65,6 +68,7 @@ export default function StudentDetailScreen() {
   const [topics, setTopics] = useState<StudentTopicWithProgress[]>([]);
   const [scripts, setScripts] = useState<StudentScriptListItem[]>([]);
   const [practices, setPractices] = useState<StudentPracticeListItem[]>([]);
+  const [exams, setExams] = useState<ExamSessionListItem[]>([]);
 
   // Fetch student detail
   const fetchStudentDetail = useCallback(async () => {
@@ -128,17 +132,31 @@ export default function StudentDetailScreen() {
     setPractices(data || []);
   }, [id]);
 
+  // Fetch exams
+  const fetchExams = useCallback(async () => {
+    if (!id) return;
+
+    const { data, error: fetchError } = await getStudentExamSessions(id);
+
+    if (fetchError) {
+      if (__DEV__) console.warn('[AppError] Error fetching exams:', fetchError);
+      return;
+    }
+
+    setExams(data || []);
+  }, [id]);
+
   // Initial load
   const isFirstMount = useRef(true);
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
-      await Promise.all([fetchStudentDetail(), fetchTopics(), fetchScripts(), fetchPractices()]);
+      await Promise.all([fetchStudentDetail(), fetchTopics(), fetchScripts(), fetchPractices(), fetchExams()]);
       setIsLoading(false);
     };
 
     loadData();
-  }, [fetchStudentDetail, fetchTopics, fetchScripts, fetchPractices]);
+  }, [fetchStudentDetail, fetchTopics, fetchScripts, fetchPractices, fetchExams]);
 
   // 화면 포커스 시 데이터 재조회 (토픽 배정 등 자식 화면에서 돌아올 때)
   useFocusEffect(
@@ -150,15 +168,16 @@ export default function StudentDetailScreen() {
       fetchTopics();
       fetchScripts();
       fetchPractices();
-    }, [fetchTopics, fetchScripts, fetchPractices]),
+      fetchExams();
+    }, [fetchTopics, fetchScripts, fetchPractices, fetchExams]),
   );
 
   // Refresh handler
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    await Promise.all([fetchStudentDetail(), fetchTopics(), fetchScripts(), fetchPractices()]);
+    await Promise.all([fetchStudentDetail(), fetchTopics(), fetchScripts(), fetchPractices(), fetchExams()]);
     setIsRefreshing(false);
-  }, [fetchStudentDetail, fetchTopics, fetchScripts, fetchPractices]);
+  }, [fetchStudentDetail, fetchTopics, fetchScripts, fetchPractices, fetchExams]);
 
   // Navigation handlers
   const handleTopicPress = (topic: StudentTopicWithProgress) => {
@@ -353,6 +372,61 @@ export default function StudentDetailScreen() {
     );
   };
 
+  const renderExams = () => {
+    if (exams.length === 0) {
+      return (
+        <EmptyState
+          icon="document-text-outline"
+          title="아직 시험 기록이 없어요"
+          description="학생이 모의고사나 레벨 테스트를 응시하면 여기에 표시됩니다"
+        />
+      );
+    }
+
+    return (
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
+        }
+      >
+        {exams.map((exam) => (
+          <View
+            key={exam.id}
+            style={[styles.examItem, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          >
+            <View style={styles.examItemTop}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.examType, { color: colors.textPrimary }]}>
+                  {EXAM_TYPE_LABELS[exam.exam_type]}
+                </Text>
+                <Text style={[styles.examDate, { color: colors.textSecondary }]}>
+                  {new Date(exam.started_at).toLocaleDateString('ko-KR')}
+                </Text>
+              </View>
+              {exam.estimated_grade ? (
+                <View style={[styles.examGradeBadge, { backgroundColor: colors.primaryLight }]}>
+                  <Text style={[styles.examGradeText, { color: colors.primary }]}>{exam.estimated_grade}</Text>
+                </View>
+              ) : (
+                <Text style={[styles.examStatusText, { color: colors.textDisabled }]}>
+                  {exam.status === 'completed' ? '채점 중' : exam.status === 'abandoned' ? '포기' : '진행 중'}
+                </Text>
+              )}
+            </View>
+            {exam.overall_score != null && (
+              <Text style={[styles.examScore, { color: colors.textSecondary }]}>
+                종합 {exam.overall_score}점
+              </Text>
+            )}
+          </View>
+        ))}
+      </ScrollView>
+    );
+  };
+
   // Loading state
   if (isLoading) {
     return (
@@ -532,6 +606,20 @@ export default function StudentDetailScreen() {
               연습 ({practices.length})
             </Text>
           </Pressable>
+          <Pressable
+            style={[styles.tab, activeTab === 'exams' && [styles.activeTab, { backgroundColor: colors.primary }]]}
+            onPress={() => setActiveTab('exams')}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                { color: colors.textSecondary },
+                activeTab === 'exams' && styles.activeTabText,
+              ]}
+            >
+              시험 ({exams.length})
+            </Text>
+          </Pressable>
         </View>
 
         {/* 탭 콘텐츠 */}
@@ -539,6 +627,7 @@ export default function StudentDetailScreen() {
           {activeTab === 'topics' && renderTopics()}
           {activeTab === 'scripts' && renderScripts()}
           {activeTab === 'practices' && renderPractices()}
+          {activeTab === 'exams' && renderExams()}
         </View>
       </View>
     </>
@@ -686,5 +775,43 @@ const styles = StyleSheet.create({
   menuCancelText: {
     fontSize: 15,
     fontFamily: 'Pretendard-SemiBold',
+  },
+  examItem: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 8,
+  },
+  examItemTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  examType: {
+    fontSize: 14,
+    fontFamily: 'Pretendard-SemiBold',
+  },
+  examDate: {
+    fontSize: 12,
+    fontFamily: 'Pretendard-Regular',
+    marginTop: 2,
+  },
+  examGradeBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  examGradeText: {
+    fontSize: 14,
+    fontFamily: 'Pretendard-Bold',
+  },
+  examStatusText: {
+    fontSize: 12,
+    fontFamily: 'Pretendard-Medium',
+  },
+  examScore: {
+    fontSize: 12,
+    fontFamily: 'Pretendard-Regular',
+    marginTop: 6,
   },
 });

@@ -2,8 +2,10 @@ import { mockSupabase } from '../mocks/supabase';
 import { AppError, ERROR_MESSAGES } from '@/lib/errors';
 
 // jest.mock 호이스팅 문제 해결: require()는 런타임에 실행되므로 안전
+const mockInvokeFunction = jest.fn();
 jest.mock('@/lib/supabase', () => ({
   supabase: require('../mocks/supabase').mockSupabase,
+  invokeFunction: (...args: any[]) => mockInvokeFunction(...args),
 }));
 
 // Mock __DEV__
@@ -127,36 +129,25 @@ describe('issueBillingKey()', () => {
   });
 
   it('calls billing-key Edge Function with orgId', async () => {
-    mockSupabase.functions.invoke.mockResolvedValueOnce({
+    mockInvokeFunction.mockResolvedValueOnce({
       data: { subscriptionId: 'sub-1' },
       error: null,
     });
 
     const result = await issueBillingKey('pro', 'auth-key-123', 'org-1');
 
-    expect(mockSupabase.functions.invoke).toHaveBeenCalledWith('billing-key', {
-      body: { planKey: 'pro', authKey: 'auth-key-123', orgId: 'org-1' },
-    });
+    expect(mockInvokeFunction).toHaveBeenCalledWith(
+      'billing-key',
+      { planKey: 'pro', authKey: 'auth-key-123', orgId: 'org-1' },
+    );
     expect(result.data).toEqual({ subscriptionId: 'sub-1' });
     expect(result.error).toBeNull();
   });
 
   it('handles Edge Function error', async () => {
-    mockSupabase.functions.invoke.mockResolvedValueOnce({
+    mockInvokeFunction.mockResolvedValueOnce({
       data: null,
-      error: { message: 'Internal server error' },
-    });
-
-    const result = await issueBillingKey('pro', 'auth-key-123', 'org-1');
-
-    expect(result.error).toBeInstanceOf(Error);
-    expect(result.data).toBeNull();
-  });
-
-  it('handles Edge Function business error (data.error)', async () => {
-    mockSupabase.functions.invoke.mockResolvedValueOnce({
-      data: { error: 'NOT_ORG_OWNER' },
-      error: null,
+      error: new Error('Internal server error'),
     });
 
     const result = await issueBillingKey('pro', 'auth-key-123', 'org-1');

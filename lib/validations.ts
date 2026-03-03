@@ -177,6 +177,49 @@ export const AdminSubUpdateSchema = v.object({
 export type AdminSubUpdateInput = v.InferOutput<typeof AdminSubUpdateSchema>;
 
 // ============================================================================
+// 시험 (모의고사 / 콤보 롤플레이 / 레벨 테스트)
+// ============================================================================
+
+/** 모의고사 시작 검증 */
+export const MockExamStartSchema = v.object({
+  selfAssessmentLevel: v.pipe(
+    v.number(),
+    v.integer('정수만 입력 가능합니다'),
+    v.minValue(1, '자기평가 레벨은 1 이상이어야 합니다'),
+    v.maxValue(6, '자기평가 레벨은 6 이하여야 합니다'),
+  ),
+  surveyTopicIds: v.pipe(
+    v.array(v.pipe(v.string(), v.uuid('유효하지 않은 토픽 ID입니다'))),
+    v.minLength(4, '최소 4개의 토픽을 선택해주세요'),
+  ),
+});
+
+export type MockExamStartInput = v.InferOutput<typeof MockExamStartSchema>;
+
+/** 시험 응답 저장 검증 */
+export const ExamResponseSchema = v.object({
+  examSessionId: v.pipe(v.string(), v.uuid('유효하지 않은 시험 ID입니다')),
+  questionOrder: v.pipe(
+    v.number(),
+    v.integer(),
+    v.minValue(1, '문항 번호는 1 이상이어야 합니다'),
+  ),
+  duration: v.pipe(
+    v.number(),
+    v.minValue(0, '녹음 시간은 0 이상이어야 합니다'),
+  ),
+});
+
+export type ExamResponseInput = v.InferOutput<typeof ExamResponseSchema>;
+
+/** 콤보 롤플레이 시작 검증 */
+export const ComboRoleplayStartSchema = v.object({
+  scenarioId: v.pipe(v.string(), v.uuid('유효하지 않은 시나리오 ID입니다')),
+});
+
+export type ComboRoleplayStartInput = v.InferOutput<typeof ComboRoleplayStartSchema>;
+
+// ============================================================================
 // 유틸리티
 // ============================================================================
 
