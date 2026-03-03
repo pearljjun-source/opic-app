@@ -489,6 +489,10 @@ export default function PracticeScreen() {
               <Ionicons name="mic" size={40} color="#FFFFFF" />
             </Pressable>
             <Text style={[styles.recordHint, { color: colors.textSecondary }]}>탭하여 녹음 시작</Text>
+            {/* 임시 디버그: practiceState 표시 (해결 후 제거) */}
+            <Text style={{ color: 'red', fontSize: 12, marginTop: 4 }}>
+              [DEBUG] state: {practiceState} / disabled: {String(practiceState !== 'ready')}
+            </Text>
           </>
         )}
       </View>
