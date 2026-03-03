@@ -39,17 +39,10 @@ export async function invokeFunction<T = Record<string, unknown>>(
   name: string,
   body: Record<string, unknown>,
 ): Promise<{ data: T | null; error: Error | null }> {
-  // supabase.functions는 매번 new FunctionsClient()를 반환하는 getter이고,
-  // _handleTokenChanged()는 this.headers를 갱신하지 않으므로
-  // 항상 초기화 시점의 stale 토큰을 사용함.
-  // 해결: getSession()으로 fresh 토큰을 얻고, invoke-level headers로 직접 전달.
-  const { data: { session } } = await supabase.auth.getSession();
-  const headers: Record<string, string> = {};
-  if (session) {
-    headers['Authorization'] = `Bearer ${session.access_token}`;
-  }
-
-  const { data, error } = await supabase.functions.invoke(name, { body, headers });
+  // FunctionsClient는 customFetch로 fetchWithAuth를 받으며,
+  // fetchWithAuth가 매 요청마다 _getAccessToken() → getSession()으로
+  // fresh 토큰을 자동 주입함. 명시적 Authorization 헤더 불필요.
+  const { data, error } = await supabase.functions.invoke(name, { body });
 
   if (error) {
     // FunctionsHttpError: context는 Response 객체 → body를 파싱해서 에러 추출
