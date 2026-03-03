@@ -39,9 +39,10 @@ export async function invokeFunction<T = Record<string, unknown>>(
   name: string,
   body: Record<string, unknown>,
 ): Promise<{ data: T | null; error: Error | null }> {
-  // FunctionsClient는 customFetch로 fetchWithAuth를 받으며,
-  // fetchWithAuth가 매 요청마다 _getAccessToken() → getSession()으로
-  // fresh 토큰을 자동 주입함. 명시적 Authorization 헤더 불필요.
+  // DEBUG: 프로덕션에서 401 원인 파악용 (임시 — 해결 후 제거)
+  const { data: { session: _dbgSession } } = await supabase.auth.getSession();
+  console.warn(`[EdgeFn-debug] ${name}: session=${!!_dbgSession}, token=${_dbgSession?.access_token?.substring(0, 20)}...`);
+
   const { data, error } = await supabase.functions.invoke(name, { body });
 
   if (error) {
