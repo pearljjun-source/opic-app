@@ -483,8 +483,10 @@ export default function PracticeScreen() {
           <>
             <Pressable
               style={[styles.recordButton, { backgroundColor: colors.error, shadowColor: colors.error }]}
-              onPress={handleStartRecording}
-              disabled={practiceState !== 'ready'}
+              onPress={() => {
+                console.warn('[Recording] Button onPress fired!');
+                handleStartRecording();
+              }}
             >
               <Ionicons name="mic" size={40} color="#FFFFFF" />
             </Pressable>
