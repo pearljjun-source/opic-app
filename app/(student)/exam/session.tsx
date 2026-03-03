@@ -11,7 +11,14 @@ import {
 } from 'react-native';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Audio } from 'expo-av';
+import {
+  useAudioPlayer,
+  useAudioPlayerStatus,
+  useAudioRecorder,
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+} from 'expo-audio';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useThemeColors } from '@/hooks/useTheme';
@@ -55,8 +62,6 @@ export default function ExamSessionScreen() {
   const [recordings, setRecordings] = useState<ExamRecording[]>([]);
 
   // Refs
-  const recordingRef = useRef<Audio.Recording | null>(null);
-  const soundRef = useRef<Audio.Sound | null>(null);
   const recTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const totalTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -67,6 +72,11 @@ export default function ExamSessionScreen() {
   const currentQuestionRef = useRef<GeneratedQuestion | null>(null);
   const recordingTimeRef = useRef(0);
 
+  // expo-audio hooks
+  const player = useAudioPlayer(null);
+  const playerStatus = useAudioPlayerStatus(player);
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+
   const currentQuestion = questions[currentIndex];
   const isMockExam = (examType as ExamType) === 'mock_exam';
   const totalTime = isMockExam ? EXAM_CONFIG.MOCK_EXAM_DURATION_SEC : 0;
@@ -74,6 +84,13 @@ export default function ExamSessionScreen() {
   // Ref 동기화 (stale closure 방지 — handleTimeUp에서 사용)
   useEffect(() => { currentQuestionRef.current = currentQuestion || null; }, [currentQuestion]);
   useEffect(() => { recordingTimeRef.current = recordingTime; }, [recordingTime]);
+
+  // TTS 재생 완료 감지
+  useEffect(() => {
+    if (playerStatus.didJustFinish && sessionState === 'playing_question') {
+      setSessionState('ready');
+    }
+  }, [playerStatus.didJustFinish]);
 
   // 문항 로드 (또는 레벨 테스트 시 생성)
   useEffect(() => {
@@ -183,8 +200,6 @@ export default function ExamSessionScreen() {
     return () => {
       if (recTimerRef.current) clearInterval(recTimerRef.current);
       if (totalTimerRef.current) clearInterval(totalTimerRef.current);
-      if (recordingRef.current) recordingRef.current.stopAndUnloadAsync();
-      if (soundRef.current) soundRef.current.unloadAsync();
     };
   }, []);
 
@@ -193,11 +208,10 @@ export default function ExamSessionScreen() {
     if (totalTimerRef.current) clearInterval(totalTimerRef.current);
     if (recTimerRef.current) clearInterval(recTimerRef.current);
 
-    // 현재 녹음 중이면 중단하고 저장 (refs 사용 → stale closure 방지)
-    if (recordingRef.current) {
-      recordingRef.current.stopAndUnloadAsync().then(() => {
-        const uri = recordingRef.current?.getURI();
-        recordingRef.current = null;
+    // 현재 녹음 중이면 중단하고 저장 (recorder는 훅에서 안정적 참조)
+    if (recorder.isRecording) {
+      recorder.stop().then(() => {
+        const uri = recorder.uri;
         const q = currentQuestionRef.current;
         if (uri && q) {
           setRecordings((prev) => [...prev, {
@@ -210,13 +224,12 @@ export default function ExamSessionScreen() {
         }
         setSessionState('exam_end');
       }).catch(() => {
-        recordingRef.current = null;
         setSessionState('exam_end');
       });
     } else {
       setSessionState('exam_end');
     }
-  }, []); // deps 없음 — 모든 값을 refs로 접근
+  }, []); // deps 없음 — recorder는 안정 참조, 나머지는 refs
 
   // 포기 확인
   const confirmAbandon = () => {
@@ -246,10 +259,8 @@ export default function ExamSessionScreen() {
     if (!currentQuestion) return;
 
     // 재생 중 정지 (토글)
-    if (sessionState === 'playing_question' && soundRef.current) {
-      await soundRef.current.stopAsync();
-      await soundRef.current.unloadAsync();
-      soundRef.current = null;
+    if (sessionState === 'playing_question') {
+      player.pause();
       setSessionState('ready');
       return;
     }
@@ -284,26 +295,10 @@ export default function ExamSessionScreen() {
         return;
       }
 
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: audioUrl },
-        { shouldPlay: true }
-      );
-      soundRef.current = sound;
-
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          sound.unloadAsync();
-          soundRef.current = null;
-          setSessionState('ready');
-        }
-      });
+      player.replace({ uri: audioUrl });
+      player.play();
     } catch (err) {
       if (__DEV__) console.warn('[AppError] TTS playback error:', err);
-      // 사운드 leak 방지 — unload 후 null 처리
-      if (soundRef.current) {
-        soundRef.current.unloadAsync();
-        soundRef.current = null;
-      }
       setSessionState('ready');
     } finally {
       isActionRef.current = false;
@@ -313,22 +308,22 @@ export default function ExamSessionScreen() {
   // 녹음 시작
   const handleStartRecording = async () => {
     try {
-      const { granted } = await Audio.requestPermissionsAsync();
-      if (!granted) {
-        Alert.alert('권한 필요', '녹음을 위해 마이크 권한이 필요합니다.');
-        return;
+      // 네이티브: 권한 요청 + 오디오 모드 설정
+      if (Platform.OS !== 'web') {
+        const { granted } = await requestRecordingPermissionsAsync();
+        if (!granted) {
+          Alert.alert('권한 필요', '녹음을 위해 마이크 권한이 필요합니다.');
+          return;
+        }
+
+        await setAudioModeAsync({
+          allowsRecording: true,
+          playsInSilentMode: true,
+        });
       }
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
-
-      const { recording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
-
-      recordingRef.current = recording;
+      await recorder.prepareToRecordAsync();
+      recorder.record();
       setSessionState('recording');
       setRecordingTime(0);
 
@@ -338,14 +333,16 @@ export default function ExamSessionScreen() {
     } catch (err) {
       if (__DEV__) console.warn('[AppError] Recording start error:', err);
       // iOS: 녹음 모드에서 복구 (스피커 출력 복원)
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: false }).catch(() => {});
+      if (Platform.OS !== 'web') {
+        await setAudioModeAsync({ allowsRecording: false }).catch(() => {});
+      }
       Alert.alert('오류', '녹음 시작에 실패했습니다.');
     }
   };
 
   // 녹음 종료
   const handleStopRecording = async () => {
-    if (!recordingRef.current || !currentQuestion) return;
+    if (!currentQuestion) return;
 
     if (recTimerRef.current) {
       clearInterval(recTimerRef.current);
@@ -353,9 +350,13 @@ export default function ExamSessionScreen() {
     }
 
     try {
-      await recordingRef.current.stopAndUnloadAsync();
-      const uri = recordingRef.current.getURI();
-      recordingRef.current = null;
+      await recorder.stop();
+      const uri = recorder.uri;
+
+      // iOS: 녹음 모드 해제
+      if (Platform.OS !== 'web') {
+        await setAudioModeAsync({ allowsRecording: false }).catch(() => {});
+      }
 
       if (uri) {
         setRecordings((prev) => [...prev, {
@@ -375,7 +376,6 @@ export default function ExamSessionScreen() {
       }
     } catch (err) {
       if (__DEV__) console.warn('[AppError] Recording stop error:', err);
-      recordingRef.current = null; // 실패한 녹음 ref leak 방지
       Alert.alert('오류', '녹음 저장에 실패했습니다.');
       setSessionState('ready');
     }

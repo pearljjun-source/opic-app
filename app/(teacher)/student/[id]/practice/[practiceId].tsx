@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useState, useEffect, useRef } from 'react';
-import { Audio } from 'expo-av';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { Ionicons } from '@expo/vector-icons';
 
 import {
@@ -44,7 +44,15 @@ export default function TeacherPracticeDetailScreen() {
 
   // 오디오 재생 상태
   const [isPlaying, setIsPlaying] = useState(false);
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const player = useAudioPlayer(null);
+  const status = useAudioPlayerStatus(player);
+
+  // didJustFinish 감지
+  useEffect(() => {
+    if (status.didJustFinish && isPlaying) {
+      setIsPlaying(false);
+    }
+  }, [status.didJustFinish]);
 
   // 데이터 로드
   useEffect(() => {
@@ -70,15 +78,6 @@ export default function TeacherPracticeDetailScreen() {
     loadPractice();
   }, [practiceId]);
 
-  // 클린업
-  useEffect(() => {
-    return () => {
-      if (soundRef.current) {
-        soundRef.current.unloadAsync();
-      }
-    };
-  }, []);
-
   // 오디오 재생/정지
   const handleToggleAudio = async () => {
     if (!practice?.audio_url) {
@@ -86,30 +85,16 @@ export default function TeacherPracticeDetailScreen() {
       return;
     }
 
-    if (isPlaying && soundRef.current) {
-      await soundRef.current.stopAsync();
-      await soundRef.current.unloadAsync();
-      soundRef.current = null;
+    if (isPlaying) {
+      player.pause();
       setIsPlaying(false);
       return;
     }
 
     try {
       setIsPlaying(true);
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: practice.audio_url },
-        { shouldPlay: true }
-      );
-
-      soundRef.current = sound;
-
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          sound.unloadAsync();
-          soundRef.current = null;
-          setIsPlaying(false);
-        }
-      });
+      player.replace({ uri: practice.audio_url });
+      player.play();
     } catch (err) {
       if (__DEV__) console.warn('[AppError] Error playing audio:', err);
       Alert.alert('오류', '오디오 재생에 실패했습니다.');

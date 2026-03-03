@@ -5,10 +5,11 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Audio } from 'expo-av';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useThemeColors } from '@/hooks/useTheme';
@@ -26,17 +27,16 @@ export default function PracticeDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const soundRef = useRef<Audio.Sound | null>(null);
 
-  // 화면 이탈 시 오디오 정리
+  const player = useAudioPlayer(null);
+  const status = useAudioPlayerStatus(player);
+
+  // didJustFinish 감지
   useEffect(() => {
-    return () => {
-      if (soundRef.current) {
-        soundRef.current.unloadAsync();
-        soundRef.current = null;
-      }
-    };
-  }, []);
+    if (status.didJustFinish && isPlaying) {
+      setIsPlaying(false);
+    }
+  }, [status.didJustFinish]);
 
   const scriptDiff = useMemo(
     () => result ? diffScript(result.script_content, result.transcription || '') : [],
@@ -69,31 +69,17 @@ export default function PracticeDetailScreen() {
     if (!result?.audio_url) return;
 
     // 재생 중이면 정지
-    if (isPlaying && soundRef.current) {
-      await soundRef.current.stopAsync();
-      await soundRef.current.unloadAsync();
-      soundRef.current = null;
+    if (isPlaying) {
+      player.pause();
       setIsPlaying(false);
       return;
     }
 
     try {
       setIsPlaying(true);
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: result.audio_url },
-        { shouldPlay: true }
-      );
-      soundRef.current = sound;
-
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          sound.unloadAsync();
-          soundRef.current = null;
-          setIsPlaying(false);
-        }
-      });
+      player.replace({ uri: result.audio_url });
+      player.play();
     } catch {
-      soundRef.current = null;
       setIsPlaying(false);
     }
   };

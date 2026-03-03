@@ -10,7 +10,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "postinstall": "node scripts/patch-phosphor.js"
+    "postinstall": "node scripts/patch-phosphor.js && patch-package"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -20,7 +20,7 @@
     "@supabase/supabase-js": "^2.49.1",
     "@types/jest": "29.5.14",
     "expo": "~54.0.33",
-    "expo-av": "~16.0.8",
+    "expo-audio": "~1.1.1",
     "expo-clipboard": "~8.0.8",
     "expo-constants": "~18.0.13",
     "expo-device": "~8.0.10",
@@ -54,6 +54,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
+    "patch-package": "^8.0.1",
     "react-test-renderer": "19.1.0",
     "supabase": "^2.75.1",
     "typescript": "~5.9.2"

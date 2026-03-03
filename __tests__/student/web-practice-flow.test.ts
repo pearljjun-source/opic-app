@@ -4,7 +4,7 @@
  * 검증 항목:
  * - P1: 웹 FormData 업로드 수정 검증 (Platform 분기 + fetch blob)
  * - P2: 웹 파일 확장자 (.webm) 검증
- * - P3: 오디오 재생 정지 버튼 + 화면 이탈 시 cleanup
+ * - P3: expo-audio hooks 사용 + 재생/정지 + cleanup 검증
  * - P4: handleStopRecording 에러 처리 경로
  */
 
@@ -69,10 +69,10 @@ describe('practice.tsx 웹 파일 확장자', () => {
 });
 
 // ============================================================================
-// P3: 오디오 재생 정지 + 화면 이탈 cleanup 검증
+// P3: expo-audio 마이그레이션 후 오디오 재생/정지 + cleanup 검증
 // ============================================================================
 
-describe('기록 상세 [practiceId].tsx: 오디오 정지', () => {
+describe('기록 상세 [practiceId].tsx: expo-audio 마이그레이션', () => {
   const detailPath = path.resolve(__dirname, '../../app/(student)/script/practice/[practiceId].tsx');
   let content: string;
 
@@ -80,25 +80,27 @@ describe('기록 상세 [practiceId].tsx: 오디오 정지', () => {
     content = fs.readFileSync(detailPath, 'utf8');
   });
 
-  it('soundRef가 선언되어 있다', () => {
-    expect(content).toContain('const soundRef = useRef<Audio.Sound | null>(null)');
+  it('expo-audio hooks를 import한다', () => {
+    expect(content).toContain("from 'expo-audio'");
+    expect(content).toContain('useAudioPlayer');
+    expect(content).toContain('useAudioPlayerStatus');
   });
 
-  it('useEffect cleanup에서 sound를 unload한다', () => {
-    expect(content).toContain('soundRef.current');
-    expect(content).toContain('soundRef.current.unloadAsync()');
+  it('useAudioPlayer(null)로 플레이어를 생성한다', () => {
+    expect(content).toContain('useAudioPlayer(null)');
   });
 
-  it('화면 이탈 시 cleanup이 useEffect return에 있다', () => {
-    // useEffect return 블록에 soundRef cleanup 존재
-    const cleanupMatch = content.match(/return\s*\(\)\s*=>\s*\{[\s\S]*?soundRef\.current[\s\S]*?\}/);
-    expect(cleanupMatch).not.toBeNull();
+  it('didJustFinish useEffect로 재생 완료를 감지한다', () => {
+    expect(content).toContain('status.didJustFinish');
+  });
+
+  it('polling 없이 didJustFinish로 재생 완료를 감지한다', () => {
+    expect(content).not.toContain('pollPlaybackFinish');
   });
 
   it('재생 중 버튼을 누르면 정지한다 (토글)', () => {
-    // handlePlayAudio 내에 isPlaying 체크 후 stop 로직
-    expect(content).toContain('if (isPlaying && soundRef.current)');
-    expect(content).toContain('await soundRef.current.stopAsync()');
+    expect(content).toContain('if (isPlaying)');
+    expect(content).toContain('player.pause()');
   });
 
   it('정지 버튼 아이콘이 stop으로 변경된다', () => {
@@ -110,29 +112,19 @@ describe('기록 상세 [practiceId].tsx: 오디오 정지', () => {
   });
 
   it('재생 버튼이 disabled={isPlaying}가 아니다 (정지 가능)', () => {
-    // disabled={isPlaying}이 있으면 재생 중 정지 불가
-    const playButtonSection = content.match(
-      /내 녹음 듣기[\s\S]{0,200}/
-    );
-    expect(playButtonSection).not.toBeNull();
-    // disabled={isPlaying} 패턴이 없어야 함
     expect(content).not.toContain('disabled={isPlaying}');
   });
 
-  it('createAsync 후 soundRef에 저장한다', () => {
-    expect(content).toContain('soundRef.current = sound');
+  it('player.replace로 오디오 소스를 설정한다', () => {
+    expect(content).toContain('player.replace(');
   });
 
-  it('재생 완료 시 soundRef를 null로 초기화한다', () => {
-    // didJustFinish 핸들러에서 soundRef 정리
-    const finishHandler = content.match(
-      /didJustFinish[\s\S]*?soundRef\.current = null/
-    );
-    expect(finishHandler).not.toBeNull();
+  it('player.play()로 재생을 시작한다', () => {
+    expect(content).toContain('player.play()');
   });
 });
 
-describe('practice.tsx: 질문 듣기 오디오 정지', () => {
+describe('practice.tsx: expo-audio 마이그레이션', () => {
   const practicePath = path.resolve(__dirname, '../../app/(student)/script/[id]/practice.tsx');
   let content: string;
 
@@ -140,18 +132,36 @@ describe('practice.tsx: 질문 듣기 오디오 정지', () => {
     content = fs.readFileSync(practicePath, 'utf8');
   });
 
-  it('soundRef가 선언되어 있다', () => {
-    expect(content).toContain('const soundRef = useRef<Audio.Sound | null>(null)');
+  it('expo-audio hooks를 import한다', () => {
+    expect(content).toContain("from 'expo-audio'");
+    expect(content).toContain('useAudioPlayer');
+    expect(content).toContain('useAudioRecorder');
   });
 
-  it('useEffect cleanup에서 sound를 unload한다', () => {
-    const cleanupMatch = content.match(/return\s*\(\)\s*=>\s*\{[\s\S]*?soundRef\.current[\s\S]*?unloadAsync/);
-    expect(cleanupMatch).not.toBeNull();
+  it('useAudioPlayer(null)로 플레이어를 생성한다', () => {
+    expect(content).toContain('useAudioPlayer(null)');
+  });
+
+  it('useAudioRecorder로 레코더를 생성한다', () => {
+    expect(content).toContain('useAudioRecorder(RecordingPresets.HIGH_QUALITY)');
+  });
+
+  it('prepareToRecordAsync() 후 recorder.record()로 녹음을 시작한다', () => {
+    expect(content).toContain('await recorder.prepareToRecordAsync()');
+    expect(content).toContain('recorder.record()');
+  });
+
+  it('recorder.stop()으로 녹음을 중지한다', () => {
+    expect(content).toContain('await recorder.stop()');
+  });
+
+  it('recorder.uri로 녹음 파일 경로를 가져온다', () => {
+    expect(content).toContain('recorder.uri');
   });
 
   it('재생 중 버튼을 누르면 정지한다 (토글)', () => {
-    expect(content).toContain("practiceState === 'playing' && soundRef.current");
-    expect(content).toContain('await soundRef.current.stopAsync()');
+    expect(content).toContain("practiceState === 'playing'");
+    expect(content).toContain('player.pause()');
   });
 
   it('정지 버튼 아이콘이 stop으로 변경된다', () => {
@@ -166,12 +176,12 @@ describe('practice.tsx: 질문 듣기 오디오 정지', () => {
     expect(content).toContain("disabled={practiceState === 'recording'}");
   });
 
-  it('createAsync 후 soundRef에 저장한다', () => {
-    expect(content).toContain('soundRef.current = sound');
+  it('polling 없이 didJustFinish로 재생 완료를 감지한다', () => {
+    expect(content).not.toContain('pollPlaybackFinish');
   });
 });
 
-describe('shadowing.tsx: 기존 정지 기능 유지 확인', () => {
+describe('shadowing.tsx: expo-audio 마이그레이션', () => {
   const shadowingPath = path.resolve(__dirname, '../../app/(student)/script/[id]/shadowing.tsx');
   let content: string;
 
@@ -179,21 +189,44 @@ describe('shadowing.tsx: 기존 정지 기능 유지 확인', () => {
     content = fs.readFileSync(shadowingPath, 'utf8');
   });
 
-  it('soundRef가 선언되어 있다', () => {
-    expect(content).toContain('const soundRef = useRef<Audio.Sound | null>(null)');
+  it('expo-audio hooks를 import한다', () => {
+    expect(content).toContain("from 'expo-audio'");
+    expect(content).toContain('useAudioPlayer');
+    expect(content).toContain('useAudioRecorder');
   });
 
-  it('useEffect cleanup에서 sound를 unload한다', () => {
-    expect(content).toContain('if (soundRef.current) soundRef.current.unloadAsync()');
+  it('useAudioPlayer(null)로 플레이어를 생성한다', () => {
+    expect(content).toContain('useAudioPlayer(null)');
+  });
+
+  it('useAudioRecorder로 레코더를 생성한다', () => {
+    expect(content).toContain('useAudioRecorder(RecordingPresets.HIGH_QUALITY)');
   });
 
   it('handleStopTTS 함수가 있다', () => {
     expect(content).toContain('const handleStopTTS');
-    expect(content).toContain('soundRef.current.stopAsync()');
+    expect(content).toContain('player.pause()');
   });
 
   it('handleStopPlaying 함수가 있다', () => {
     expect(content).toContain('const handleStopPlaying');
+  });
+
+  it('playbackTypeRef로 TTS/녹음 재생을 구분한다', () => {
+    expect(content).toContain('playbackTypeRef');
+    expect(content).toContain("'tts'");
+    expect(content).toContain("'recording'");
+  });
+
+  it('didJustFinish로 재생 완료를 감지한다 (polling 불필요)', () => {
+    expect(content).toContain('didJustFinish');
+    expect(content).not.toContain('pollPlaybackFinish');
+  });
+
+  it('expo-av를 사용하지 않는다', () => {
+    expect(content).not.toContain('expo-av');
+    expect(content).not.toContain('Audio.Sound');
+    expect(content).not.toContain('Audio.Recording');
   });
 });
 
@@ -217,7 +250,7 @@ describe('handleStopRecording 에러 처리', () => {
     const funcBody = funcMatch![0];
 
     const alertCalls = (funcBody.match(/Alert\.alert\(/g) || []).length;
-    // uri없음, upload실패, save실패, stt실패, 구독체크, feedback실패, catch
+    // uri없음, upload실패, save실패, stt실패, feedback실패, catch
     expect(alertCalls).toBeGreaterThanOrEqual(6);
   });
 

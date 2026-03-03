@@ -10,7 +10,14 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Audio } from 'expo-av';
+import {
+  useAudioPlayer,
+  useAudioPlayerStatus,
+  useAudioRecorder,
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+} from 'expo-audio';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useThemeColors } from '@/hooks/useTheme';
@@ -37,16 +44,17 @@ export default function ShadowingScreen() {
   const [error, setError] = useState<string | null>(null);
   const [activeSentence, setActiveSentence] = useState(-1);
 
-  const recordingRef = useRef<Audio.Recording | null>(null);
-  const soundRef = useRef<Audio.Sound | null>(null);
   const recordingUriRef = useRef<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // Web: expo-av Recording deprecated → MediaRecorder API 직접 사용
-  const webRecorderRef = useRef<MediaRecorder | null>(null);
-  const webChunksRef = useRef<Blob[]>([]);
+  const playbackTypeRef = useRef<'tts' | 'recording' | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const contentHeightRef = useRef(0);
   const scrollViewHeightRef = useRef(0);
+
+  // expo-audio hooks
+  const player = useAudioPlayer(null);
+  const playerStatus = useAudioPlayerStatus(player);
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
   // 문장 분리
   const sentences = useMemo(() => {
@@ -86,15 +94,6 @@ export default function ShadowingScreen() {
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
-      if (recordingRef.current) recordingRef.current.stopAndUnloadAsync();
-      if (soundRef.current) soundRef.current.unloadAsync();
-      if (webRecorderRef.current) {
-        try {
-          webRecorderRef.current.stream.getTracks().forEach(t => t.stop());
-          if (webRecorderRef.current.state !== 'inactive') webRecorderRef.current.stop();
-        } catch { /* already stopped */ }
-        webRecorderRef.current = null;
-      }
     };
   }, []);
 
@@ -109,31 +108,36 @@ export default function ShadowingScreen() {
     scrollViewRef.current?.scrollTo({ y: Math.max(0, y - visibleHeight / 2), animated: true });
   }, [activeSentence, cumulativeRatios]);
 
-  // 재생 상태 콜백 (문장 하이라이트 동기화)
-  const onPlaybackStatus = useCallback(
-    (status: { isLoaded: boolean; isPlaying?: boolean; didJustFinish?: boolean; positionMillis?: number; durationMillis?: number }) => {
-      if (!status.isLoaded) return;
+  // TTS 재생 중 문장 하이라이트 동기화
+  useEffect(() => {
+    if (playbackTypeRef.current !== 'tts') return;
 
-      if (status.didJustFinish) {
-        soundRef.current?.unloadAsync();
-        soundRef.current = null;
-        setActiveSentence(-1);
-        setState('ready');
-        return;
-      }
+    if (playerStatus.didJustFinish) {
+      setActiveSentence(-1);
+      setState('ready');
+      playbackTypeRef.current = null;
+      return;
+    }
 
-      if (status.isPlaying && status.durationMillis && status.durationMillis > 0) {
-        const progress = (status.positionMillis ?? 0) / status.durationMillis;
-        for (let i = 0; i < cumulativeRatios.length; i++) {
-          if (progress <= cumulativeRatios[i]) {
-            setActiveSentence(i);
-            break;
-          }
+    if (playerStatus.playing && playerStatus.duration > 0) {
+      const progress = playerStatus.currentTime / playerStatus.duration;
+      for (let i = 0; i < cumulativeRatios.length; i++) {
+        if (progress <= cumulativeRatios[i]) {
+          setActiveSentence(i);
+          break;
         }
       }
-    },
-    [cumulativeRatios],
-  );
+    }
+  }, [playerStatus.currentTime, playerStatus.didJustFinish, playerStatus.playing]);
+
+  // 녹음 재생 완료 감지
+  useEffect(() => {
+    if (playbackTypeRef.current !== 'recording') return;
+    if (playerStatus.didJustFinish) {
+      setState('ready');
+      playbackTypeRef.current = null;
+    }
+  }, [playerStatus.didJustFinish]);
 
   // ── TTS 재생 ──
   const handlePlayTTS = async () => {
@@ -151,48 +155,9 @@ export default function ShadowingScreen() {
         return;
       }
 
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: ttsData.audioUrl },
-        { shouldPlay: true },
-      );
-      soundRef.current = sound;
-      sound.setOnPlaybackStatusUpdate(onPlaybackStatus);
-
-      // Web: ontimeupdate가 ended 후 발생하지 않아 didJustFinish 콜백 누락 → 폴링
-      if (Platform.OS === 'web') {
-        let ttsFinished = false;
-        const origCallback = onPlaybackStatus;
-        const wrappedCallback = (status: any) => {
-          if (ttsFinished) return;
-          origCallback(status);
-          if (status.isLoaded && status.didJustFinish) ttsFinished = true;
-        };
-        sound.setOnPlaybackStatusUpdate(wrappedCallback);
-
-        const pollId = setInterval(async () => {
-          if (ttsFinished) { clearInterval(pollId); return; }
-          try {
-            const status = await sound.getStatusAsync();
-            if (!status.isLoaded || (status.isLoaded && status.didJustFinish)) {
-              clearInterval(pollId);
-              if (!ttsFinished) {
-                ttsFinished = true;
-                sound.unloadAsync();
-                soundRef.current = null;
-                setActiveSentence(-1);
-                setState('ready');
-              }
-            }
-          } catch {
-            clearInterval(pollId);
-            if (!ttsFinished) {
-              ttsFinished = true;
-              setActiveSentence(-1);
-              setState('ready');
-            }
-          }
-        }, 500);
-      }
+      playbackTypeRef.current = 'tts';
+      player.replace({ uri: ttsData.audioUrl });
+      player.play();
     } catch (err) {
       if (__DEV__) console.warn('[AppError] Error playing TTS:', err);
       Alert.alert('오류', 'TTS 재생에 실패했습니다.');
@@ -203,11 +168,8 @@ export default function ShadowingScreen() {
 
   // ── TTS 중지 ──
   const handleStopTTS = async () => {
-    if (soundRef.current) {
-      await soundRef.current.stopAsync();
-      await soundRef.current.unloadAsync();
-      soundRef.current = null;
-    }
+    player.pause();
+    playbackTypeRef.current = null;
     setActiveSentence(-1);
     setState('ready');
   };
@@ -215,49 +177,22 @@ export default function ShadowingScreen() {
   // ── 녹음 시작 ──
   const handleStartRecording = async () => {
     try {
-      // Web: expo-av Recording deprecated → MediaRecorder API 직접 사용
-      if (Platform.OS === 'web') {
-        if (typeof navigator === 'undefined' || !navigator.mediaDevices) {
-          Alert.alert('오류', '이 브라우저에서는 녹음을 지원하지 않습니다.');
+      // 네이티브: 권한 요청 + 오디오 모드 설정
+      if (Platform.OS !== 'web') {
+        const { granted } = await requestRecordingPermissionsAsync();
+        if (!granted) {
+          Alert.alert('권한 필요', '녹음을 위해 마이크 권한이 필요합니다.', [{ text: '확인' }]);
           return;
         }
 
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-
-        webChunksRef.current = [];
-        recorder.addEventListener('dataavailable', (e) => {
-          if (e.data.size > 0) webChunksRef.current.push(e.data);
+        await setAudioModeAsync({
+          allowsRecording: true,
+          playsInSilentMode: true,
         });
-
-        recorder.start();
-        webRecorderRef.current = recorder;
-        setState('recording');
-        setRecordingTime(0);
-
-        timerRef.current = setInterval(() => {
-          setRecordingTime((prev) => prev + 1);
-        }, 1000);
-        return;
       }
 
-      // Native: expo-av
-      const { granted } = await Audio.requestPermissionsAsync();
-      if (!granted) {
-        Alert.alert('권한 필요', '녹음을 위해 마이크 권한이 필요합니다.', [{ text: '확인' }]);
-        return;
-      }
-
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
-
-      const { recording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY,
-      );
-
-      recordingRef.current = recording;
+      await recorder.prepareToRecordAsync();
+      recorder.record();
       setState('recording');
       setRecordingTime(0);
 
@@ -272,38 +207,18 @@ export default function ShadowingScreen() {
 
   // ── 녹음 중지 ──
   const handleStopRecording = async () => {
-    const hasWebRecorder = Platform.OS === 'web' && webRecorderRef.current;
-    const hasNativeRecorder = recordingRef.current;
-    if (!hasWebRecorder && !hasNativeRecorder) return;
-
     try {
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
 
-      let uri: string | null = null;
+      await recorder.stop();
+      const uri = recorder.uri;
 
-      if (hasWebRecorder) {
-        // Web: MediaRecorder 중지 → Blob URL 생성
-        const recorder = webRecorderRef.current!;
-        uri = await new Promise<string | null>((resolve) => {
-          recorder.addEventListener('stop', () => {
-            recorder.stream.getTracks().forEach(t => t.stop());
-            if (webChunksRef.current.length === 0) { resolve(null); return; }
-            const blob = new Blob(webChunksRef.current, { type: 'audio/webm' });
-            resolve(URL.createObjectURL(blob));
-          });
-          recorder.stop();
-        });
-        webRecorderRef.current = null;
-        webChunksRef.current = [];
-      } else {
-        // Native: expo-av
-        await recordingRef.current!.stopAndUnloadAsync();
-        uri = recordingRef.current!.getURI();
-        recordingRef.current = null;
-        await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+      // iOS: 녹음 모드 해제
+      if (Platform.OS !== 'web') {
+        await setAudioModeAsync({ allowsRecording: false }).catch(() => {});
       }
 
       if (uri) {
@@ -325,41 +240,9 @@ export default function ShadowingScreen() {
 
     try {
       setState('playing_recording');
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: recordingUriRef.current },
-        { shouldPlay: true },
-      );
-      soundRef.current = sound;
-
-      let playFinished = false;
-      const onFinish = () => {
-        if (playFinished) return;
-        playFinished = true;
-        sound.unloadAsync();
-        soundRef.current = null;
-        setState('ready');
-      };
-
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) onFinish();
-      });
-
-      // Web: didJustFinish 콜백 누락 폴링 폴백
-      if (Platform.OS === 'web') {
-        const pollId = setInterval(async () => {
-          if (playFinished) { clearInterval(pollId); return; }
-          try {
-            const status = await sound.getStatusAsync();
-            if (!status.isLoaded || (status.isLoaded && status.didJustFinish)) {
-              clearInterval(pollId);
-              onFinish();
-            }
-          } catch {
-            clearInterval(pollId);
-            onFinish();
-          }
-        }, 500);
-      }
+      playbackTypeRef.current = 'recording';
+      player.replace({ uri: recordingUriRef.current });
+      player.play();
     } catch (err) {
       if (__DEV__) console.warn('[AppError] Error playing recording:', err);
       Alert.alert('오류', '녹음 재생에 실패했습니다.');
@@ -369,11 +252,8 @@ export default function ShadowingScreen() {
 
   // ── 재생 중지 ──
   const handleStopPlaying = async () => {
-    if (soundRef.current) {
-      await soundRef.current.stopAsync();
-      await soundRef.current.unloadAsync();
-      soundRef.current = null;
-    }
+    player.pause();
+    playbackTypeRef.current = null;
     setState('ready');
   };
 

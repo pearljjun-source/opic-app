@@ -1,0 +1,17 @@
+diff --git a/node_modules/expo-audio/build/AudioModule.web.js b/node_modules/expo-audio/build/AudioModule.web.js
+index 407e9e9..0fe6198 100644
+--- a/node_modules/expo-audio/build/AudioModule.web.js
++++ b/node_modules/expo-audio/build/AudioModule.web.js
+@@ -219,6 +219,12 @@ export class AudioPlayerWeb extends globalThis.expo.SharedObject {
+         };
+         media.onended = () => {
+             lastEmitTime = 0;
++            this.isPlaying = false;
++            this.emit(PLAYBACK_STATUS_UPDATE, {
++                ...getStatusFromMedia(media, this.id),
++                playing: false,
++                didJustFinish: true,
++            });
+         };
+         media.onloadeddata = () => {
+             this.loaded = true;
