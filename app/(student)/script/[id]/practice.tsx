@@ -181,20 +181,15 @@ export default function PracticeScreen() {
 
   // 녹음 시작
   const handleStartRecording = async () => {
-    // 임시 디버그: 핸들러 진입 확인 (프로덕션에서도 보이도록)
-    console.warn('[Recording] handleStartRecording called, practiceState:', practiceState);
     try {
       // Web: expo-av Recording이 deprecated → MediaRecorder API 직접 사용
       if (Platform.OS === 'web') {
         if (typeof navigator === 'undefined' || !navigator.mediaDevices) {
-          console.warn('[Recording] No mediaDevices available');
           Alert.alert('오류', '이 브라우저에서는 녹음을 지원하지 않습니다.');
           return;
         }
 
-        console.warn('[Recording] Requesting getUserMedia...');
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        console.warn('[Recording] getUserMedia succeeded, creating MediaRecorder...');
         const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
 
         webChunksRef.current = [];
@@ -241,14 +236,8 @@ export default function PracticeScreen() {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
     } catch (err) {
-      // 임시: 프로덕션에서도 에러 확인 (해결 후 __DEV__ 가드 복원)
-      console.warn('[Recording] Error:', err);
-      Alert.alert(
-        '오류',
-        Platform.OS === 'web'
-          ? `녹음 실패: ${err instanceof Error ? err.message : String(err)}`
-          : '녹음 시작에 실패했습니다.'
-      );
+      if (__DEV__) console.warn('[AppError] Error starting recording:', err);
+      Alert.alert('오류', '녹음 시작에 실패했습니다.');
     }
   };
 
@@ -483,18 +472,12 @@ export default function PracticeScreen() {
           <>
             <Pressable
               style={[styles.recordButton, { backgroundColor: colors.error, shadowColor: colors.error }]}
-              onPress={() => {
-                console.warn('[Recording] Button onPress fired!');
-                handleStartRecording();
-              }}
+              onPress={handleStartRecording}
+              disabled={practiceState !== 'ready'}
             >
               <Ionicons name="mic" size={40} color="#FFFFFF" />
             </Pressable>
             <Text style={[styles.recordHint, { color: colors.textSecondary }]}>탭하여 녹음 시작</Text>
-            {/* 임시 디버그: practiceState 표시 (해결 후 제거) */}
-            <Text style={{ color: 'red', fontSize: 12, marginTop: 4 }}>
-              [DEBUG] state: {practiceState} / disabled: {String(practiceState !== 'ready')}
-            </Text>
           </>
         )}
       </View>
