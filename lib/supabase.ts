@@ -39,14 +39,17 @@ export async function invokeFunction<T = Record<string, unknown>>(
   name: string,
   body: Record<string, unknown>,
 ): Promise<{ data: T | null; error: Error | null }> {
-  // FunctionsClient는 정적 헤더를 사용하므로 매 호출 전 fresh 토큰 동기화 필요
-  // getSession()은 만료된 토큰을 자동 갱신함 (PostgREST의 fetchWithAuth와 동일 효과)
+  // supabase.functions는 매번 new FunctionsClient()를 반환하는 getter이고,
+  // _handleTokenChanged()는 this.headers를 갱신하지 않으므로
+  // 항상 초기화 시점의 stale 토큰을 사용함.
+  // 해결: getSession()으로 fresh 토큰을 얻고, invoke-level headers로 직접 전달.
   const { data: { session } } = await supabase.auth.getSession();
+  const headers: Record<string, string> = {};
   if (session) {
-    supabase.functions.setAuth(session.access_token);
+    headers['Authorization'] = `Bearer ${session.access_token}`;
   }
 
-  const { data, error } = await supabase.functions.invoke(name, { body });
+  const { data, error } = await supabase.functions.invoke(name, { body, headers });
 
   if (error) {
     // FunctionsHttpError: context는 Response 객체 → body를 파싱해서 에러 추출
