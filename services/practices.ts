@@ -665,9 +665,16 @@ export async function generateScriptAudio(
  * - 웹: blob URI → fetch → Blob 객체 → 직접 upload
  * @returns 파일 경로 (예: {user_id}/{filename}) - DB에 저장용
  */
+/** MIME 타입 → 확장자 매핑 */
+function extFromMime(mime: string): string {
+  if (mime.includes('mp4') || mime.includes('m4a')) return 'm4a';
+  if (mime.includes('webm')) return 'webm';
+  return 'webm'; // 웹 기본값
+}
+
 export async function uploadRecording(
   uri: string,
-  fileName: string
+  baseName: string
 ): Promise<{
   data: { path: string } | null;
   error: Error | null;
@@ -679,12 +686,13 @@ export async function uploadRecording(
       return { data: null, error: new AppError('AUTH_REQUIRED') };
     }
 
-    const filePath = `${user.id}/${fileName}`;
-
     if (Platform.OS === 'web') {
       // 웹: blob URI를 fetch하여 실제 Blob 객체로 변환
       const response = await fetch(uri);
       const blob = await response.blob();
+
+      const ext = extFromMime(blob.type);
+      const filePath = `${user.id}/${baseName}.${ext}`;
 
       const { error: uploadError } = await supabase.storage
         .from('practice-recordings')
@@ -696,8 +704,13 @@ export async function uploadRecording(
       if (uploadError) {
         return { data: null, error: classifyError(uploadError, { resource: 'audio' }) };
       }
+
+      return { data: { path: filePath }, error: null };
     } else {
-      // 네이티브: FormData + URI 직접 전달
+      // 네이티브: 항상 m4a (expo-audio 녹음 설정 고정)
+      const fileName = `${baseName}.m4a`;
+      const filePath = `${user.id}/${fileName}`;
+
       const formData = new FormData();
       formData.append('', {
         uri,
@@ -715,10 +728,9 @@ export async function uploadRecording(
       if (uploadError) {
         return { data: null, error: classifyError(uploadError, { resource: 'audio' }) };
       }
-    }
 
-    // 경로만 반환 (조회 시 signedUrl 생성)
-    return { data: { path: filePath }, error: null };
+      return { data: { path: filePath }, error: null };
+    }
   } catch (err) {
     return { data: null, error: classifyError(err, { resource: 'audio' }) };
   }

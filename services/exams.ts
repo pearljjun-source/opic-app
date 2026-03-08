@@ -299,8 +299,9 @@ export async function processExamResults(
     const rec = recordings[i];
     onProgress?.('upload', i + 1, total);
 
-    const fileName = `exam_${sessionId}_q${rec.questionOrder}.m4a`;
-    const { data: uploadResult, error: uploadError } = await uploadRecording(rec.uri, fileName);
+    const { data: uploadResult, error: uploadError } = await uploadRecording(
+      rec.uri, `exam_${sessionId}_q${rec.questionOrder}`
+    );
 
     if (uploadError || !uploadResult) {
       if (__DEV__) console.warn('[AppError] Upload failed for Q' + rec.questionOrder, uploadError);

@@ -57,6 +57,11 @@ export default function PracticeScreen() {
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // 웹 전용: 직접 MediaRecorder API 사용 (expo-audio 웹 녹음 불안정)
+  const webRecorderRef = useRef<MediaRecorder | null>(null);
+  const webChunksRef = useRef<Blob[]>([]);
+  const webMimeTypeRef = useRef<string>('audio/webm');
+
   // expo-audio hooks
   const player = useAudioPlayer(null);
   const playerStatus = useAudioPlayerStatus(player);
@@ -92,6 +97,13 @@ export default function PracticeScreen() {
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      if (Platform.OS === 'web' && webRecorderRef.current) {
+        if (webRecorderRef.current.state !== 'inactive') {
+          webRecorderRef.current.stop();
+        }
+        webRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
+        webRecorderRef.current = null;
+      }
     };
   }, []);
 
@@ -138,8 +150,33 @@ export default function PracticeScreen() {
   // 녹음 시작
   const handleStartRecording = async () => {
     try {
-      // 네이티브: 권한 요청 + 오디오 모드 설정
-      if (Platform.OS !== 'web') {
+      if (Platform.OS === 'web') {
+        // 웹: 직접 MediaRecorder API 사용 (expo-audio 웹 녹음 불안정)
+        if (typeof navigator === 'undefined' || !navigator.mediaDevices || typeof MediaRecorder === 'undefined') {
+          Alert.alert('오류', '이 브라우저에서는 녹음을 지원하지 않습니다.');
+          return;
+        }
+
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm'
+          : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
+        if (!mimeType) {
+          Alert.alert('오류', '이 브라우저에서 지원하는 오디오 형식이 없습니다.');
+          return;
+        }
+
+        webMimeTypeRef.current = mimeType;
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mediaRecorder = new MediaRecorder(stream, { mimeType });
+
+        webChunksRef.current = [];
+        mediaRecorder.addEventListener('dataavailable', (e) => {
+          if (e.data.size > 0) webChunksRef.current.push(e.data);
+        });
+
+        mediaRecorder.start();
+        webRecorderRef.current = mediaRecorder;
+      } else {
+        // 네이티브: expo-audio
         const { granted } = await requestRecordingPermissionsAsync();
         if (!granted) {
           Alert.alert(
@@ -154,19 +191,29 @@ export default function PracticeScreen() {
           allowsRecording: true,
           playsInSilentMode: true,
         });
+
+        await recorder.prepareToRecordAsync();
+        recorder.record();
       }
 
-      await recorder.prepareToRecordAsync();
-      recorder.record();
       setPracticeState('recording');
       setRecordingTime(0);
 
       timerRef.current = setInterval(() => {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
-    } catch (err) {
+    } catch (err: any) {
       if (__DEV__) console.warn('[AppError] Error starting recording:', err);
-      Alert.alert('오류', '녹음 시작에 실패했습니다.');
+      const msg = err?.name === 'NotFoundError'
+        ? '마이크를 찾을 수 없습니다. 마이크가 연결되어 있는지 확인해주세요.'
+        : err?.name === 'NotAllowedError'
+          ? '마이크 권한이 거부되었습니다. 브라우저 설정에서 마이크 권한을 허용해주세요.'
+          : '녹음 시작에 실패했습니다.';
+      if (Platform.OS === 'web') {
+        window.alert(msg);
+      } else {
+        Alert.alert('오류', msg);
+      }
     }
   };
 
@@ -184,11 +231,32 @@ export default function PracticeScreen() {
       setPracticeState('processing');
       setProcessingStep('upload');
 
-      await recorder.stop();
-      const uri = recorder.uri;
+      let uri: string | null = null;
 
-      // iOS: 녹음 모드 해제
-      if (Platform.OS !== 'web') {
+      if (Platform.OS === 'web') {
+        // 웹: MediaRecorder 중지 → Blob URL 생성
+        if (webRecorderRef.current && webRecorderRef.current.state !== 'inactive') {
+          const stopped = new Promise<void>((resolve) => {
+            webRecorderRef.current!.addEventListener('stop', () => resolve(), { once: true });
+          });
+          webRecorderRef.current.stop();
+          await stopped;
+        }
+
+        if (webChunksRef.current.length > 0) {
+          const blob = new Blob(webChunksRef.current, { type: webMimeTypeRef.current });
+          uri = URL.createObjectURL(blob);
+        }
+
+        // 스트림 정리
+        webRecorderRef.current?.stream.getTracks().forEach((t) => t.stop());
+        webRecorderRef.current = null;
+      } else {
+        // 네이티브: expo-audio
+        await recorder.stop();
+        uri = recorder.uri;
+
+        // iOS: 녹음 모드 해제
         await setAudioModeAsync({ allowsRecording: false }).catch(() => {});
       }
 
@@ -198,10 +266,8 @@ export default function PracticeScreen() {
         return;
       }
 
-      // 1. 파일 업로드 (웹은 webm, 네이티브는 m4a)
-      const ext = Platform.OS === 'web' ? 'webm' : 'm4a';
-      const fileName = `practice_${Date.now()}.${ext}`;
-      const { data: uploadData, error: uploadError } = await uploadRecording(uri, fileName);
+      // 1. 파일 업로드 (확장자는 uploadRecording이 콘텐츠 타입에서 자동 결정)
+      const { data: uploadData, error: uploadError } = await uploadRecording(uri, `practice_${Date.now()}`);
 
       if (uploadError || !uploadData) {
         Alert.alert('업로드 실패', getUserMessage(uploadError));
@@ -209,31 +275,33 @@ export default function PracticeScreen() {
         return;
       }
 
-      // 2. 연습 기록 생성
-      setProcessingStep('save');
-      const { data: practiceData, error: practiceError } = await createPractice({
-        scriptId: id,
-        audioPath: uploadData.path,
-        duration: recordingTime,
-      });
-
-      if (practiceError || !practiceData) {
-        Alert.alert('저장 실패', getUserMessage(practiceError));
-        setPracticeState('ready');
-        return;
-      }
-
-      // 3. STT 변환
+      // 2+3. 연습 기록 생성 + STT 변환 (독립적이므로 병렬 실행)
       setProcessingStep('stt');
-      const { data: sttData, error: sttError } = await transcribeAudio(uploadData.path);
+      const [practiceResult, sttResult] = await Promise.all([
+        createPractice({
+          scriptId: id,
+          audioPath: uploadData.path,
+          duration: recordingTime,
+        }),
+        transcribeAudio(uploadData.path),
+      ]);
 
-      if (sttError || !sttData) {
-        const msg = getUserMessage(sttError);
-        if (__DEV__) console.warn('[AppError] STT failed:', sttError);
-        Alert.alert('음성 인식 실패', msg + (__DEV__ ? `\n\n[DEV] ${sttError?.message || 'unknown'}` : ''));
+      if (practiceResult.error || !practiceResult.data) {
+        Alert.alert('저장 실패', getUserMessage(practiceResult.error));
         setPracticeState('ready');
         return;
       }
+
+      if (sttResult.error || !sttResult.data) {
+        const msg = getUserMessage(sttResult.error);
+        if (__DEV__) console.warn('[AppError] STT failed:', sttResult.error);
+        Alert.alert('음성 인식 실패', msg + (__DEV__ ? `\n\n[DEV] ${sttResult.error?.message || 'unknown'}` : ''));
+        setPracticeState('ready');
+        return;
+      }
+
+      const practiceData = practiceResult.data;
+      const sttData = sttResult.data;
 
       // 4. AI 피드백 (Edge Function에서 구독 entitlement 검증)
       setProcessingStep('feedback');
@@ -375,33 +443,75 @@ export default function PracticeScreen() {
               <Text style={[styles.recordingText, { color: colors.error }]}>녹음 중</Text>
             </View>
 
-            <Pressable style={[styles.stopButton, { backgroundColor: colors.gray600 }]} onPress={handleStopRecording}>
-              <Ionicons name="stop" size={32} color="#FFFFFF" />
-            </Pressable>
+            {Platform.OS === 'web' ? (
+              <div
+                onClick={handleStopRecording}
+                style={{
+                  width: 100, height: 100, borderRadius: 50,
+                  backgroundColor: '#4B5563',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer',
+                }}
+              >
+                <Ionicons name="stop" size={32} color="#FFFFFF" />
+              </div>
+            ) : (
+              <Pressable style={[styles.stopButton, { backgroundColor: colors.gray600 }]} onPress={handleStopRecording}>
+                <Ionicons name="stop" size={32} color="#FFFFFF" />
+              </Pressable>
+            )}
             <Text style={[styles.stopHint, { color: colors.textSecondary }]}>탭하여 녹음 종료</Text>
           </>
         ) : (
           <>
-            <Pressable
-              style={[styles.recordButton, { backgroundColor: colors.error, shadowColor: colors.error }]}
-              onPress={handleStartRecording}
-              disabled={practiceState !== 'ready'}
-            >
-              <Ionicons name="mic" size={40} color="#FFFFFF" />
-            </Pressable>
+            {Platform.OS === 'web' ? (
+              <div
+                onClick={practiceState === 'ready' ? handleStartRecording : undefined}
+                style={{
+                  width: 100, height: 100, borderRadius: 50,
+                  backgroundColor: '#F87171',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: practiceState === 'ready' ? 'pointer' : 'default',
+                  boxShadow: '0 4px 8px rgba(248,113,113,0.3)',
+                }}
+              >
+                <Ionicons name="mic" size={40} color="#FFFFFF" />
+              </div>
+            ) : (
+              <Pressable
+                style={[styles.recordButton, { backgroundColor: colors.error, shadowColor: colors.error }]}
+                onPress={handleStartRecording}
+                disabled={practiceState !== 'ready'}
+              >
+                <Ionicons name="mic" size={40} color="#FFFFFF" />
+              </Pressable>
+            )}
             <Text style={[styles.recordHint, { color: colors.textSecondary }]}>탭하여 녹음 시작</Text>
           </>
         )}
       </View>
 
       {/* 취소 버튼 */}
-      <Pressable
-        style={styles.cancelButton}
-        onPress={() => router.back()}
-        disabled={practiceState === 'recording'}
-      >
-        <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>취소</Text>
-      </Pressable>
+      {Platform.OS === 'web' ? (
+        <div
+          onClick={practiceState !== 'recording' ? () => router.back() : undefined}
+          style={{
+            padding: 16, alignSelf: 'center' as const,
+            cursor: practiceState !== 'recording' ? 'pointer' : 'default',
+            opacity: practiceState === 'recording' ? 0.5 : 1,
+          }}
+        >
+          <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>취소</Text>
+        </div>
+      ) : (
+        <Pressable
+          style={styles.cancelButton}
+          onPress={() => router.back()}
+          disabled={practiceState === 'recording'}
+        >
+          <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>취소</Text>
+        </Pressable>
+      )}
     </View>
   );
 }

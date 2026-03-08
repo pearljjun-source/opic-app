@@ -20,13 +20,24 @@
 
 ```typescript
 interface AIFeedback {
-  summary: string;           // 전체 요약
-  reproduction_rate: number; // 재현율 (0-100%)
-  missed_phrases: string[];  // 빠뜨린 표현
-  extra_phrases: string[];   // 추가된 표현
-  pronunciation_tips: string[];
-  grammar_issues: string[];
-  suggestions: string[];
+  // 공통 필드
+  summary: string;           // 전체 요약 (한국어)
+  reproduction_rate: number; // 스크립트 핵심 의미 재현율 (0-100%)
+  missed_phrases: string[];  // 빠뜨린 표현 (영어)
+  overall_score: number;     // 종합 점수 (0-100, 가중치: 재현 60% + 창의 15% + 정확 15% + 유창 10%)
+
+  // v2 분석 필드
+  creative_additions: Array<{ phrase: string; evaluation: 'positive' | 'neutral' | 'negative'; comment: string }>;
+  error_analysis: Array<{ type: 'grammar' | 'pronunciation' | 'vocabulary' | 'l1_transfer'; original: string; corrected: string; explanation: string }>;
+  strengths: string[];                              // 잘한 점 (한국어)
+  priority_improvements: Array<{ area: string; tip: string }>;  // 우선 개선 사항 (최대 3개)
+  encouragement: string;                            // 격려 메시지 (한국어)
+
+  // v1 레거시 필드 (optional — 과거 DB 데이터에만 존재)
+  extra_phrases?: string[];
+  pronunciation_tips?: string[];
+  grammar_issues?: string[];
+  suggestions?: string[];
 }
 ```
 
@@ -49,8 +60,8 @@ interface AIFeedback {
 
 ### 시간 제한
 - 최소: 5초
-- 최대: 180초 (3분)
-- 권장: 30~120초
+- 최대: 120초 (2분)
+- 권장: 30~90초
 
 ### 녹음 플로우
 
@@ -95,7 +106,7 @@ export const RECORDING_OPTIONS: Audio.RecordingOptions = {
 
 export const RECORDING_LIMITS = {
   MIN_DURATION_SEC: 5,
-  MAX_DURATION_SEC: 180,
+  MAX_DURATION_SEC: 120,
   MAX_FILE_SIZE_BYTES: 50 * 1024 * 1024,
 };
 ```

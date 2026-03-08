@@ -51,6 +51,11 @@ export default function ShadowingScreen() {
   const contentHeightRef = useRef(0);
   const scrollViewHeightRef = useRef(0);
 
+  // 웹 전용: 직접 MediaRecorder API 사용 (expo-audio 웹 녹음 불안정)
+  const webRecorderRef = useRef<MediaRecorder | null>(null);
+  const webChunksRef = useRef<Blob[]>([]);
+  const webMimeTypeRef = useRef<string>('audio/webm');
+
   // expo-audio hooks
   const player = useAudioPlayer(null);
   const playerStatus = useAudioPlayerStatus(player);
@@ -94,6 +99,13 @@ export default function ShadowingScreen() {
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      if (Platform.OS === 'web' && webRecorderRef.current) {
+        if (webRecorderRef.current.state !== 'inactive') {
+          webRecorderRef.current.stop();
+        }
+        webRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
+        webRecorderRef.current = null;
+      }
     };
   }, []);
 
@@ -177,8 +189,33 @@ export default function ShadowingScreen() {
   // ── 녹음 시작 ──
   const handleStartRecording = async () => {
     try {
-      // 네이티브: 권한 요청 + 오디오 모드 설정
-      if (Platform.OS !== 'web') {
+      if (Platform.OS === 'web') {
+        // 웹: 직접 MediaRecorder API 사용 (expo-audio 웹 녹음 불안정)
+        if (typeof navigator === 'undefined' || !navigator.mediaDevices || typeof MediaRecorder === 'undefined') {
+          Alert.alert('오류', '이 브라우저에서는 녹음을 지원하지 않습니다.');
+          return;
+        }
+
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm'
+          : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
+        if (!mimeType) {
+          Alert.alert('오류', '이 브라우저에서 지원하는 오디오 형식이 없습니다.');
+          return;
+        }
+
+        webMimeTypeRef.current = mimeType;
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mediaRecorder = new MediaRecorder(stream, { mimeType });
+
+        webChunksRef.current = [];
+        mediaRecorder.addEventListener('dataavailable', (e) => {
+          if (e.data.size > 0) webChunksRef.current.push(e.data);
+        });
+
+        mediaRecorder.start();
+        webRecorderRef.current = mediaRecorder;
+      } else {
+        // 네이티브: expo-audio
         const { granted } = await requestRecordingPermissionsAsync();
         if (!granted) {
           Alert.alert('권한 필요', '녹음을 위해 마이크 권한이 필요합니다.', [{ text: '확인' }]);
@@ -189,19 +226,29 @@ export default function ShadowingScreen() {
           allowsRecording: true,
           playsInSilentMode: true,
         });
+
+        await recorder.prepareToRecordAsync();
+        recorder.record();
       }
 
-      await recorder.prepareToRecordAsync();
-      recorder.record();
       setState('recording');
       setRecordingTime(0);
 
       timerRef.current = setInterval(() => {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
-    } catch (err) {
+    } catch (err: any) {
       if (__DEV__) console.warn('[AppError] Error starting recording:', err);
-      Alert.alert('오류', '녹음 시작에 실패했습니다.');
+      const msg = err?.name === 'NotFoundError'
+        ? '마이크를 찾을 수 없습니다. 마이크가 연결되어 있는지 확인해주세요.'
+        : err?.name === 'NotAllowedError'
+          ? '마이크 권한이 거부되었습니다. 브라우저 설정에서 마이크 권한을 허용해주세요.'
+          : '녹음 시작에 실패했습니다.';
+      if (Platform.OS === 'web') {
+        window.alert(msg);
+      } else {
+        Alert.alert('오류', msg);
+      }
     }
   };
 
@@ -213,11 +260,32 @@ export default function ShadowingScreen() {
         timerRef.current = null;
       }
 
-      await recorder.stop();
-      const uri = recorder.uri;
+      let uri: string | null = null;
 
-      // iOS: 녹음 모드 해제
-      if (Platform.OS !== 'web') {
+      if (Platform.OS === 'web') {
+        // 웹: MediaRecorder 중지 → Blob URL 생성
+        if (webRecorderRef.current && webRecorderRef.current.state !== 'inactive') {
+          const stopped = new Promise<void>((resolve) => {
+            webRecorderRef.current!.addEventListener('stop', () => resolve(), { once: true });
+          });
+          webRecorderRef.current.stop();
+          await stopped;
+        }
+
+        if (webChunksRef.current.length > 0) {
+          const blob = new Blob(webChunksRef.current, { type: webMimeTypeRef.current });
+          uri = URL.createObjectURL(blob);
+        }
+
+        // 스트림 정리
+        webRecorderRef.current?.stream.getTracks().forEach((t) => t.stop());
+        webRecorderRef.current = null;
+      } else {
+        // 네이티브: expo-audio
+        await recorder.stop();
+        uri = recorder.uri;
+
+        // iOS: 녹음 모드 해제
         await setAudioModeAsync({ allowsRecording: false }).catch(() => {});
       }
 
@@ -336,19 +404,52 @@ export default function ShadowingScreen() {
       <View style={[styles.controlSection, { backgroundColor: colors.surface }]}>
         {/* TTS 듣기 / 중지 */}
         {isTTSPlaying ? (
-          <Pressable style={[styles.ttsStopButton, { backgroundColor: colors.error + '10' }]} onPress={handleStopTTS}>
-            <Ionicons name="stop-circle" size={20} color={colors.error} />
-            <Text style={[styles.ttsStopText, { color: colors.error }]}>발음 듣기 중지</Text>
-          </Pressable>
+          Platform.OS === 'web' ? (
+            <div
+              onClick={handleStopTTS}
+              style={{
+                display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 6,
+                paddingLeft: 12, paddingRight: 16, paddingTop: 8, paddingBottom: 8,
+                borderRadius: 20,
+                backgroundColor: (colors.error || '#EF4444') + '10',
+                cursor: 'pointer',
+              }}
+            >
+              <Ionicons name="stop-circle" size={20} color={colors.error} />
+              <Text style={[styles.ttsStopText, { color: colors.error }]}>발음 듣기 중지</Text>
+            </div>
+          ) : (
+            <Pressable style={[styles.ttsStopButton, { backgroundColor: colors.error + '10' }]} onPress={handleStopTTS}>
+              <Ionicons name="stop-circle" size={20} color={colors.error} />
+              <Text style={[styles.ttsStopText, { color: colors.error }]}>발음 듣기 중지</Text>
+            </Pressable>
+          )
         ) : (
-          <Pressable
-            style={[styles.ttsButton, { backgroundColor: colors.primary + '10' }, state !== 'ready' && styles.buttonDisabled]}
-            onPress={handlePlayTTS}
-            disabled={state !== 'ready'}
-          >
-            <Ionicons name="volume-high" size={20} color={colors.primary} />
-            <Text style={[styles.ttsButtonText, { color: colors.primary }]}>네이티브 발음 듣기</Text>
-          </Pressable>
+          Platform.OS === 'web' ? (
+            <div
+              onClick={state === 'ready' ? handlePlayTTS : undefined}
+              style={{
+                display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 6,
+                paddingLeft: 12, paddingRight: 16, paddingTop: 8, paddingBottom: 8,
+                borderRadius: 20,
+                backgroundColor: (colors.primary || '#D4707F') + '10',
+                cursor: state === 'ready' ? 'pointer' : 'default',
+                opacity: state !== 'ready' ? 0.5 : 1,
+              }}
+            >
+              <Ionicons name="volume-high" size={20} color={colors.primary} />
+              <Text style={[styles.ttsButtonText, { color: colors.primary }]}>네이티브 발음 듣기</Text>
+            </div>
+          ) : (
+            <Pressable
+              style={[styles.ttsButton, { backgroundColor: colors.primary + '10' }, state !== 'ready' && styles.buttonDisabled]}
+              onPress={handlePlayTTS}
+              disabled={state !== 'ready'}
+            >
+              <Ionicons name="volume-high" size={20} color={colors.primary} />
+              <Text style={[styles.ttsButtonText, { color: colors.primary }]}>네이티브 발음 듣기</Text>
+            </Pressable>
+          )
         )}
 
         {/* 구분선 */}
@@ -362,60 +463,134 @@ export default function ShadowingScreen() {
                 <View style={[styles.recordingDot, { backgroundColor: colors.error }]} />
                 <Text style={[styles.recordingTimeText, { color: colors.error }]}>{formatTime(recordingTime)}</Text>
               </View>
-              <Pressable style={[styles.stopRecordBtn, { backgroundColor: colors.gray600 }]} onPress={handleStopRecording}>
-                <Ionicons name="stop" size={22} color="#FFFFFF" />
-              </Pressable>
+              {Platform.OS === 'web' ? (
+                <div
+                  onClick={handleStopRecording}
+                  style={{
+                    width: 48, height: 48, borderRadius: 24,
+                    backgroundColor: '#4B5563',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Ionicons name="stop" size={22} color="#FFFFFF" />
+                </div>
+              ) : (
+                <Pressable style={[styles.stopRecordBtn, { backgroundColor: colors.gray600 }]} onPress={handleStopRecording}>
+                  <Ionicons name="stop" size={22} color="#FFFFFF" />
+                </Pressable>
+              )}
             </>
           ) : (
             <>
-              <Pressable
-                style={[styles.recordBtn, { backgroundColor: colors.error, shadowColor: colors.error }, state !== 'ready' && styles.buttonDisabled]}
-                onPress={handleStartRecording}
-                disabled={state !== 'ready'}
-              >
-                <Ionicons name="mic" size={22} color="#FFFFFF" />
-              </Pressable>
+              {Platform.OS === 'web' ? (
+                <div
+                  onClick={state === 'ready' ? handleStartRecording : undefined}
+                  style={{
+                    width: 48, height: 48, borderRadius: 24,
+                    backgroundColor: '#F87171',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: state === 'ready' ? 'pointer' : 'default',
+                    opacity: state !== 'ready' ? 0.5 : 1,
+                    boxShadow: '0 2px 4px rgba(248,113,113,0.25)',
+                  }}
+                >
+                  <Ionicons name="mic" size={22} color="#FFFFFF" />
+                </div>
+              ) : (
+                <Pressable
+                  style={[styles.recordBtn, { backgroundColor: colors.error, shadowColor: colors.error }, state !== 'ready' && styles.buttonDisabled]}
+                  onPress={handleStartRecording}
+                  disabled={state !== 'ready'}
+                >
+                  <Ionicons name="mic" size={22} color="#FFFFFF" />
+                </Pressable>
+              )}
               <Text style={[styles.recordHint, { color: colors.textSecondary }]}>탭하여 녹음</Text>
             </>
           )}
 
           {hasRecording && state !== 'recording' && (
-            <Pressable
-              style={[
-                styles.playRecBtn,
-                { backgroundColor: colors.secondary + '10' },
-                state !== 'ready' && state !== 'playing_recording' && styles.buttonDisabled,
-              ]}
-              onPress={state === 'playing_recording' ? handleStopPlaying : handlePlayRecording}
-              disabled={state !== 'ready' && state !== 'playing_recording'}
-            >
-              <Ionicons
-                name={state === 'playing_recording' ? 'stop-circle' : 'play-circle'}
-                size={20}
-                color={state === 'playing_recording' ? colors.error : colors.secondary}
-              />
-              <Text
-                style={[
-                  styles.playRecText,
-                  { color: colors.secondary },
-                  state === 'playing_recording' && { color: colors.error },
-                ]}
+            Platform.OS === 'web' ? (
+              <div
+                onClick={state === 'ready' || state === 'playing_recording'
+                  ? (state === 'playing_recording' ? handleStopPlaying : handlePlayRecording)
+                  : undefined}
+                style={{
+                  display: 'flex', flexDirection: 'row', alignItems: 'center',
+                  gap: 4, paddingLeft: 8, paddingRight: 12, paddingTop: 6, paddingBottom: 6,
+                  borderRadius: 16,
+                  backgroundColor: (colors.secondary || '#6366F1') + '10',
+                  cursor: state === 'ready' || state === 'playing_recording' ? 'pointer' : 'default',
+                  opacity: state !== 'ready' && state !== 'playing_recording' ? 0.5 : 1,
+                }}
               >
-                {state === 'playing_recording' ? '중지' : '내 녹음'}
-              </Text>
-            </Pressable>
+                <Ionicons
+                  name={state === 'playing_recording' ? 'stop-circle' : 'play-circle'}
+                  size={20}
+                  color={state === 'playing_recording' ? colors.error : colors.secondary}
+                />
+                <Text
+                  style={[
+                    styles.playRecText,
+                    { color: colors.secondary },
+                    state === 'playing_recording' && { color: colors.error },
+                  ]}
+                >
+                  {state === 'playing_recording' ? '중지' : '내 녹음'}
+                </Text>
+              </div>
+            ) : (
+              <Pressable
+                style={[
+                  styles.playRecBtn,
+                  { backgroundColor: colors.secondary + '10' },
+                  state !== 'ready' && state !== 'playing_recording' && styles.buttonDisabled,
+                ]}
+                onPress={state === 'playing_recording' ? handleStopPlaying : handlePlayRecording}
+                disabled={state !== 'ready' && state !== 'playing_recording'}
+              >
+                <Ionicons
+                  name={state === 'playing_recording' ? 'stop-circle' : 'play-circle'}
+                  size={20}
+                  color={state === 'playing_recording' ? colors.error : colors.secondary}
+                />
+                <Text
+                  style={[
+                    styles.playRecText,
+                    { color: colors.secondary },
+                    state === 'playing_recording' && { color: colors.error },
+                  ]}
+                >
+                  {state === 'playing_recording' ? '중지' : '내 녹음'}
+                </Text>
+              </Pressable>
+            )
           )}
         </View>
       </View>
 
       {/* ── 하단 ── */}
-      <Pressable
-        style={styles.backButton}
-        onPress={() => router.back()}
-        disabled={state === 'recording'}
-      >
-        <Text style={[styles.backButtonText, { color: colors.textSecondary }]}>스크립트로 돌아가기</Text>
-      </Pressable>
+      {Platform.OS === 'web' ? (
+        <div
+          onClick={state !== 'recording' ? () => router.back() : undefined}
+          style={{
+            padding: 16, alignSelf: 'center' as const,
+            cursor: state !== 'recording' ? 'pointer' : 'default',
+            opacity: state === 'recording' ? 0.5 : 1,
+          }}
+        >
+          <Text style={[styles.backButtonText, { color: colors.textSecondary }]}>스크립트로 돌아가기</Text>
+        </div>
+      ) : (
+        <Pressable
+          style={styles.backButton}
+          onPress={() => router.back()}
+          disabled={state === 'recording'}
+        >
+          <Text style={[styles.backButtonText, { color: colors.textSecondary }]}>스크립트로 돌아가기</Text>
+        </Pressable>
+      )}
     </View>
   );
 }

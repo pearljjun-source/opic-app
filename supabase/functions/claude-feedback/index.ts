@@ -51,43 +51,6 @@ Always find something positive, even in weak answers. Look for:
 - Successful script content delivery
 - Confident additions or personal touches
 
-## Output Format
-Fill in the following JSON structure:
-
-{
-  "overall_score": <0-100, holistic score weighing: script coverage 60%, creative additions 15%, accuracy 15%, fluency 10%>,
-  "summary": "2-3 sentence overall assessment in Korean. Be specific about what went well and what to focus on.",
-  "reproduction_rate": <0-100, percentage of key script MEANING reproduced>,
-  "missed_phrases": ["important phrases from script that were missed (English)"],
-  "extra_phrases": ["all phrases student added beyond the script (English)"],
-  "creative_additions": [
-    {
-      "phrase": "the added expression",
-      "evaluation": "positive|neutral|negative",
-      "comment": "Korean explanation — why this is good/ok/problematic"
-    }
-  ],
-  "error_analysis": [
-    {
-      "type": "grammar|pronunciation|vocabulary|l1_transfer",
-      "original": "what student said",
-      "corrected": "corrected version",
-      "explanation": "Korean explanation of the correction"
-    }
-  ],
-  "strengths": ["what the student did well (Korean, at least 1 item)"],
-  "priority_improvements": [
-    {
-      "area": "improvement area (Korean)",
-      "tip": "specific, actionable tip (Korean)"
-    }
-  ],
-  "encouragement": "One motivating sentence in Korean, personalized to their performance",
-  "pronunciation_tips": ["specific pronunciation advice for Korean speakers (English)"],
-  "grammar_issues": ["brief grammar issue descriptions (English, for compatibility)"],
-  "suggestions": ["actionable improvement suggestions (Korean)"]
-}
-
 ## Scoring Guidelines
 - overall_score: Holistic assessment (script coverage 60% + creative additions quality 15% + grammatical accuracy 15% + overall fluency 10%)
 - A student who reproduces 80% of script content AND adds good on-topic expressions could score HIGHER than 80
@@ -106,7 +69,6 @@ const FEEDBACK_SCHEMA = {
     summary: { type: 'string', description: '2-3 sentence overall assessment in Korean' },
     reproduction_rate: { type: 'integer', description: '0-100, percentage of key script meaning reproduced' },
     missed_phrases: { type: 'array', items: { type: 'string' } },
-    extra_phrases: { type: 'array', items: { type: 'string' } },
     creative_additions: {
       type: 'array',
       items: {
@@ -148,15 +110,11 @@ const FEEDBACK_SCHEMA = {
       },
     },
     encouragement: { type: 'string', description: 'One motivating sentence in Korean' },
-    pronunciation_tips: { type: 'array', items: { type: 'string' } },
-    grammar_issues: { type: 'array', items: { type: 'string' } },
-    suggestions: { type: 'array', items: { type: 'string' }, description: 'Actionable improvement suggestions (Korean)' },
   },
   required: [
     'overall_score', 'summary', 'reproduction_rate', 'missed_phrases',
-    'extra_phrases', 'creative_additions', 'error_analysis', 'strengths',
-    'priority_improvements', 'encouragement', 'pronunciation_tips',
-    'grammar_issues', 'suggestions',
+    'creative_additions', 'error_analysis', 'strengths',
+    'priority_improvements', 'encouragement',
   ],
   additionalProperties: false,
 };
@@ -297,13 +255,9 @@ Please analyze and compare these two texts.`;
     const responseText = claudeResult.content?.[0]?.text || '';
     const feedback = JSON.parse(responseText);
 
-    // 점수 계산: Claude의 overall_score 우선, 없으면 reproduction_rate 기반 폴백
+    // 점수 계산: Structured Outputs가 overall_score를 보장
     const reproductionRate = Math.min(100, Math.max(0, feedback.reproduction_rate || 0));
-    const score = feedback.overall_score != null
-      ? Math.min(100, Math.max(0, Math.round(feedback.overall_score)))
-      : Math.min(100, Math.max(0, Math.round(
-          reproductionRate - Math.min(15, (feedback.grammar_issues?.length || 0) * 3)
-        )));
+    const score = Math.min(100, Math.max(0, Math.round(feedback.overall_score)));
 
     // API 사용량 기록 (supabaseAdmin은 위에서 이미 생성됨)
     const inputTokens = claudeResult.usage?.input_tokens || 0;

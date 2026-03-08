@@ -59,12 +59,10 @@ describe('practice.tsx 웹 파일 확장자', () => {
     practiceScreen = fs.readFileSync(practiceScreenPath, 'utf8');
   });
 
-  it('Platform.OS로 확장자를 분기한다', () => {
-    expect(practiceScreen).toContain("Platform.OS === 'web' ? 'webm' : 'm4a'");
-  });
-
-  it('동적 확장자를 파일명에 사용한다', () => {
-    expect(practiceScreen).toContain('`practice_${Date.now()}.${ext}`');
+  it('확장자 없이 baseName만 uploadRecording에 전달한다', () => {
+    expect(practiceScreen).toContain('`practice_${Date.now()}`');
+    // 확장자 결정은 uploadRecording 내부에서 콘텐츠 타입 기반으로 처리
+    expect(practiceScreen).not.toMatch(/practice_\$\{Date\.now\(\)\}\.\$\{ext\}/);
   });
 });
 

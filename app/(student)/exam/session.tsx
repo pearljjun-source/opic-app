@@ -65,6 +65,11 @@ export default function ExamSessionScreen() {
   const recTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const totalTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // 웹 전용: 직접 MediaRecorder API 사용 (expo-audio 웹 녹음 불안정)
+  const webRecorderRef = useRef<MediaRecorder | null>(null);
+  const webChunksRef = useRef<Blob[]>([]);
+  const webMimeTypeRef = useRef<string>('audio/webm');
+
   const { currentOrg } = useAuth();
   const sessionIdRef = useRef(sessionId);
   const isActionRef = useRef(false);
@@ -200,7 +205,37 @@ export default function ExamSessionScreen() {
     return () => {
       if (recTimerRef.current) clearInterval(recTimerRef.current);
       if (totalTimerRef.current) clearInterval(totalTimerRef.current);
+      if (Platform.OS === 'web' && webRecorderRef.current) {
+        if (webRecorderRef.current.state !== 'inactive') {
+          webRecorderRef.current.stop();
+        }
+        webRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
+        webRecorderRef.current = null;
+      }
     };
+  }, []);
+
+  // 웹 녹음 중지 헬퍼 (handleTimeUp, handleStopRecording 공용)
+  const stopWebRecording = useCallback(async (): Promise<string | null> => {
+    if (!webRecorderRef.current || webRecorderRef.current.state === 'inactive') {
+      return null;
+    }
+
+    const stopped = new Promise<void>((resolve) => {
+      webRecorderRef.current!.addEventListener('stop', () => resolve(), { once: true });
+    });
+    webRecorderRef.current.stop();
+    await stopped;
+
+    let uri: string | null = null;
+    if (webChunksRef.current.length > 0) {
+      const blob = new Blob(webChunksRef.current, { type: webMimeTypeRef.current });
+      uri = URL.createObjectURL(blob);
+    }
+
+    webRecorderRef.current?.stream.getTracks().forEach((t) => t.stop());
+    webRecorderRef.current = null;
+    return uri;
   }, []);
 
   // 시간 초과
@@ -208,8 +243,26 @@ export default function ExamSessionScreen() {
     if (totalTimerRef.current) clearInterval(totalTimerRef.current);
     if (recTimerRef.current) clearInterval(recTimerRef.current);
 
-    // 현재 녹음 중이면 중단하고 저장 (recorder는 훅에서 안정적 참조)
-    if (recorder.isRecording) {
+    const isWebRecording = Platform.OS === 'web' && webRecorderRef.current?.state === 'recording';
+    const isNativeRecording = Platform.OS !== 'web' && recorder.isRecording;
+
+    if (isWebRecording) {
+      stopWebRecording().then((uri) => {
+        const q = currentQuestionRef.current;
+        if (uri && q) {
+          setRecordings((prev) => [...prev, {
+            questionOrder: q.question_order,
+            questionId: q.question_id || q.roleplay_question_id || '',
+            questionType: q.source === 'roleplay_question' ? 'roleplay_question' : 'question',
+            uri,
+            duration: recordingTimeRef.current,
+          }]);
+        }
+        setSessionState('exam_end');
+      }).catch(() => {
+        setSessionState('exam_end');
+      });
+    } else if (isNativeRecording) {
       recorder.stop().then(() => {
         const uri = recorder.uri;
         const q = currentQuestionRef.current;
@@ -308,8 +361,33 @@ export default function ExamSessionScreen() {
   // 녹음 시작
   const handleStartRecording = async () => {
     try {
-      // 네이티브: 권한 요청 + 오디오 모드 설정
-      if (Platform.OS !== 'web') {
+      if (Platform.OS === 'web') {
+        // 웹: 직접 MediaRecorder API 사용 (expo-audio 웹 녹음 불안정)
+        if (typeof navigator === 'undefined' || !navigator.mediaDevices || typeof MediaRecorder === 'undefined') {
+          Alert.alert('오류', '이 브라우저에서는 녹음을 지원하지 않습니다.');
+          return;
+        }
+
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm'
+          : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
+        if (!mimeType) {
+          Alert.alert('오류', '이 브라우저에서 지원하는 오디오 형식이 없습니다.');
+          return;
+        }
+
+        webMimeTypeRef.current = mimeType;
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mediaRecorder = new MediaRecorder(stream, { mimeType });
+
+        webChunksRef.current = [];
+        mediaRecorder.addEventListener('dataavailable', (e) => {
+          if (e.data.size > 0) webChunksRef.current.push(e.data);
+        });
+
+        mediaRecorder.start();
+        webRecorderRef.current = mediaRecorder;
+      } else {
+        // 네이티브: expo-audio
         const { granted } = await requestRecordingPermissionsAsync();
         if (!granted) {
           Alert.alert('권한 필요', '녹음을 위해 마이크 권한이 필요합니다.');
@@ -320,23 +398,32 @@ export default function ExamSessionScreen() {
           allowsRecording: true,
           playsInSilentMode: true,
         });
+
+        await recorder.prepareToRecordAsync();
+        recorder.record();
       }
 
-      await recorder.prepareToRecordAsync();
-      recorder.record();
       setSessionState('recording');
       setRecordingTime(0);
 
       recTimerRef.current = setInterval(() => {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
-    } catch (err) {
+    } catch (err: any) {
       if (__DEV__) console.warn('[AppError] Recording start error:', err);
-      // iOS: 녹음 모드에서 복구 (스피커 출력 복원)
       if (Platform.OS !== 'web') {
         await setAudioModeAsync({ allowsRecording: false }).catch(() => {});
       }
-      Alert.alert('오류', '녹음 시작에 실패했습니다.');
+      const msg = err?.name === 'NotFoundError'
+        ? '마이크를 찾을 수 없습니다. 마이크가 연결되어 있는지 확인해주세요.'
+        : err?.name === 'NotAllowedError'
+          ? '마이크 권한이 거부되었습니다. 브라우저 설정에서 마이크 권한을 허용해주세요.'
+          : '녹음 시작에 실패했습니다.';
+      if (Platform.OS === 'web') {
+        window.alert(msg);
+      } else {
+        Alert.alert('오류', msg);
+      }
     }
   };
 
@@ -350,11 +437,15 @@ export default function ExamSessionScreen() {
     }
 
     try {
-      await recorder.stop();
-      const uri = recorder.uri;
+      let uri: string | null = null;
 
-      // iOS: 녹음 모드 해제
-      if (Platform.OS !== 'web') {
+      if (Platform.OS === 'web') {
+        uri = await stopWebRecording();
+      } else {
+        await recorder.stop();
+        uri = recorder.uri;
+
+        // iOS: 녹음 모드 해제
         await setAudioModeAsync({ allowsRecording: false }).catch(() => {});
       }
 
@@ -581,13 +672,40 @@ export default function ExamSessionScreen() {
               <View style={[styles.recordingDot, { backgroundColor: colors.error }]} />
               <Text style={[styles.recordingLabel, { color: colors.error }]}>녹음 중</Text>
             </View>
-            <Pressable
-              style={[styles.micButton, { backgroundColor: colors.gray600 }]}
-              onPress={handleStopRecording}
-            >
-              <Ionicons name="stop" size={32} color="#FFFFFF" />
-            </Pressable>
+            {Platform.OS === 'web' ? (
+              <div
+                onClick={handleStopRecording}
+                style={{
+                  width: 80, height: 80, borderRadius: 40,
+                  backgroundColor: '#4B5563',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer',
+                }}
+              >
+                <Ionicons name="stop" size={32} color="#FFFFFF" />
+              </div>
+            ) : (
+              <Pressable
+                style={[styles.micButton, { backgroundColor: colors.gray600 }]}
+                onPress={handleStopRecording}
+              >
+                <Ionicons name="stop" size={32} color="#FFFFFF" />
+              </Pressable>
+            )}
           </>
+        ) : Platform.OS === 'web' ? (
+          <div
+            onClick={sessionState !== 'playing_question' ? handleStartRecording : undefined}
+            style={{
+              width: 80, height: 80, borderRadius: 40,
+              backgroundColor: '#F87171',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: sessionState !== 'playing_question' ? 'pointer' : 'default',
+              boxShadow: '0 4px 8px rgba(248,113,113,0.25)',
+            }}
+          >
+            <Ionicons name="mic" size={36} color="#FFFFFF" />
+          </div>
         ) : (
           <Pressable
             style={[styles.micButton, { backgroundColor: colors.error, shadowColor: colors.error }]}
@@ -600,9 +718,18 @@ export default function ExamSessionScreen() {
 
         {/* 건너뛰기 */}
         {sessionState !== 'recording' && (
-          <Pressable style={styles.skipButton} onPress={handleSkip}>
-            <Text style={[styles.skipText, { color: colors.textDisabled }]}>건너뛰기</Text>
-          </Pressable>
+          Platform.OS === 'web' ? (
+            <div
+              onClick={handleSkip}
+              style={{ padding: 12, cursor: 'pointer' }}
+            >
+              <Text style={[styles.skipText, { color: colors.textDisabled }]}>건너뛰기</Text>
+            </div>
+          ) : (
+            <Pressable style={styles.skipButton} onPress={handleSkip}>
+              <Text style={[styles.skipText, { color: colors.textDisabled }]}>건너뛰기</Text>
+            </Pressable>
+          )
         )}
       </View>
     </View>
