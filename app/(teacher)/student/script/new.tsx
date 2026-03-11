@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 import { NOTIFICATION_TYPES } from '@/lib/constants';
 import { createScript } from '@/services/scripts';
@@ -20,6 +20,7 @@ import { getUserMessage } from '@/lib/errors';
 import { useThemeColors } from '@/hooks/useTheme';
 import { showToast } from '@/lib/toast';
 import { getRemainingQuota } from '@/services/billing';
+import { QuotaIndicator } from '@/components/ui';
 
 export default function NewScriptScreen() {
   const colors = useThemeColors();
@@ -31,6 +32,13 @@ export default function NewScriptScreen() {
   const [content, setContent] = useState('');
   const [comment, setComment] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [scriptQuota, setScriptQuota] = useState<{ used: number; limit: number } | null>(null);
+
+  useEffect(() => {
+    getRemainingQuota('scripts').then((q) => {
+      if (q.limit != null) setScriptQuota({ used: q.used, limit: q.limit });
+    });
+  }, []);
 
   const handleSave = async () => {
     if (!content.trim()) {
@@ -100,6 +108,10 @@ export default function NewScriptScreen() {
       >
         <Text style={[styles.title, { color: colors.textPrimary }]}>스크립트 작성</Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>학생이 연습할 영어 스크립트를 작성하세요</Text>
+
+        {scriptQuota && (
+          <QuotaIndicator label="스크립트" used={scriptQuota.used} limit={scriptQuota.limit} />
+        )}
 
         <Text style={[styles.label, { color: colors.textPrimary }]}>스크립트 내용 *</Text>
         <TextInput

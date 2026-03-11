@@ -527,6 +527,8 @@ const RPC_ERROR_MAP: Record<string, ErrorCode> = {
   'FREE_PLAN': ERROR_CODES.BILLING_FEATURE_NOT_AVAILABLE,
   'SUBSCRIPTION_EXPIRED': ERROR_CODES.BILLING_SUBSCRIPTION_EXPIRED,
   'QUOTA_EXCEEDED': ERROR_CODES.BILLING_QUOTA_EXCEEDED,
+  'STUDENT_QUOTA_EXCEEDED': ERROR_CODES.BILLING_QUOTA_EXCEEDED,
+  'SCRIPT_QUOTA_EXCEEDED': ERROR_CODES.BILLING_QUOTA_EXCEEDED,
   'NOT_ORG_OWNER': ERROR_CODES.ORG_OWNER_ONLY,
 };
 
@@ -666,6 +668,13 @@ function classifyPostgrestError(
   // 23503: 외래키 위반 (참조 리소스 없음)
   if (error.code === '23503') {
     return classifyNotFoundByContext(context, error);
+  }
+  // P0001: RAISE EXCEPTION (커스텀 에러 — 트리거/RPC에서 발생)
+  if (error.code === 'P0001') {
+    const msg = (error.message || '').toUpperCase();
+    if (msg.includes('SCRIPT_QUOTA_EXCEEDED') || msg.includes('STUDENT_QUOTA_EXCEEDED')) {
+      return new AppError(ERROR_CODES.BILLING_QUOTA_EXCEEDED, { originalError: error });
+    }
   }
   return new AppError(ERROR_CODES.SVR_DATABASE, { originalError: error });
 }

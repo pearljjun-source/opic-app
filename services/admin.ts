@@ -227,6 +227,7 @@ export async function listOrganizations(): Promise<{
 /** 학원 상세 조회 (org 정보 + 멤버 + 구독) */
 export async function getOrganizationDetail(orgId: string): Promise<{
   data: {
+    org: AdminOrganizationItem;
     members: AdminOrgMemberItem[];
     subscription: AdminOrgSubscription | null;
   } | null;
@@ -245,6 +246,19 @@ export async function getOrganizationDetail(orgId: string): Promise<{
   if (data?.error) {
     return { data: null, error: classifyRpcError(data.error, { resource: 'organization' }) };
   }
+
+  // org 정보 (042 마이그레이션에서 추가)
+  const orgData = data?.org;
+  const org: AdminOrganizationItem = {
+    id: orgData?.id || orgId,
+    name: orgData?.name || '(알 수 없음)',
+    created_at: orgData?.created_at || '',
+    owner_name: orgData?.owner_name || '(알 수 없음)',
+    owner_email: orgData?.owner_email || '',
+    member_count: orgData?.member_count || 0,
+    teacher_count: orgData?.teacher_count || 0,
+    student_count: orgData?.student_count || 0,
+  };
 
   const members: AdminOrgMemberItem[] = (data?.members || []).map((m: any) => ({
     id: m.id,
@@ -270,7 +284,7 @@ export async function getOrganizationDetail(orgId: string): Promise<{
     };
   }
 
-  return { data: { members, subscription }, error: null };
+  return { data: { org, members, subscription }, error: null };
 }
 
 /** 학원 이름 수정 */

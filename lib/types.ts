@@ -60,18 +60,20 @@ export type TimerId = ReturnType<typeof setTimeout>;
 // Application Types
 // ============================================================================
 
-/** AI 피드백 구조 (v2: ACTFL 기반 확장, v1 필드 호환 유지) */
+/** AI 피드백 구조 (v2: ACTFL 기반 확장) */
 export interface AIFeedback {
-  // === v1 필드 (기존 호환) ===
+  // === 공통 필드 (v1 + v2) ===
   summary: string;
   reproduction_rate: number;
   missed_phrases: string[];
-  extra_phrases: string[];
-  pronunciation_tips: string[];
-  grammar_issues: string[];
-  suggestions: string[];
 
-  // === v2 필드 (optional, 새 피드백에만 존재) ===
+  // === v1-only 필드 (optional — 과거 DB 데이터 호환, 새 응답에서 미생성) ===
+  extra_phrases?: string[];
+  pronunciation_tips?: string[];
+  grammar_issues?: string[];
+  suggestions?: string[];
+
+  // === v2 필드 (optional — 과거 DB 데이터에는 없음) ===
 
   /** Claude가 산출한 종합 점수 (0-100) */
   overall_score?: number;

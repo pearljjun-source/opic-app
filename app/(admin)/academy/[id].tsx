@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/hooks/useTheme';
 import { getUserMessage } from '@/lib/errors';
 import {
-  listOrganizations, getOrganizationDetail, getOrganizationPayments,
+  getOrganizationDetail, getOrganizationPayments,
   updateOrganization, deleteOrganization,
   adminUpdateSubscription, adminCancelSubscription,
 } from '@/services/admin';
@@ -83,23 +83,16 @@ export default function AcademyDetailScreen() {
     setError(null);
 
     try {
-      const [orgsResult, detailResult, paymentsResult] = await Promise.all([
-        listOrganizations(),
+      const [detailResult, paymentsResult] = await Promise.all([
         getOrganizationDetail(id),
         getOrganizationPayments(id),
       ]);
-
-      if (orgsResult.error) {
-        setError(getUserMessage(orgsResult.error));
-      } else {
-        const found = orgsResult.data?.find(o => o.id === id) || null;
-        setOrg(found);
-      }
 
       if (detailResult.error) {
         setError(getUserMessage(detailResult.error));
       }
       if (detailResult.data) {
+        setOrg(detailResult.data.org);
         setMembers(detailResult.data.members);
         setSubscription(detailResult.data.subscription);
       }

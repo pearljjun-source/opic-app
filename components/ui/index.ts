@@ -45,6 +45,8 @@ export {
   type EmptyStateProps,
 } from './EmptyState';
 export { Toast } from './Toast';
+export { FeatureLockBanner } from './FeatureLockBanner';
+export { QuotaIndicator } from './QuotaIndicator';
 export {
   Badge,
   StatusBadge,

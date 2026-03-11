@@ -12,6 +12,7 @@ import type { Invite, OrgRole } from '@/lib/types';
 import { getUserMessage } from '@/lib/errors';
 import { useThemeColors } from '@/hooks/useTheme';
 import { getRemainingQuota } from '@/services/billing';
+import { QuotaIndicator } from '@/components/ui';
 
 /**
  * 초대 화면
@@ -35,8 +36,9 @@ export default function InviteScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [creatingRole, setCreatingRole] = useState<OrgRole | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [studentQuota, setStudentQuota] = useState<{ used: number; limit: number } | null>(null);
 
-  // 활성 초대 코드 조회
+  // 활성 초대 코드 + 쿼터 조회
   const fetchActiveInvites = useCallback(async () => {
     setError(null);
 
@@ -46,6 +48,11 @@ export default function InviteScreen() {
     if (canInviteTeachers) {
       requests.push(getActiveInvites('teacher'));
     }
+
+    // 쿼터 병렬 조회
+    getRemainingQuota('students').then((q) => {
+      if (q.limit != null) setStudentQuota({ used: q.used, limit: q.limit });
+    });
 
     const results = await Promise.all(requests);
 
@@ -214,6 +221,11 @@ export default function InviteScreen() {
         <View style={[styles.errorContainer, { backgroundColor: colors.accentRedBg }]}>
           <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
         </View>
+      )}
+
+      {/* 학생 쿼터 */}
+      {studentQuota && (
+        <QuotaIndicator label="학생" used={studentQuota.used} limit={studentQuota.limit} />
       )}
 
       {/* 학생 초대 섹션 */}
