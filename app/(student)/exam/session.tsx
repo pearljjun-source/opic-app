@@ -325,11 +325,17 @@ export default function ExamSessionScreen() {
     try {
       setSessionState('playing_question');
 
-      // 롤플레이 질문은 audio_url 없으면 TTS 불가 (question_id 없으므로)
-      // 일반 질문은 TTS 생성 가능
-      let audioUrl: string | null = null;
+      // 롤플레이 질문은 TTS 불가 (question_id 없음)
+      if (currentQuestion.source !== 'question' || !currentQuestion.question_id) {
+        setSessionState('ready');
+        return;
+      }
 
-      if (currentQuestion.source === 'question' && currentQuestion.question_id) {
+      // 1. RPC가 반환한 audio_url 사용 (DB 캐시 히트 — 네트워크 호출 0회)
+      let audioUrl = currentQuestion.audio_url || null;
+
+      // 2. audio_url 없으면 TTS 생성 폴백 (최초 1회만 — 이후 DB에 캐시됨)
+      if (!audioUrl) {
         const { data: ttsData, error: ttsError } = await generateQuestionAudio(currentQuestion.question_id);
         if (ttsError) {
           if (__DEV__) console.warn('[AppError] TTS generate error:', ttsError);
@@ -337,13 +343,10 @@ export default function ExamSessionScreen() {
           setSessionState('ready');
           return;
         }
-        if (ttsData) {
-          audioUrl = ttsData.audioUrl;
-        }
+        audioUrl = ttsData?.audioUrl || null;
       }
 
       if (!audioUrl) {
-        // 롤플레이 등 TTS 미지원 문항 → 바로 ready로
         setSessionState('ready');
         return;
       }
@@ -511,13 +514,11 @@ export default function ExamSessionScreen() {
       return;
     }
 
-    router.replace({
-      pathname: routes.processing,
-      params: {
-        sessionId: sessionIdRef.current,
-        recordings: JSON.stringify(recordings),
-      },
-    } as any);
+    const processingParams = new URLSearchParams({
+      sessionId: sessionIdRef.current,
+      recordings: JSON.stringify(recordings),
+    });
+    router.replace(`${routes.processing}?${processingParams.toString()}` as any);
   };
 
   // 시간 포맷

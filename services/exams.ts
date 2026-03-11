@@ -28,6 +28,7 @@ export interface GeneratedQuestion {
   combo_number: number | null;
   combo_position: number | null;
   source: 'question' | 'roleplay_question';
+  audio_url?: string | null;
 }
 
 interface ExamAvailability {

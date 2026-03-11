@@ -1,7 +1,7 @@
 # Speaky — OPIc 학습 SaaS 플랫폼
 
-> **문서 버전**: v3.0
-> **최종 수정일**: 2026-02-22
+> **문서 버전**: v4.0
+> **최종 수정일**: 2026-03-08
 > **작성자**: Jin + Claude AI
 
 ---
@@ -26,7 +26,7 @@ OPIc 시험 대비 학습 SaaS 플랫폼.
 | Organization | `organization_members.role` | `owner` | 학원장 (구독/결제 관리) |
 | | | `teacher` | 강사 (스크립트/피드백) |
 | | | `student` | 학생 (연습/녹음) |
-| Legacy | `users.role` | `admin/teacher/student` | 14개 RLS 정책 호환용 (향후 제거) |
+| ~~Legacy~~ | ~~`users.role`~~ | ~~`admin/teacher/student`~~ | ✅ 037~038에서 완전 제거. `get_user_role()`은 `organization_members` 기반으로 재작성 |
 
 ---
 
@@ -131,6 +131,11 @@ COLORS.PRIMARY  // #D4707F (딥 로즈)
 2. 보안, 인증, 데이터 무결성, ERD 권한을 **함께** 검토
 3. 단일 패치가 아닌 **일관된 아키텍처 수준의 해결책** 적용
 4. 해결 후 동일 패턴의 다른 코드에도 **동일 원칙 적용** 여부 확인
+5. **교체 완결성(Replacement Completeness)**: 새 메커니즘 B를 도입해서 기존 A를 대체했으면, A가 완전히 제거되었는지 확인
+   - AI 프롬프트: Structured Outputs 도입 → 프롬프트 내 형식 설명 제거
+   - API 스키마: v2 필드 추가 → v1 중복 필드를 required에서 제거 (화면 폴백은 DB 기존 데이터용으로 유지)
+   - 코드/설정: 새 함수·config가 기존을 대체 → 기존 것 삭제
+   - **검증 질문**: "이 변경이 기존 코드/설정을 대체하는가? → YES면 대체된 것이 완전히 제거되었는가?"
 
 ---
 
@@ -249,7 +254,7 @@ END IF;
 **인증/역할**:
 | 함수 | 용도 |
 |------|------|
-| `get_user_role` | 사용자 레거시 역할 조회 |
+| `get_user_role` | 사용자 역할 조회 (org_members 기반, 037에서 재작성) |
 | `is_super_admin` | 플랫폼 관리자 확인 |
 | `is_org_member` | 조직 멤버 확인 |
 | `can_teach_in_org` | 강사/원장 확인 |
@@ -319,13 +324,14 @@ END IF;
 
 ---
 
-## Edge Functions (8개)
+## Edge Functions (9개)
 
 | 함수 | 용도 | 외부 API |
 |------|------|---------|
 | `whisper-stt` | 음성 → 텍스트 변환 | OpenAI Whisper |
 | `tts-generate` | 텍스트 → 음성 변환 | OpenAI TTS |
-| `claude-feedback` | AI 피드백 생성 | Claude Haiku |
+| `claude-feedback` | AI 피드백 생성 (스크립트 연습) | Claude Haiku |
+| `claude-exam-evaluate` | 모의고사 AI 평가 (ACTFL 4차원 채점) | Claude Haiku |
 | `deliver-notification` | 푸시 알림 배달 | Expo Push |
 | `billing-key` | TOSS 빌링키 발급 | TOSS Payments |
 | `toss-webhook` | 결제 웹훅 처리 | TOSS Payments |
@@ -344,6 +350,7 @@ END IF;
   - `ai_feedback`, `tts`, `max_students`, `max_scripts`
   - 무료 기본: 학생 3명, 스크립트 5개
   - RPC 미존재 시 무료 폴백 (보수적)
+  - ✅ **서버 사이드 쿼터 검증**: `use_invite_code`에 max_students 체크, scripts INSERT 트리거로 max_scripts 체크 (043 마이그레이션)
 
 ### 상태
 - `active`, `trialing`, `past_due`, `canceled`, `incomplete`
@@ -375,18 +382,47 @@ END IF;
 - [x] 랜딩 페이지 CMS (admin)
 - [x] 웹 배포 (Vercel)
 
-### 진행 중 🚧
-- [ ] 어드민 패널 안정화 (032 마이그레이션 — users RLS 수정)
-- [ ] 웹 플랫폼 안정화 (라우팅, 로그인 폼, 자격증명)
+### Phase 4 — 레거시 제거 + 모의고사 ✅
+- [x] 레거시 `users.role` 컬럼 완전 제거 (037~038 마이그레이션)
+- [x] `get_user_role()` → `organization_members` 기반 재작성
+- [x] 어드민 함수 `role='admin'` → `is_super_admin()` 전환
+- [x] 모의고사 DB 스키마 (034~041 마이그레이션, 4개 테이블)
+- [x] 모의고사 UI (ExamHub, MockSurvey, MockAssessment, ComboList, Session, Processing, Result, History)
+- [x] 모의고사 서비스 레이어 (services/exams.ts, 12개 함수)
+- [x] 모의고사 RPC 함수 (check_exam_availability, generate_mock/level_test_questions)
+- [x] 모의고사 보안 트리거 (점수 보호, 상태 전이 강제, 조직 검증)
+- [x] `claude-exam-evaluate` Edge Function (ACTFL 4차원 채점 + Structured Outputs)
+- [x] 결과 처리 화면 (processing.tsx — 업로드→STT→AI 평가 진행률)
+- [x] 결과 화면 (result.tsx — 등급/ACTFL 4차원/문항별 상세)
+- [x] 콤보 롤플레이 선택 화면 (combo-list.tsx)
+- [x] 시험 이력 화면 (history.tsx — 필터링 + sessionDetail 재사용)
+
+### 웹/어드민 안정화 — 완료 ✅
+- [x] 어드민 패널: academy/[id].tsx 쿼리 최적화 (042 마이그레이션 — listOrganizations 제거)
+- [x] 웹 녹음: MediaRecorder 브라우저 호환성 가드 + mimeType 폴백 (webm→mp4)
+- [x] 웹 녹음: uploadRecording 확장자 자동 결정 (blob.type 기반)
+- [x] claude-feedback max_tokens 4096 복원, docs/FEATURES.md 녹음 시간 정정
+
+### Phase 5 — Feature Gating 고도화 ✅
+- [x] **서버 사이드 쿼터 검증** (043 마이그레이션)
+  - `_check_org_quota(org_id, feature)`: auth.uid() 불필요한 내부 헬퍼
+  - `use_invite_code`: max_students 쿼터 검증 (CAS 이전에 체크)
+  - `enforce_script_quota` 트리거: scripts INSERT 시 max_scripts 검증
+  - 에러 코드: STUDENT_QUOTA_EXCEEDED, SCRIPT_QUOTA_EXCEEDED → BILLING_QUOTA_EXCEEDED 매핑
+- [x] **Feature 잠금 UI**
+  - `FeatureLockBanner` 컴포넌트 (잠금 상태 + 업그레이드 CTA)
+  - `QuotaIndicator` 컴포넌트 (잔여량 프로그레스 바)
+  - 초대 화면: 학생 쿼터 인디케이터 표시
+  - 스크립트 생성: 스크립트 쿼터 인디케이터 표시
+- [x] **org_role 기반 인가 함수** — 037~038에서 이미 완료 (레거시 참조 0건 확인)
 
 ### 예정 📋
-- [ ] Phase 4: Feature Gating 고도화 (org_role 기반 인가 함수)
-- [ ] Phase 5: 구독 관리 화면 완성 + 결제 테스트
+- [ ] Phase 6: 구독 관리 화면 완성 + 결제 테스트
 - [ ] 프로덕션 배포 준비
 
 ---
 
-## 마이그레이션 이력 (32개)
+## 마이그레이션 이력 (45개)
 
 | 범위 | 파일 | 내용 |
 |------|------|------|
@@ -395,6 +431,12 @@ END IF;
 | 기능 | 014~019 | 반 관리, 토픽 네비게이션, 대시보드, 어드민 |
 | 조직 | 020~025 | Organization 시스템, 어드민 RLS, 초대, 데이터 정리 |
 | 안정화 | 026~032 | 어드민 기능, 역할 수정, 구독 정리, users RLS 수정 |
+| 레거시 제거 | 033~038 | users.role 컬럼 삭제, get_user_role 재작성, 잔존 함수 수정 |
+| 모의고사 | 034~041 | exam 테이블, 시드 데이터, RPC, 보안 트리거, 무결성 |
+| 안정화 | 042 | admin_get_organization_detail에 org 정보 추가 (전체 목록 조회 제거) |
+| Feature Gating | 043 | 서버 사이드 쿼터 검증 (_check_org_quota, use_invite_code 쿼터, scripts 트리거) |
+| 통계 | 044 | get_student_practice_stats 트렌드 데이터 (prev_avg_score/rate, target_opic_grade) |
+| 성능 | 045 | 시험 RPC에 audio_url 포함 (TTS 지연 근본 해결) |
 
 ---
 
