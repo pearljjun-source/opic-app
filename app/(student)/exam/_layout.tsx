@@ -1,8 +1,12 @@
 import { Stack } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/hooks/useTheme';
 
 export default function ExamLayout() {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
+
+  const safeContentStyle = { paddingBottom: insets.bottom };
 
   return (
     <Stack
@@ -16,6 +20,7 @@ export default function ExamLayout() {
           color: colors.textPrimary,
         },
         headerTintColor: colors.textPrimary,
+        contentStyle: safeContentStyle,
       }}
     >
       <Stack.Screen name="mock-survey" options={{ title: '토픽 선택' }} />

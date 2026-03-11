@@ -44,10 +44,8 @@ export default function MockSurveyScreen() {
       Alert.alert('토픽 선택', `최소 ${EXAM_CONFIG.MIN_SURVEY_TOPICS}개의 토픽을 선택해주세요.`);
       return;
     }
-    router.push({
-      pathname: routes.mockAssessment,
-      params: { topicIds: Array.from(selectedIds).join(',') },
-    } as any);
+    const topicIdsParam = Array.from(selectedIds).join(',');
+    router.push(`${routes.mockAssessment}?topicIds=${topicIdsParam}` as any);
   };
 
   if (isLoading) {
@@ -60,7 +58,7 @@ export default function MockSurveyScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView style={styles.scrollArea} contentContainerStyle={styles.scrollContent}>
         <Text style={[styles.instruction, { color: colors.textSecondary }]}>
           실제 OPIc 시험처럼 관심 있는 토픽을 선택하세요. (최소 {EXAM_CONFIG.MIN_SURVEY_TOPICS}개)
         </Text>
@@ -114,7 +112,8 @@ export default function MockSurveyScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  scrollContent: { padding: 24, paddingBottom: 120 },
+  scrollArea: { flex: 1 },
+  scrollContent: { padding: 24 },
   instruction: {
     fontSize: 14,
     fontFamily: 'Pretendard-Regular',
@@ -134,10 +133,6 @@ const styles = StyleSheet.create({
   topicName: { fontSize: 15, fontFamily: 'Pretendard-SemiBold' },
   topicDesc: { fontSize: 12, fontFamily: 'Pretendard-Regular', marginTop: 2 },
   footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

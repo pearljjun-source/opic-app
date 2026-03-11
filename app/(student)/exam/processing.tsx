@@ -38,10 +38,7 @@ export default function ProcessingScreen() {
   }, []);
 
   const navigateToResult = useCallback(() => {
-    router.replace({
-      pathname: routes.result,
-      params: { sessionId },
-    } as any);
+    router.replace(`${routes.result}?sessionId=${sessionId}` as any);
   }, [router, sessionId]);
 
   useEffect(() => {

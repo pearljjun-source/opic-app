@@ -87,15 +87,13 @@ export default function ComboListScreen() {
       }
 
       // 5. 시험 시작
-      router.push({
-        pathname: routes.session,
-        params: {
-          sessionId: sessionData.sessionId,
-          examType: 'combo_roleplay',
-          questions: JSON.stringify(questions),
-          scenarioContext: detail.scenario.scenario_context || '',
-        },
-      } as any);
+      const sessionParams = new URLSearchParams({
+        sessionId: sessionData.sessionId,
+        examType: 'combo_roleplay',
+        questions: JSON.stringify(questions),
+        scenarioContext: detail.scenario.scenario_context || '',
+      });
+      router.push(`${routes.session}?${sessionParams.toString()}` as any);
     } catch (err) {
       Alert.alert('오류', getUserMessage(err));
     } finally {

@@ -62,14 +62,12 @@ export default function MockAssessmentScreen() {
       }
 
       // 4. 시험 시작
-      router.replace({
-        pathname: routes.session,
-        params: {
-          sessionId: sessionData.sessionId,
-          examType: 'mock_exam',
-          questions: JSON.stringify(questionData.questions),
-        },
-      } as any);
+      const sessionParams = new URLSearchParams({
+        sessionId: sessionData.sessionId,
+        examType: 'mock_exam',
+        questions: JSON.stringify(questionData.questions),
+      });
+      router.replace(`${routes.session}?${sessionParams.toString()}` as any);
     } catch (err) {
       Alert.alert('오류', getUserMessage(err));
     } finally {
@@ -80,7 +78,7 @@ export default function MockAssessmentScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView style={styles.scrollArea} contentContainerStyle={styles.scrollContent}>
         <Text style={[styles.instruction, { color: colors.textSecondary }]}>
           자신의 영어 실력에 가장 가까운 레벨을 선택하세요.{'\n'}
           선택한 레벨에 따라 문항 수와 난이도가 조절됩니다.
@@ -144,7 +142,8 @@ export default function MockAssessmentScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: { padding: 24, paddingBottom: 120 },
+  scrollArea: { flex: 1 },
+  scrollContent: { padding: 24 },
   instruction: {
     fontSize: 14,
     fontFamily: 'Pretendard-Regular',
@@ -177,10 +176,6 @@ const styles = StyleSheet.create({
   levelMeta: { alignItems: 'flex-end', gap: 4 },
   questionCount: { fontSize: 12, fontFamily: 'Pretendard-Medium' },
   footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     alignItems: 'center',
     paddingHorizontal: 24,
     paddingVertical: 16,

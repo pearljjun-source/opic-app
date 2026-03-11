@@ -62,10 +62,7 @@ export default function ExamHubScreen() {
         router.push(routes.comboList as any);
         break;
       case 'level_test':
-        router.push({
-          pathname: routes.session,
-          params: { examType: 'level_test' },
-        } as any);
+        router.push(`${routes.session}?examType=level_test` as any);
         break;
     }
   };
