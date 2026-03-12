@@ -87,18 +87,6 @@ export default function PracticeScreen() {
       } else if (data) {
         setScript(data);
         setPracticeState('ready');
-
-        // audio_url 없으면 백그라운드 TTS 프리로드 (버튼 클릭 시 즉시 재생 가능)
-        if (!data.question.audio_url && data.question.id) {
-          generateQuestionAudio(data.question.id).then(({ data: ttsData }) => {
-            if (ttsData?.audioUrl) {
-              setScript(prev => prev ? {
-                ...prev,
-                question: { ...prev.question, audio_url: ttsData.audioUrl },
-              } : prev);
-            }
-          }).catch(() => {}); // 프리로드 실패는 무시 — 버튼 클릭 시 재시도
-        }
       }
     };
 

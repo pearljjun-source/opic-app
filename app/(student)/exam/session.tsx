@@ -105,7 +105,6 @@ export default function ExamSessionScreen() {
         const parsed = JSON.parse(questionsParam) as GeneratedQuestion[];
         setQuestions(parsed);
         setSessionState('ready');
-        preloadTTS(parsed);
       } catch {
         Alert.alert('오류', '문제 데이터를 불러올 수 없습니다.', [
           { text: '확인', onPress: () => router.back() },
@@ -159,7 +158,6 @@ export default function ExamSessionScreen() {
       sessionIdRef.current = sessionData.sessionId;
       setQuestions(data.questions);
       setSessionState('ready');
-      preloadTTS(data.questions);
     } catch (err) {
       Alert.alert('오류', getUserMessage(err), [
         { text: '확인', onPress: () => router.back() },
@@ -307,23 +305,6 @@ export default function ExamSessionScreen() {
         },
       ]
     );
-  };
-
-  // TTS 프리로드: audio_url 없는 question 소스 문항을 순차적으로 백그라운드 생성
-  const preloadTTS = async (qs: GeneratedQuestion[]) => {
-    for (let i = 0; i < qs.length; i++) {
-      const q = qs[i];
-      if (q.source === 'question' && q.question_id && !q.audio_url) {
-        try {
-          const { data: ttsData } = await generateQuestionAudio(q.question_id);
-          if (ttsData?.audioUrl) {
-            setQuestions(prev => prev.map((pq, pi) =>
-              pi === i ? { ...pq, audio_url: ttsData.audioUrl } : pq
-            ));
-          }
-        } catch {} // 프리로드 실패 무시 — 버튼 클릭 시 재시도
-      }
-    }
   };
 
   // 질문 오디오 재생
