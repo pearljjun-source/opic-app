@@ -5,7 +5,7 @@ import {
 import { useState, useEffect, useCallback } from 'react';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 
 import { useThemeColors } from '@/hooks/useTheme';
 import { getUserMessage } from '@/lib/errors';
@@ -27,7 +27,6 @@ import { showToast } from '@/lib/toast';
 
 export default function AcademyDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const insets = useSafeAreaInsets();
   const colors = useThemeColors();
 
   // ============================================================================
@@ -227,23 +226,14 @@ export default function AcademyDetailScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.center, { backgroundColor: colors.surfaceSecondary, paddingTop: insets.top }]}>
+      <View style={[styles.center, { backgroundColor: colors.surfaceSecondary }]}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.surfaceSecondary, paddingTop: insets.top }]}>
-      {/* 헤더 */}
-      <View style={[styles.header, { backgroundColor: colors.surfaceSecondary }]}>
-        <Pressable onPress={() => router.back()} hitSlop={8} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>학원 상세</Text>
-        <View style={{ width: 32 }} />
-      </View>
-
+    <View style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}>
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
@@ -587,15 +577,6 @@ export default function AcademyDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  backBtn: { width: 32, height: 32, justifyContent: 'center' },
-  headerTitle: { fontSize: 18, fontFamily: 'Pretendard-Bold' },
   content: { padding: 16, paddingBottom: 40 },
   errorText: { fontSize: 14, fontFamily: 'Pretendard-Medium', marginBottom: 12 },
 

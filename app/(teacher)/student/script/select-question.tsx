@@ -46,10 +46,10 @@ export default function SelectQuestionScreen() {
   }, [topicId]);
 
   const handleSelectQuestion = (questionId: string) => {
-    router.push({
+    router.replace({
       pathname: '/(teacher)/student/script/new',
       params: { questionId, studentId },
-    });
+    } as any);
   };
 
   if (isLoading) {

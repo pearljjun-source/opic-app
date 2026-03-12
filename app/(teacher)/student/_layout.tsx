@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useThemeColors } from '@/hooks/useTheme';
+import HomeButton from '@/components/ui/HomeButton';
 
 export default function StudentLayout() {
   const insets = useSafeAreaInsets();
@@ -20,6 +21,7 @@ export default function StudentLayout() {
           fontSize: 17,
           color: colors.textPrimary,
         },
+        headerRight: () => <HomeButton />,
         contentStyle: { paddingBottom: insets.bottom },
       }}
     >

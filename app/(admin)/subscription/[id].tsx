@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable } from
 import { useState, useEffect, useCallback } from 'react';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 
 import { useThemeColors } from '@/hooks/useTheme';
 import { getUserMessage } from '@/lib/errors';
@@ -12,7 +12,6 @@ import type { PaymentRecord } from '@/lib/types';
 
 export default function AdminSubscriptionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const insets = useSafeAreaInsets();
   const colors = useThemeColors();
 
   const STATUS_LABELS: Record<string, { text: string; color: string }> = {
@@ -90,16 +89,7 @@ export default function AdminSubscriptionDetailScreen() {
   const user = subscription.users;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.surfaceSecondary, paddingTop: insets.top }]}>
-      {/* 헤더 */}
-      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>구독 상세</Text>
-        <View style={{ width: 24 }} />
-      </View>
-
+    <View style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}>
       <ScrollView contentContainerStyle={styles.content}>
         {/* 구독 정보 */}
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -177,15 +167,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   errorText: { fontSize: 14, fontFamily: 'Pretendard-Medium' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  headerTitle: { fontSize: 17, fontFamily: 'Pretendard-Bold' },
   content: { padding: 16, paddingBottom: 40 },
   card: {
     borderRadius: 16,

@@ -120,7 +120,7 @@ export default function LoginScreen() {
             }}>
               {Platform.OS === 'web' && (
                 <Pressable
-                  onPress={() => router.push('/')}
+                  onPress={() => router.replace('/' as any)}
                   style={{ marginBottom: 16 }}
                 >
                   <Image

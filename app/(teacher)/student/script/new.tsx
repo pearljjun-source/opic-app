@@ -92,7 +92,7 @@ export default function NewScriptScreen() {
     }
 
     showToast('스크립트가 저장되었습니다.');
-    router.navigate(`/(teacher)/student/${studentId}`);
+    router.replace(`/(teacher)/student/${studentId}` as any);
   };
 
   return (

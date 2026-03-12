@@ -77,10 +77,10 @@ export default function SelectTopicScreen() {
   }, [topics]);
 
   const handleSelectTopic = (topicId: string) => {
-    router.push({
+    router.replace({
       pathname: '/(teacher)/student/script/select-question',
       params: { topicId, studentId },
-    });
+    } as any);
   };
 
   if (isLoading) {

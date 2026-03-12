@@ -145,14 +145,14 @@ export default function ResultScreen() {
 
         <Pressable
           style={[styles.secondaryButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          onPress={() => router.push(`/(student)/script/${id}`)}
+          onPress={() => router.replace(`/(student)/script/${id}` as any)}
         >
           <Text style={[styles.secondaryButtonText, { color: colors.textPrimary }]}>스크립트 보기</Text>
         </Pressable>
 
         <Pressable
           style={styles.tertiaryButton}
-          onPress={() => router.push('/(student)' as any)}
+          onPress={() => router.replace('/(student)/' as any)}
         >
           <Text style={[styles.tertiaryButtonText, { color: colors.textSecondary }]}>홈으로</Text>
         </Pressable>

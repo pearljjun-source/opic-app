@@ -150,19 +150,19 @@ export default function AdminDashboard() {
       {/* 바로가기 */}
       <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>바로가기</Text>
       <View style={styles.shortcutGrid}>
-        <Pressable style={[styles.shortcutCard, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => router.push('/(admin)/(tabs)/users')}>
+        <Pressable style={[styles.shortcutCard, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => router.replace('/(admin)/(tabs)/users' as any)}>
           <Ionicons name="people" size={24} color={colors.primary} />
           <Text style={[styles.shortcutLabel, { color: colors.textPrimary }]}>사용자 관리</Text>
         </Pressable>
-        <Pressable style={[styles.shortcutCard, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => router.push('/(admin)/(tabs)/academies')}>
+        <Pressable style={[styles.shortcutCard, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => router.replace('/(admin)/(tabs)/academies' as any)}>
           <Ionicons name="business" size={24} color="#7C3AED" />
           <Text style={[styles.shortcutLabel, { color: colors.textPrimary }]}>학원 관리</Text>
         </Pressable>
-        <Pressable style={[styles.shortcutCard, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => router.push('/(admin)/(tabs)/billing')}>
+        <Pressable style={[styles.shortcutCard, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => router.replace('/(admin)/(tabs)/billing' as any)}>
           <Ionicons name="card" size={24} color={colors.secondary} />
           <Text style={[styles.shortcutLabel, { color: colors.textPrimary }]}>결제 관리</Text>
         </Pressable>
-        <Pressable style={[styles.shortcutCard, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => router.push('/(admin)/(tabs)/landing')}>
+        <Pressable style={[styles.shortcutCard, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => router.replace('/(admin)/(tabs)/landing' as any)}>
           <Ionicons name="globe" size={24} color="#F59E0B" />
           <Text style={[styles.shortcutLabel, { color: colors.textPrimary }]}>랜딩 관리</Text>
         </Pressable>

@@ -1,7 +1,31 @@
 import { Stack } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { useThemeColors } from '@/hooks/useTheme';
+import HomeButton from '@/components/ui/HomeButton';
 
 export default function AdminUserLayout() {
+  const insets = useSafeAreaInsets();
+  const colors = useThemeColors();
+
   return (
-    <Stack screenOptions={{ headerShown: false }} />
+    <Stack
+      screenOptions={{
+        headerShown: true,
+        headerBackTitle: '뒤로',
+        headerTintColor: colors.primary,
+        headerStyle: { backgroundColor: colors.surfaceSecondary },
+        headerShadowVisible: false,
+        headerTitleStyle: {
+          fontFamily: 'Pretendard-SemiBold',
+          fontSize: 17,
+          color: colors.textPrimary,
+        },
+        headerRight: () => <HomeButton />,
+        contentStyle: { paddingBottom: insets.bottom },
+      }}
+    >
+      <Stack.Screen name="[id]" options={{ title: '사용자 상세' }} />
+    </Stack>
   );
 }
