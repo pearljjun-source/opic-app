@@ -7,6 +7,7 @@ import { useThemeColors } from '@/hooks/useTheme';
 import { useExamRoutes } from '@/hooks/useExamRoutes';
 import { EXAM_CONFIG } from '@/lib/constants';
 import { getUserMessage } from '@/lib/errors';
+import { alert as xAlert } from '@/lib/alert';
 import { getSurveyTopics } from '@/services/exams';
 import type { Topic } from '@/lib/types';
 
@@ -22,7 +23,7 @@ export default function MockSurveyScreen() {
     (async () => {
       const { data, error } = await getSurveyTopics();
       if (error) {
-        Alert.alert('오류', getUserMessage(error));
+        xAlert('오류', getUserMessage(error));
       } else {
         setTopics(data);
       }
@@ -41,7 +42,7 @@ export default function MockSurveyScreen() {
 
   const handleNext = () => {
     if (selectedIds.size < EXAM_CONFIG.MIN_SURVEY_TOPICS) {
-      Alert.alert('토픽 선택', `최소 ${EXAM_CONFIG.MIN_SURVEY_TOPICS}개의 토픽을 선택해주세요.`);
+      xAlert('토픽 선택', `최소 ${EXAM_CONFIG.MIN_SURVEY_TOPICS}개의 토픽을 선택해주세요.`);
       return;
     }
     const topicIdsParam = Array.from(selectedIds).join(',');

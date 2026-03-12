@@ -8,6 +8,7 @@ import { useExamRoutes } from '@/hooks/useExamRoutes';
 import { EXAM_TYPE_LABELS, ACTFL_DIMENSIONS } from '@/lib/constants';
 import { getExamSession } from '@/services/exams';
 import { getUserMessage } from '@/lib/errors';
+import { alert as xAlert } from '@/lib/alert';
 import type { ExamSession, ExamResponse, ExamEvaluationReport } from '@/lib/types';
 
 export default function ExamResultScreen() {
@@ -28,7 +29,7 @@ export default function ExamResultScreen() {
     (async () => {
       const { data, error } = await getExamSession(sessionId);
       if (error) {
-        Alert.alert('오류', getUserMessage(error));
+        xAlert('오류', getUserMessage(error));
       } else {
         setSession(data);
       }

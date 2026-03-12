@@ -9,6 +9,7 @@ import { SELF_ASSESSMENT_LEVELS } from '@/lib/constants';
 import { generateMockExamQuestions, checkExamAvailability, createExamSession } from '@/services/exams';
 import { useAuth } from '@/hooks/useAuth';
 import { getUserMessage } from '@/lib/errors';
+import { alert as xAlert } from '@/lib/alert';
 
 export default function MockAssessmentScreen() {
   const colors = useThemeColors();
@@ -31,7 +32,7 @@ export default function MockAssessmentScreen() {
       // 1. 시험 가능 여부 확인
       const availability = await checkExamAvailability('mock_exam', 15);
       if (!availability.success) {
-        Alert.alert('시험 불가', availability.error || '시험을 시작할 수 없습니다.');
+        xAlert('시험 불가', availability.error || '시험을 시작할 수 없습니다.');
         return;
       }
 
@@ -43,7 +44,7 @@ export default function MockAssessmentScreen() {
       );
 
       if (questionError || !questionData) {
-        Alert.alert('오류', getUserMessage(questionError) || '문제 생성에 실패했습니다.');
+        xAlert('오류', getUserMessage(questionError) || '문제 생성에 실패했습니다.');
         return;
       }
 
@@ -57,7 +58,7 @@ export default function MockAssessmentScreen() {
       });
 
       if (sessionError || !sessionData) {
-        Alert.alert('오류', getUserMessage(sessionError) || '시험 세션 생성에 실패했습니다.');
+        xAlert('오류', getUserMessage(sessionError) || '시험 세션 생성에 실패했습니다.');
         return;
       }
 
@@ -69,7 +70,7 @@ export default function MockAssessmentScreen() {
       });
       router.replace(`${routes.session}?${sessionParams.toString()}` as any);
     } catch (err) {
-      Alert.alert('오류', getUserMessage(err));
+      xAlert('오류', getUserMessage(err));
     } finally {
       setIsLoading(false);
       isStartingRef.current = false;

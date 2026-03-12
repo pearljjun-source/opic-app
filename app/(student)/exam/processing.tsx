@@ -7,6 +7,7 @@ import { useThemeColors } from '@/hooks/useTheme';
 import { useExamRoutes } from '@/hooks/useExamRoutes';
 import { processExamResults } from '@/services/exams';
 import { getUserMessage } from '@/lib/errors';
+import { alert as xAlert } from '@/lib/alert';
 import type { ExamRecording } from '@/lib/types';
 
 const STAGE_LABELS = {
@@ -75,10 +76,10 @@ export default function ProcessingScreen() {
       }
 
       if (partialSttFailures && partialSttFailures > 0) {
-        Alert.alert(
+        xAlert(
           '일부 인식 실패',
           `${partialSttFailures}개 답변의 음성 인식에 실패했습니다.\n나머지 답변으로 평가가 진행되었습니다.`,
-          [{ text: '결과 보기', onPress: () => navigateToResult() }],
+          () => navigateToResult(),
         );
       } else {
         navigateToResult();

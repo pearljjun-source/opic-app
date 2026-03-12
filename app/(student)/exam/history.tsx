@@ -8,6 +8,7 @@ import { useExamRoutes } from '@/hooks/useExamRoutes';
 import { EXAM_TYPE_LABELS, COLORS } from '@/lib/constants';
 import { getMyExamSessions } from '@/services/exams';
 import { getUserMessage } from '@/lib/errors';
+import { alert as xAlert } from '@/lib/alert';
 import type { ExamSessionListItem, ExamType } from '@/lib/types';
 
 const FILTER_OPTIONS: Array<{ label: string; value: ExamType | 'all' }> = [
@@ -39,7 +40,7 @@ export default function ExamHistoryScreen() {
     setIsLoading(true);
     const { data, error } = await getMyExamSessions(filter === 'all' ? undefined : filter);
     if (error) {
-      Alert.alert('오류', getUserMessage(error));
+      xAlert('오류', getUserMessage(error));
     } else {
       setSessions(data);
     }

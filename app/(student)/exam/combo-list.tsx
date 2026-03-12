@@ -9,6 +9,7 @@ import { EXAM_CONFIG } from '@/lib/constants';
 import { getRoleplayScenarios, getRoleplayScenarioDetail, checkExamAvailability, createExamSession } from '@/services/exams';
 import { useAuth } from '@/hooks/useAuth';
 import { getUserMessage } from '@/lib/errors';
+import { alert as xAlert } from '@/lib/alert';
 import type { RoleplayScenario } from '@/lib/types';
 import type { GeneratedQuestion } from '@/services/exams';
 
@@ -34,7 +35,7 @@ export default function ComboListScreen() {
     (async () => {
       const { data, error } = await getRoleplayScenarios();
       if (error) {
-        Alert.alert('오류', getUserMessage(error));
+        xAlert('오류', getUserMessage(error));
       } else {
         setScenarios(data);
       }
@@ -50,14 +51,14 @@ export default function ComboListScreen() {
       // 1. 가용 여부 확인
       const availability = await checkExamAvailability('combo_roleplay', EXAM_CONFIG.COMBO_QUESTION_COUNT);
       if (!availability.success) {
-        Alert.alert('시험 불가', availability.error || '시험을 시작할 수 없습니다.');
+        xAlert('시험 불가', availability.error || '시험을 시작할 수 없습니다.');
         return;
       }
 
       // 2. 시나리오 상세 + 문항 조회
       const { data: detail, error: detailError } = await getRoleplayScenarioDetail(scenario.id);
       if (detailError || !detail) {
-        Alert.alert('오류', getUserMessage(detailError) || '시나리오 조회에 실패했습니다.');
+        xAlert('오류', getUserMessage(detailError) || '시나리오 조회에 실패했습니다.');
         return;
       }
 
@@ -82,7 +83,7 @@ export default function ComboListScreen() {
       });
 
       if (sessionError || !sessionData) {
-        Alert.alert('오류', getUserMessage(sessionError) || '세션 생성에 실패했습니다.');
+        xAlert('오류', getUserMessage(sessionError) || '세션 생성에 실패했습니다.');
         return;
       }
 
@@ -95,7 +96,7 @@ export default function ComboListScreen() {
       });
       router.push(`${routes.session}?${sessionParams.toString()}` as any);
     } catch (err) {
-      Alert.alert('오류', getUserMessage(err));
+      xAlert('오류', getUserMessage(err));
     } finally {
       setStartingId(null);
       isStartingRef.current = false;

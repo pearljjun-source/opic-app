@@ -28,6 +28,7 @@ import { abandonExamSession, generateLevelTestQuestions, checkExamAvailability, 
 import { useAuth } from '@/hooks/useAuth';
 import { generateQuestionAudio } from '@/services/practices';
 import { getUserMessage } from '@/lib/errors';
+import { alert as xAlert, confirm as xConfirm } from '@/lib/alert';
 import type { ExamType, ExamRecording } from '@/lib/types';
 import type { GeneratedQuestion } from '@/services/exams';
 
@@ -106,9 +107,7 @@ export default function ExamSessionScreen() {
         setQuestions(parsed);
         setSessionState('ready');
       } catch {
-        Alert.alert('오류', '문제 데이터를 불러올 수 없습니다.', [
-          { text: '확인', onPress: () => router.back() },
-        ]);
+        xAlert('오류', '문제 데이터를 불러올 수 없습니다.', () => router.back());
       }
     } else if (examType === 'level_test') {
       // 레벨 테스트: 문항 생성 + 세션 생성 (멱등성 가드)
@@ -118,9 +117,7 @@ export default function ExamSessionScreen() {
       }
     } else {
       // 필수 파라미터 누락 → 진입 불가
-      Alert.alert('오류', '문제 데이터가 없습니다.', [
-        { text: '확인', onPress: () => router.back() },
-      ]);
+      xAlert('오류', '문제 데이터가 없습니다.', () => router.back());
     }
   }, [questionsParam, examType]);
 
@@ -128,17 +125,13 @@ export default function ExamSessionScreen() {
     try {
       const availability = await checkExamAvailability('level_test', EXAM_CONFIG.LEVEL_TEST_QUESTION_COUNT);
       if (!availability.success) {
-        Alert.alert('시험 불가', availability.error || '시험을 시작할 수 없습니다.', [
-          { text: '확인', onPress: () => router.back() },
-        ]);
+        xAlert('시험 불가', availability.error || '시험을 시작할 수 없습니다.', () => router.back());
         return;
       }
 
       const { data, error } = await generateLevelTestQuestions();
       if (error || !data) {
-        Alert.alert('오류', getUserMessage(error) || '문제 생성에 실패했습니다.', [
-          { text: '확인', onPress: () => router.back() },
-        ]);
+        xAlert('오류', getUserMessage(error) || '문제 생성에 실패했습니다.', () => router.back());
         return;
       }
 
@@ -149,9 +142,7 @@ export default function ExamSessionScreen() {
       });
 
       if (sessionError || !sessionData) {
-        Alert.alert('오류', getUserMessage(sessionError) || '세션 생성에 실패했습니다.', [
-          { text: '확인', onPress: () => router.back() },
-        ]);
+        xAlert('오류', getUserMessage(sessionError) || '세션 생성에 실패했습니다.', () => router.back());
         return;
       }
 
@@ -159,9 +150,7 @@ export default function ExamSessionScreen() {
       setQuestions(data.questions);
       setSessionState('ready');
     } catch (err) {
-      Alert.alert('오류', getUserMessage(err), [
-        { text: '확인', onPress: () => router.back() },
-      ]);
+      xAlert('오류', getUserMessage(err), () => router.back());
     }
   };
 
@@ -286,24 +275,18 @@ export default function ExamSessionScreen() {
 
   // 포기 확인
   const confirmAbandon = () => {
-    Alert.alert(
+    xConfirm(
       '시험 종료',
       '시험을 포기하시겠습니까? 녹음된 답변은 모두 삭제됩니다.',
-      [
-        { text: '계속 진행', style: 'cancel' },
-        {
-          text: '포기',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              if (sessionIdRef.current) await abandonExamSession(sessionIdRef.current);
-            } catch {
-              if (__DEV__) console.warn('[AppError] Failed to abandon session');
-            }
-            router.replace(routes.examHub as any);
-          },
-        },
-      ]
+      async () => {
+        try {
+          if (sessionIdRef.current) await abandonExamSession(sessionIdRef.current);
+        } catch {
+          if (__DEV__) console.warn('[AppError] Failed to abandon session');
+        }
+        router.replace(routes.examHub as any);
+      },
+      { confirmText: '포기', cancelText: '계속 진행' }
     );
   };
 
@@ -339,7 +322,7 @@ export default function ExamSessionScreen() {
         const { data: ttsData, error: ttsError } = await generateQuestionAudio(currentQuestion.question_id);
         if (ttsError) {
           if (__DEV__) console.warn('[AppError] TTS generate error:', ttsError);
-          Alert.alert('음성 재생 실패', getUserMessage(ttsError));
+          xAlert('음성 재생 실패', getUserMessage(ttsError));
           setSessionState('ready');
           return;
         }
@@ -374,14 +357,14 @@ export default function ExamSessionScreen() {
       if (Platform.OS === 'web') {
         // 웹: 직접 MediaRecorder API 사용 (expo-audio 웹 녹음 불안정)
         if (typeof navigator === 'undefined' || !navigator.mediaDevices || typeof MediaRecorder === 'undefined') {
-          Alert.alert('오류', '이 브라우저에서는 녹음을 지원하지 않습니다.');
+          xAlert('오류', '이 브라우저에서는 녹음을 지원하지 않습니다.');
           return;
         }
 
         const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm'
           : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
         if (!mimeType) {
-          Alert.alert('오류', '이 브라우저에서 지원하는 오디오 형식이 없습니다.');
+          xAlert('오류', '이 브라우저에서 지원하는 오디오 형식이 없습니다.');
           return;
         }
 
@@ -400,7 +383,7 @@ export default function ExamSessionScreen() {
         // 네이티브: expo-audio
         const { granted } = await requestRecordingPermissionsAsync();
         if (!granted) {
-          Alert.alert('권한 필요', '녹음을 위해 마이크 권한이 필요합니다.');
+          xAlert('권한 필요', '녹음을 위해 마이크 권한이 필요합니다.');
           return;
         }
 
@@ -432,7 +415,7 @@ export default function ExamSessionScreen() {
       if (Platform.OS === 'web') {
         window.alert(msg);
       } else {
-        Alert.alert('오류', msg);
+        xAlert('오류', msg);
       }
     }
   };
@@ -477,7 +460,7 @@ export default function ExamSessionScreen() {
       }
     } catch (err) {
       if (__DEV__) console.warn('[AppError] Recording stop error:', err);
-      Alert.alert('오류', '녹음 저장에 실패했습니다.');
+      xAlert('오류', '녹음 저장에 실패했습니다.');
       setSessionState('ready');
     }
   };
@@ -503,21 +486,19 @@ export default function ExamSessionScreen() {
     if (totalTimerRef.current) clearInterval(totalTimerRef.current);
 
     if (recordings.length === 0) {
-      Alert.alert('녹음 없음', '녹음된 답변이 없습니다. 시험을 포기하시겠습니까?', [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '포기',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              if (sessionIdRef.current) await abandonExamSession(sessionIdRef.current);
-            } catch {
-              if (__DEV__) console.warn('[AppError] Failed to abandon session');
-            }
-            router.replace(routes.examHub as any);
-          },
+      xConfirm(
+        '녹음 없음',
+        '녹음된 답변이 없습니다. 시험을 포기하시겠습니까?',
+        async () => {
+          try {
+            if (sessionIdRef.current) await abandonExamSession(sessionIdRef.current);
+          } catch {
+            if (__DEV__) console.warn('[AppError] Failed to abandon session');
+          }
+          router.replace(routes.examHub as any);
         },
-      ]);
+        { confirmText: '포기' }
+      );
       return;
     }
 
