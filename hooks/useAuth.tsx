@@ -509,14 +509,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Sign out
   // ============================================================================
   const signOut = useCallback(async () => {
-    // 먼저 로컬 상태 즉시 초기화 (UI 즉시 반영)
     safeMultiRemove([CACHE_KEY_PROFILE, CACHE_KEY_ORG, CACHE_KEY_ORGS]);
-    setState({
-      user: null, session: null, isLoading: false, isAuthenticated: false,
-      platformRole: null, currentOrg: null, orgRole: null,
-      organizations: [], _profileVerified: true,
-    });
-    // Supabase 세션 정리 (실패해도 위에서 이미 로그아웃 상태)
+
+    // 네이티브: 로컬 상태 즉시 초기화 (UI 즉시 반영)
+    // 웹: setState 생략 — 라우팅 이펙트의 window.location.href가 세션 정리 전에
+    //      페이지를 리로드하면 Supabase 세션이 localStorage에 남아 재인증되는 문제 방지
+    if (Platform.OS !== 'web') {
+      setState({
+        user: null, session: null, isLoading: false, isAuthenticated: false,
+        platformRole: null, currentOrg: null, orgRole: null,
+        organizations: [], _profileVerified: true,
+      });
+    }
+
+    // Supabase 세션 정리 (서버 + localStorage)
     try {
       await supabase.auth.signOut();
     } catch (err) {
@@ -525,8 +531,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await supabase.auth.signOut({ scope: 'local' });
       } catch (_) {}
     }
-    // 웹: 전체 페이지 리로드로 네비게이션 상태 + 컴포넌트 메모리 완전 제거
-    // SPA router.replace('/')는 group index URL 충돌 + 비밀번호 등 폼 상태 잔존 위험
+
+    // 웹: signOut 완료 후 전체 리로드 — 네비게이션 상태 + 폼 메모리 완전 제거
+    // 세션이 localStorage에서 제거된 후이므로 INITIAL_SESSION에서 재인증 안 됨
     if (Platform.OS === 'web') {
       window.location.href = '/';
     }
