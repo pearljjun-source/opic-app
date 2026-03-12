@@ -427,14 +427,22 @@ END IF;
 - [x] Dunning 강화 (14일 재시도 → canceled, `subscription-renew` 업데이트)
 - [x] 다운그레이드 예약 (`pending_plan_id` + `subscription-renew` 적용)
 
+### Phase 6B — Dunning 알림 + 취소 리텐션 ✅
+- [x] Dunning 마일스톤 푸시 알림 (Day 0/3/7/14 — `subscription-renew` 내장)
+- [x] `dunning_started_at` 컬럼 + 자동 클리어 트리거 (active 복구 시)
+- [x] 취소 리텐션 플로우 (`CancellationFlow` 3단계 모달: 사유 → 제안 → 확인)
+- [x] `cancellation_feedback` 테이블 + RLS + admin 통계 RPC
+- [x] `submitCancellationFlow` 서비스 함수 (사유 기록 + 취소/다운그레이드/유지 분기)
+- [x] 취소 사유 상수 (`CANCELLATION_REASONS` 6개)
+- [x] `payment_failed` 알림 타입 추가
+
 ### 예정 📋
-- [ ] Phase 6B: Dunning 이메일 시퀀스 + 취소 리텐션 플로우
 - [ ] Phase 6C: 연간 결제 + 트라이얼 전환 넛지
 - [ ] 프로덕션 배포 준비
 
 ---
 
-## 마이그레이션 이력 (46개)
+## 마이그레이션 이력 (47개)
 
 | 범위 | 파일 | 내용 |
 |------|------|------|
@@ -450,6 +458,7 @@ END IF;
 | 통계 | 044 | get_student_practice_stats 트렌드 데이터 (prev_avg_score/rate, target_opic_grade) |
 | 성능 | 045 | 시험 RPC에 audio_url 포함 (TTS 지연 근본 해결) |
 | 구독 | 046 | Phase 6A: pending_plan_id, grace period, 상태 전이 트리거 |
+| 구독 | 047 | Phase 6B: dunning_started_at, cancellation_feedback, 취소 리텐션 |
 
 ---
 

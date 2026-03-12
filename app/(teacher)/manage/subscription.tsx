@@ -7,11 +7,12 @@ import { Platform, Linking } from 'react-native';
 import { useThemeColors } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscription } from '@/hooks/useSubscription';
-import { getRemainingQuota, getPaymentHistory, cancelSubscription, updateBillingKey } from '@/services/billing';
+import { getRemainingQuota, getPaymentHistory, cancelSubscription, updateBillingKey, submitCancellationFlow } from '@/services/billing';
 import { getUserMessage } from '@/lib/errors';
 import { requestTossBillingAuth, isTossConfigured, buildPaymentUrls } from '@/lib/toss';
-import type { PaymentRecord } from '@/lib/types';
+import type { PaymentRecord, CancellationReason, CancellationAction } from '@/lib/types';
 import { showToast } from '@/lib/toast';
+import CancellationFlow from '@/components/ui/CancellationFlow';
 
 export default function SubscriptionScreen() {
   const colors = useThemeColors();
@@ -23,6 +24,7 @@ export default function SubscriptionScreen() {
   const [scriptQuota, setScriptQuota] = useState<{ used: number; limit: number; remaining: number } | null>(null);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showCancelFlow, setShowCancelFlow] = useState(false);
 
   const isOwner = orgRole === 'owner';
 
@@ -53,26 +55,41 @@ export default function SubscriptionScreen() {
 
   const handleCancel = () => {
     if (!subscription) return;
-    Alert.alert(
-      '구독 취소',
-      '현재 결제 기간이 끝나면 구독이 종료됩니다. 취소하시겠습니까?',
-      [
-        { text: '아니오', style: 'cancel' },
-        {
-          text: '취소하기',
-          style: 'destructive',
-          onPress: async () => {
-            const { error } = await cancelSubscription(subscription.id);
-            if (error) {
-              Alert.alert('오류', getUserMessage(error));
-            } else {
-              showToast('구독 취소가 예약되었습니다.');
-              refresh();
-            }
-          },
-        },
-      ]
-    );
+    setShowCancelFlow(true);
+  };
+
+  const handleCancelFlowComplete = async (result: {
+    reason: CancellationReason;
+    detail?: string;
+    offerShown?: string;
+    offerAccepted: boolean;
+    action: CancellationAction;
+  }) => {
+    if (!subscription || !currentOrg) return;
+
+    const { data, error } = await submitCancellationFlow({
+      subscriptionId: subscription.id,
+      orgId: currentOrg.id,
+      reason: result.reason,
+      detail: result.detail,
+      offerShown: result.offerShown,
+      offerAccepted: result.offerAccepted,
+      action: result.action,
+    });
+
+    if (error) {
+      Alert.alert('오류', getUserMessage(error));
+      return;
+    }
+
+    if (result.action === 'canceled') {
+      showToast('구독 취소가 예약되었습니다.');
+    } else if (result.action === 'downgraded') {
+      showToast('다음 갱신 시 무료 플랜으로 전환됩니다.');
+    } else {
+      showToast('구독이 유지됩니다.');
+    }
+    refresh();
   };
 
   // 결제 수단 변경 콜백 처리 (웹: Toss 리다이렉트 후)
@@ -350,6 +367,16 @@ export default function SubscriptionScreen() {
           구독 관리는 학원 원장만 가능합니다
         </Text>
       )}
+
+      {/* 취소 리텐션 플로우 */}
+      <CancellationFlow
+        visible={showCancelFlow}
+        planName={plan?.name || 'Free'}
+        studentCount={studentQuota?.used || 0}
+        scriptCount={scriptQuota?.used || 0}
+        onComplete={handleCancelFlowComplete}
+        onDismiss={() => setShowCancelFlow(false)}
+      />
     </ScrollView>
   );
 }

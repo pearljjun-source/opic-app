@@ -181,6 +181,51 @@ export async function cancelSubscription(
   return { data: { success: true }, error: null };
 }
 
+/** 취소 리텐션 플로우: 사유 기록 + 취소/다운그레이드 실행 */
+export async function submitCancellationFlow(params: {
+  subscriptionId: string;
+  orgId: string;
+  reason: string;
+  detail?: string;
+  offerShown?: string;
+  offerAccepted: boolean;
+  action: 'canceled' | 'downgraded' | 'retained';
+}): Promise<{ data: { success: boolean; action: string } | null; error: Error | null }> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: new AppError('AUTH_REQUIRED') };
+
+  // 1. cancellation_feedback 기록
+  const { error: feedbackError } = await supabase
+    .from('cancellation_feedback')
+    .insert({
+      organization_id: params.orgId,
+      subscription_id: params.subscriptionId,
+      user_id: user.id,
+      reason: params.reason,
+      detail: params.detail || null,
+      offer_shown: params.offerShown || null,
+      offer_accepted: params.offerAccepted,
+      final_action: params.action,
+    });
+
+  if (feedbackError) {
+    if (__DEV__) console.warn('[AppError] cancellation_feedback insert:', feedbackError.message);
+  }
+
+  // 2. 최종 액션 실행
+  if (params.action === 'canceled') {
+    return cancelSubscription(params.subscriptionId);
+  }
+
+  if (params.action === 'downgraded') {
+    // Free 플랜으로 다운그레이드 (다음 갱신 시 적용)
+    return changePlan('free', params.orgId);
+  }
+
+  // retained: 사용자가 제안을 수락하고 취소 안 함
+  return { data: { success: true, action: 'retained' }, error: null };
+}
+
 /** 결제 이력 조회 */
 export async function getPaymentHistory(params?: {
   limit?: number;

@@ -5,7 +5,7 @@
 // 타입은 types.ts에서 정의하고 여기서 import합니다.
 // ============================================================================
 
-import type { InviteStatus, ScriptStatus, QuestionType, ApiType, NotificationType, TopicCategory, OrgRole, PlatformRole, ExamType } from './types';
+import type { InviteStatus, ScriptStatus, QuestionType, ApiType, NotificationType, TopicCategory, OrgRole, PlatformRole, ExamType, CancellationReason } from './types';
 
 // ============================================================================
 // 상태/역할 상수
@@ -88,7 +88,18 @@ export const NOTIFICATION_TYPES: Record<string, NotificationType> = {
   TEACHER_FEEDBACK: 'teacher_feedback',
   NEW_SCRIPT: 'new_script',
   STUDENT_CONNECTED: 'student_connected',
+  PAYMENT_FAILED: 'payment_failed',
 } as const;
+
+/** 취소 사유 목록 */
+export const CANCELLATION_REASONS: { key: CancellationReason; label: string; offer: string }[] = [
+  { key: 'too_expensive', label: '비용이 부담됩니다', offer: 'downgrade' },
+  { key: 'not_using', label: '충분히 활용하지 못하고 있습니다', offer: 'none' },
+  { key: 'missing_feature', label: '필요한 기능이 없습니다', offer: 'feedback' },
+  { key: 'switching', label: '다른 서비스로 전환합니다', offer: 'downgrade' },
+  { key: 'closing_academy', label: '학원을 정리합니다', offer: 'none' },
+  { key: 'other', label: '기타', offer: 'none' },
+] as const;
 
 // ============================================================================
 // 난이도/등급
