@@ -87,6 +87,18 @@ export default function PracticeScreen() {
       } else if (data) {
         setScript(data);
         setPracticeState('ready');
+
+        // audio_url 없으면 백그라운드 TTS 프리로드 (버튼 클릭 시 즉시 재생 가능)
+        if (!data.question.audio_url && data.question.id) {
+          generateQuestionAudio(data.question.id).then(({ data: ttsData }) => {
+            if (ttsData?.audioUrl) {
+              setScript(prev => prev ? {
+                ...prev,
+                question: { ...prev.question, audio_url: ttsData.audioUrl },
+              } : prev);
+            }
+          }).catch(() => {}); // 프리로드 실패는 무시 — 버튼 클릭 시 재시도
+        }
       }
     };
 
@@ -136,6 +148,12 @@ export default function PracticeScreen() {
         }
 
         audioUrl = ttsData.audioUrl;
+
+        // 같은 세션 내 반복 호출 방지: 로컬 state에 캐시
+        setScript(prev => prev ? {
+          ...prev,
+          question: { ...prev.question, audio_url: audioUrl },
+        } : prev);
       }
 
       player.replace({ uri: audioUrl });
