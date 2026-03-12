@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscription } from '@/hooks/useSubscription';
-import { getSubscriptionPlans, issueBillingKey } from '@/services/billing';
+import { getSubscriptionPlans, issueBillingKey, changePlan } from '@/services/billing';
 import { getUserMessage } from '@/lib/errors';
 import { requestTossBillingAuth, isTossConfigured, buildPaymentUrls } from '@/lib/toss';
 import type { SubscriptionPlan } from '@/lib/types';
@@ -30,7 +30,7 @@ export default function PlanSelectScreen() {
   }>();
 
   const { user, currentOrg, orgRole, isAuthenticated, _profileVerified } = useAuth();
-  const { planKey: currentPlanKey, refresh: refreshSubscription } = useSubscription();
+  const { subscription, planKey: currentPlanKey, refresh: refreshSubscription } = useSubscription();
 
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -140,22 +140,75 @@ export default function PlanSelectScreen() {
       return;
     }
 
-    if (plan.plan_key === 'free' || plan.plan_key === currentPlanKey) return;
+    if (plan.plan_key === currentPlanKey) return;
 
     if (plan.plan_key === 'academy') {
       Alert.alert('도입 문의', 'Academy 플랜은 별도 문의가 필요합니다.\nspeaky@support.com');
       return;
     }
 
-    // 다운그레이드 차단
-    const currentIdx = PLAN_ORDER.indexOf(currentPlanKey || 'free');
-    const targetIdx = PLAN_ORDER.indexOf(plan.plan_key);
-    if (targetIdx <= currentIdx) {
-      Alert.alert('안내', '현재 플랜보다 낮은 플랜으로는 변경할 수 없습니다.');
+    setError(null);
+
+    // 기존 유료 구독이 있으면 change-plan Edge Function 사용
+    const hasActiveSub = subscription && subscription.status === 'active';
+    if (hasActiveSub && currentPlanKey && currentPlanKey !== 'free') {
+      const currentIdx = PLAN_ORDER.indexOf(currentPlanKey);
+      const targetIdx = PLAN_ORDER.indexOf(plan.plan_key);
+      const isDowngrade = targetIdx < currentIdx;
+
+      if (isDowngrade) {
+        Alert.alert(
+          '플랜 다운그레이드',
+          `${plan.name} 플랜으로 변경하시겠습니까?\n다음 갱신일부터 적용됩니다.`,
+          [
+            { text: '취소', style: 'cancel' },
+            {
+              text: '변경',
+              onPress: async () => {
+                setIsProcessing(true);
+                setProcessingMessage('플랜을 변경하고 있습니다...');
+                const { data, error: changeError } = await changePlan(plan.plan_key, currentOrg!.id);
+                setIsProcessing(false);
+                if (changeError) {
+                  setError(getUserMessage(changeError));
+                } else {
+                  await refreshSubscription();
+                  setSuccess(true);
+                }
+              },
+            },
+          ]
+        );
+      } else {
+        // 업그레이드: 일할 결제
+        Alert.alert(
+          '플랜 업그레이드',
+          `${plan.name} 플랜으로 업그레이드하시겠습니까?\n남은 기간에 대한 차액이 즉시 결제됩니다.`,
+          [
+            { text: '취소', style: 'cancel' },
+            {
+              text: '업그레이드',
+              onPress: async () => {
+                setIsProcessing(true);
+                setProcessingMessage('업그레이드를 처리하고 있습니다...');
+                const { data, error: changeError } = await changePlan(plan.plan_key, currentOrg!.id);
+                setIsProcessing(false);
+                if (changeError) {
+                  setError(getUserMessage(changeError));
+                } else {
+                  await refreshSubscription();
+                  setSuccess(true);
+                }
+              },
+            },
+          ]
+        );
+      }
       return;
     }
 
-    setError(null);
+    // 새 구독 (free → 유료): Toss 빌링키 발급 플로우
+    if (plan.plan_key === 'free') return;
 
     if (Platform.OS === 'web') {
       if (!isTossConfigured()) {
@@ -272,6 +325,8 @@ export default function PlanSelectScreen() {
         const isHighlighted = plan.plan_key === 'pro';
         const targetIdx = PLAN_ORDER.indexOf(plan.plan_key);
         const isUpgradeable = targetIdx > currentIdx && plan.plan_key !== 'free';
+        const isDowngradeable = targetIdx < currentIdx && plan.plan_key !== 'free';
+        const isChangeable = isUpgradeable || isDowngradeable;
 
         return (
           <View
@@ -339,20 +394,26 @@ export default function PlanSelectScreen() {
                   styles.ctaButton,
                   isUpgradeable
                     ? { backgroundColor: colors.primary }
-                    : { backgroundColor: colors.surfaceSecondary },
+                    : isDowngradeable
+                      ? { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border }
+                      : { backgroundColor: colors.surfaceSecondary },
                 ]}
-                onPress={() => isUpgradeable && handleSelectPlan(plan)}
-                disabled={!isUpgradeable}
+                onPress={() => isChangeable && handleSelectPlan(plan)}
+                disabled={!isChangeable && plan.plan_key !== 'academy'}
               >
                 <Text style={[
                   styles.ctaText,
-                  isUpgradeable ? { color: '#fff' } : { color: colors.textDisabled },
+                  isUpgradeable ? { color: '#fff' }
+                    : isDowngradeable ? { color: colors.textPrimary }
+                    : { color: colors.textDisabled },
                 ]}>
                   {plan.plan_key === 'academy'
                     ? '도입 문의'
                     : isUpgradeable
-                      ? '결제하기'
-                      : '현재 플랜 이하'}
+                      ? '업그레이드'
+                      : isDowngradeable
+                        ? '다운그레이드'
+                        : '선택 불가'}
                 </Text>
               </Pressable>
             )}

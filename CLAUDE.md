@@ -324,7 +324,7 @@ END IF;
 
 ---
 
-## Edge Functions (9개)
+## Edge Functions (12개)
 
 | 함수 | 용도 | 외부 API |
 |------|------|---------|
@@ -337,6 +337,8 @@ END IF;
 | `toss-webhook` | 결제 웹훅 처리 | TOSS Payments |
 | `subscription-renew` | 구독 자동 갱신 | TOSS Payments |
 | `delete-user` | 사용자 데이터 삭제 | — |
+| `update-billing-key` | 결제 수단 변경 (빌링키 재발급) | TOSS Payments |
+| `change-plan` | 플랜 업/다운그레이드 (proration) | TOSS Payments |
 
 ---
 
@@ -416,13 +418,23 @@ END IF;
   - 스크립트 생성: 스크립트 쿼터 인디케이터 표시
 - [x] **org_role 기반 인가 함수** — 037~038에서 이미 완료 (레거시 참조 0건 확인)
 
+### Phase 6A — 구독 고도화 ✅
+- [x] 결제 수단 변경 (`update-billing-key` Edge Function)
+- [x] 플랜 업/다운그레이드 (`change-plan` Edge Function + proration)
+- [x] 영수증 다운로드 (TOSS receipt_url 링크)
+- [x] past_due grace period (7일 유예 — `check_org_entitlement` 업데이트)
+- [x] 구독 상태 전이 트리거 (`enforce_subscription_status_transition`)
+- [x] Dunning 강화 (14일 재시도 → canceled, `subscription-renew` 업데이트)
+- [x] 다운그레이드 예약 (`pending_plan_id` + `subscription-renew` 적용)
+
 ### 예정 📋
-- [ ] Phase 6: 구독 관리 화면 완성 + 결제 테스트
+- [ ] Phase 6B: Dunning 이메일 시퀀스 + 취소 리텐션 플로우
+- [ ] Phase 6C: 연간 결제 + 트라이얼 전환 넛지
 - [ ] 프로덕션 배포 준비
 
 ---
 
-## 마이그레이션 이력 (45개)
+## 마이그레이션 이력 (46개)
 
 | 범위 | 파일 | 내용 |
 |------|------|------|
@@ -437,6 +449,7 @@ END IF;
 | Feature Gating | 043 | 서버 사이드 쿼터 검증 (_check_org_quota, use_invite_code 쿼터, scripts 트리거) |
 | 통계 | 044 | get_student_practice_stats 트렌드 데이터 (prev_avg_score/rate, target_opic_grade) |
 | 성능 | 045 | 시험 RPC에 audio_url 포함 (TTS 지연 근본 해결) |
+| 구독 | 046 | Phase 6A: pending_plan_id, grace period, 상태 전이 트리거 |
 
 ---
 

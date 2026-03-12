@@ -104,6 +104,58 @@ export async function issueBillingKey(
   return { data: { subscriptionId: data?.subscriptionId || '' }, error: null };
 }
 
+/** 결제 수단 변경 (빌링키 재발급) */
+export async function updateBillingKey(
+  authKey: string,
+  orgId: string
+): Promise<{ data: { success: boolean } | null; error: Error | null }> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: new AppError('AUTH_REQUIRED') };
+
+  if (!authKey || !orgId) {
+    return { data: null, error: new AppError('VAL_FAILED') };
+  }
+
+  const { data, error } = await invokeFunction<{ success: boolean }>(
+    'update-billing-key',
+    { authKey, orgId },
+  );
+
+  if (error) {
+    return { data: null, error: classifyError(error, { resource: 'subscription' }) };
+  }
+
+  return { data: { success: true }, error: null };
+}
+
+/** 플랜 변경 (업그레이드: 일할 결제, 다운그레이드: 다음 갱신 시 적용) */
+export async function changePlan(
+  newPlanKey: string,
+  orgId: string
+): Promise<{
+  data: { success: boolean; type: 'upgrade' | 'downgrade'; proratedAmount?: number } | null;
+  error: Error | null;
+}> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: new AppError('AUTH_REQUIRED') };
+
+  if (!newPlanKey || !orgId) {
+    return { data: null, error: new AppError('VAL_FAILED') };
+  }
+
+  const { data, error } = await invokeFunction<{
+    success: boolean;
+    type: 'upgrade' | 'downgrade';
+    proratedAmount?: number;
+  }>('change-plan', { newPlanKey, orgId });
+
+  if (error) {
+    return { data: null, error: classifyError(error, { resource: 'subscription' }) };
+  }
+
+  return { data: data || null, error: null };
+}
+
 /** 구독 취소 (기간 만료 시 종료) */
 export async function cancelSubscription(
   subscriptionId: string

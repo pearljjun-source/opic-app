@@ -3,18 +3,20 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
+import { Platform, Linking } from 'react-native';
 import { useThemeColors } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscription } from '@/hooks/useSubscription';
-import { getRemainingQuota, getPaymentHistory, cancelSubscription } from '@/services/billing';
+import { getRemainingQuota, getPaymentHistory, cancelSubscription, updateBillingKey } from '@/services/billing';
 import { getUserMessage } from '@/lib/errors';
+import { requestTossBillingAuth, isTossConfigured, buildPaymentUrls } from '@/lib/toss';
 import type { PaymentRecord } from '@/lib/types';
 import { showToast } from '@/lib/toast';
 
 export default function SubscriptionScreen() {
   const colors = useThemeColors();
   const router = useRouter();
-  const { orgRole, currentOrg } = useAuth();
+  const { user, orgRole, currentOrg } = useAuth();
   const { subscription, plan, planKey, isActive, isLoading: subLoading, refresh } = useSubscription();
 
   const [studentQuota, setStudentQuota] = useState<{ used: number; limit: number; remaining: number } | null>(null);
@@ -71,6 +73,63 @@ export default function SubscriptionScreen() {
         },
       ]
     );
+  };
+
+  // 결제 수단 변경 콜백 처리 (웹: Toss 리다이렉트 후)
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    const authKey = url.searchParams.get('authKey');
+    const action = url.searchParams.get('action');
+    if (authKey && action === 'update-billing' && currentOrg?.id) {
+      // URL 파라미터 정리
+      url.searchParams.delete('authKey');
+      url.searchParams.delete('customerKey');
+      url.searchParams.delete('action');
+      window.history.replaceState({}, '', url.pathname);
+
+      (async () => {
+        const { error } = await updateBillingKey(authKey, currentOrg.id);
+        if (error) {
+          Alert.alert('오류', getUserMessage(error));
+        } else {
+          showToast('결제 수단이 변경되었습니다.');
+          refresh();
+        }
+      })();
+    }
+  }, [currentOrg]);
+
+  const handleUpdateBillingKey = async () => {
+    if (!user || !currentOrg) return;
+
+    if (Platform.OS === 'web') {
+      if (!isTossConfigured()) {
+        Alert.alert('설정 필요', '결제 시스템이 아직 설정되지 않았습니다.');
+        return;
+      }
+      try {
+        const base = window.location.origin;
+        const path = '/(teacher)/manage/subscription';
+        await requestTossBillingAuth({
+          customerKey: user.id,
+          successUrl: `${base}${path}?action=update-billing`,
+          failUrl: `${base}${path}`,
+        });
+      } catch (err) {
+        Alert.alert('오류', getUserMessage(err));
+      }
+    } else {
+      Alert.alert('웹에서 변경', '결제 수단 변경은 웹 브라우저에서 진행해 주세요.');
+    }
+  };
+
+  const handleOpenReceipt = (receiptUrl: string) => {
+    if (Platform.OS === 'web') {
+      window.open(receiptUrl, '_blank');
+    } else {
+      Linking.openURL(receiptUrl);
+    }
   };
 
   if (subLoading) {
@@ -146,14 +205,40 @@ export default function SubscriptionScreen() {
           </Text>
         )}
 
+        {subscription?.status === 'past_due' && (
+          <View style={[styles.graceWarning, { backgroundColor: colors.accentRedBg }]}>
+            <Ionicons name="warning" size={16} color={colors.error} />
+            <Text style={[styles.graceWarningText, { color: colors.error }]}>
+              결제에 실패했습니다. 7일 이내에 결제 수단을 변경해 주세요.
+            </Text>
+          </View>
+        )}
+
+        {(subscription as any)?.pending_plan_id && (
+          <Text style={[styles.cancelNote, { color: colors.primary }]}>
+            다음 갱신 시 플랜이 변경됩니다
+          </Text>
+        )}
+
         {isOwner && (
-          <Pressable
-            style={[styles.upgradeButton, { backgroundColor: colors.primary }]}
-            onPress={() => router.push('/(teacher)/manage/plan-select')}
-          >
-            <Ionicons name="arrow-up-circle-outline" size={18} color="#fff" />
-            <Text style={styles.upgradeButtonText}>플랜 변경</Text>
-          </Pressable>
+          <View style={styles.ownerActions}>
+            <Pressable
+              style={[styles.upgradeButton, { backgroundColor: colors.primary }]}
+              onPress={() => router.push('/(teacher)/manage/plan-select')}
+            >
+              <Ionicons name="arrow-up-circle-outline" size={18} color="#fff" />
+              <Text style={styles.upgradeButtonText}>플랜 변경</Text>
+            </Pressable>
+            {subscription && planKey !== 'free' && (
+              <Pressable
+                style={[styles.secondaryButton, { borderColor: colors.border }]}
+                onPress={handleUpdateBillingKey}
+              >
+                <Ionicons name="card-outline" size={18} color={colors.textPrimary} />
+                <Text style={[styles.secondaryButtonText, { color: colors.textPrimary }]}>결제 수단 변경</Text>
+              </Pressable>
+            )}
+          </View>
         )}
       </View>
 
@@ -217,11 +302,19 @@ export default function SubscriptionScreen() {
           </View>
 
           {payments.map((payment) => (
-            <View key={payment.id} style={styles.paymentRow}>
+            <Pressable
+              key={payment.id}
+              style={styles.paymentRow}
+              onPress={() => payment.receipt_url ? handleOpenReceipt(payment.receipt_url) : undefined}
+              disabled={!payment.receipt_url}
+            >
               <View>
                 <Text style={[styles.paymentDate, { color: colors.textSecondary }]}>
                   {payment.paid_at ? formatDate(payment.paid_at) : formatDate(payment.created_at)}
                 </Text>
+                {payment.receipt_url && (
+                  <Text style={[styles.receiptLink, { color: colors.primary }]}>영수증</Text>
+                )}
               </View>
               <View style={styles.paymentRight}>
                 <Text style={[styles.paymentAmount, { color: colors.textPrimary }]}>
@@ -236,7 +329,7 @@ export default function SubscriptionScreen() {
                    payment.status === 'refunded' ? '환불' : payment.status}
                 </Text>
               </View>
-            </View>
+            </Pressable>
           ))}
         </View>
       )}
@@ -360,6 +453,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: 'Pretendard-Medium',
   },
+  ownerActions: {
+    gap: 8,
+    marginTop: 12,
+  },
   upgradeButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -367,12 +464,42 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 10,
     borderRadius: 8,
-    marginTop: 12,
   },
   upgradeButtonText: {
     fontSize: 14,
     fontFamily: 'Pretendard-SemiBold',
     color: '#fff',
+  },
+  secondaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  secondaryButtonText: {
+    fontSize: 14,
+    fontFamily: 'Pretendard-SemiBold',
+  },
+  graceWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  graceWarningText: {
+    fontSize: 12,
+    fontFamily: 'Pretendard-Medium',
+    flex: 1,
+  },
+  receiptLink: {
+    fontSize: 11,
+    fontFamily: 'Pretendard-Medium',
+    marginTop: 2,
   },
   cancelButton: {
     borderWidth: 1,
