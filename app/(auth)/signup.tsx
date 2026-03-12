@@ -128,7 +128,7 @@ export default function SignupScreen() {
             {/* Header */}
             <View className="flex-row items-center mb-6">
               {Platform.OS === 'web' ? (
-                <Pressable onPress={() => router.replace('/' as any)} style={{ marginRight: 8 }}>
+                <Pressable onPress={() => { window.location.href = '/'; }} style={{ marginRight: 8 }}>
                   <Image
                     source={require('@/assets/images/speaky-icon.png')}
                     style={{ width: 36, height: 36, borderRadius: 18 }}

@@ -75,7 +75,13 @@ export default function MockSurveyScreen() {
               ]}
               onPress={() => toggleTopic(topic.id)}
             >
-              <Text style={styles.topicIcon}>{topic.icon}</Text>
+              <View style={[styles.iconContainer, { backgroundColor: colors.primaryLight }]}>
+                <Ionicons
+                  name={(topic.icon as keyof typeof Ionicons.glyphMap) || 'document-text-outline'}
+                  size={22}
+                  color={colors.primary}
+                />
+              </View>
               <View style={styles.topicInfo}>
                 <Text style={[styles.topicName, { color: colors.textPrimary }]}>{topic.name_ko}</Text>
                 <Text style={[styles.topicDesc, { color: colors.textSecondary }]} numberOfLines={1}>
@@ -128,7 +134,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 10,
   },
-  topicIcon: { fontSize: 24, marginRight: 14 },
+  iconContainer: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 14 },
   topicInfo: { flex: 1 },
   topicName: { fontSize: 15, fontFamily: 'Pretendard-SemiBold' },
   topicDesc: { fontSize: 12, fontFamily: 'Pretendard-Regular', marginTop: 2 },

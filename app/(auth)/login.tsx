@@ -120,7 +120,7 @@ export default function LoginScreen() {
             }}>
               {Platform.OS === 'web' && (
                 <Pressable
-                  onPress={() => router.replace('/' as any)}
+                  onPress={() => { window.location.href = '/'; }}
                   style={{ marginBottom: 16 }}
                 >
                   <Image

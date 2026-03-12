@@ -49,7 +49,7 @@ export default function CreateAcademyScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       {Platform.OS === 'web' ? (
-        <Pressable style={styles.backButton} onPress={() => router.replace('/' as any)}>
+        <Pressable style={styles.backButton} onPress={() => { window.location.href = '/'; }}>
           <Image
             source={require('@/assets/images/speaky-icon.png')}
             style={{ width: 36, height: 36, borderRadius: 18 }}
