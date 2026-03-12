@@ -436,13 +436,21 @@ END IF;
 - [x] 취소 사유 상수 (`CANCELLATION_REASONS` 6개)
 - [x] `payment_failed` 알림 타입 추가
 
+### Phase 6C — 연간 결제 ✅
+- [x] `billing_cycle` 컬럼 (monthly/yearly ENUM)
+- [x] `trial_ends_at` 컬럼 (트라이얼 종료일)
+- [x] billing-key Edge Function: 연간 결제 지원 (`price_yearly` 사용, +12개월 기간)
+- [x] subscription-renew: billing_cycle 기반 갱신 (1개월/12개월)
+- [x] plan-select.tsx: 월간/연간 토글 UI + 할인율/절약 금액 표시
+- [x] issueBillingKey 서비스: billingCycle 파라미터 추가
+- [x] `get_plan_yearly_discount` RPC 함수
+
 ### 예정 📋
-- [ ] Phase 6C: 연간 결제 + 트라이얼 전환 넛지
 - [ ] 프로덕션 배포 준비
 
 ---
 
-## 마이그레이션 이력 (47개)
+## 마이그레이션 이력 (48개)
 
 | 범위 | 파일 | 내용 |
 |------|------|------|
@@ -459,6 +467,7 @@ END IF;
 | 성능 | 045 | 시험 RPC에 audio_url 포함 (TTS 지연 근본 해결) |
 | 구독 | 046 | Phase 6A: pending_plan_id, grace period, 상태 전이 트리거 |
 | 구독 | 047 | Phase 6B: dunning_started_at, cancellation_feedback, 취소 리텐션 |
+| 구독 | 048 | Phase 6C: billing_cycle, trial_ends_at, 연간 결제 |
 
 ---
 

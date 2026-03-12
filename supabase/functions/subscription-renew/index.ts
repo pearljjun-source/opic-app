@@ -172,7 +172,7 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             customerKey: sub.user_id,
-            amount: renewPlan.price_monthly,
+            amount: sub.billing_cycle === 'yearly' ? renewPlan.price_yearly : renewPlan.price_monthly,
             orderId,
             orderName: `Speaky ${renewPlan.name} 구독 갱신`,
           }),
@@ -181,10 +181,14 @@ serve(async (req) => {
         if (payRes.ok) {
           const payData = await payRes.json();
 
-          // 구독 기간 연장
+          // 구독 기간 연장 (billing_cycle에 따라 1개월/12개월)
           const newStart = new Date(sub.current_period_end);
           const newEnd = new Date(newStart);
-          newEnd.setMonth(newEnd.getMonth() + 1);
+          if (sub.billing_cycle === 'yearly') {
+            newEnd.setFullYear(newEnd.getFullYear() + 1);
+          } else {
+            newEnd.setMonth(newEnd.getMonth() + 1);
+          }
 
           const updateData: Record<string, unknown> = {
             status: 'active',
@@ -203,10 +207,11 @@ serve(async (req) => {
           await supabaseAdmin.from('subscriptions').update(updateData).eq('id', sub.id);
 
           // 결제 이력
+          const renewAmount = sub.billing_cycle === 'yearly' ? renewPlan.price_yearly : renewPlan.price_monthly;
           await supabaseAdmin.from('payment_history').insert({
             subscription_id: sub.id,
             user_id: sub.user_id,
-            amount: renewPlan.price_monthly,
+            amount: renewAmount,
             currency: 'KRW',
             status: 'paid',
             provider_payment_id: payData.paymentKey,
@@ -260,10 +265,11 @@ serve(async (req) => {
           }
 
           // 실패 이력
+          const failedAmount = sub.billing_cycle === 'yearly' ? renewPlan.price_yearly : renewPlan.price_monthly;
           await supabaseAdmin.from('payment_history').insert({
             subscription_id: sub.id,
             user_id: sub.user_id,
-            amount: renewPlan.price_monthly,
+            amount: failedAmount,
             currency: 'KRW',
             status: 'failed',
             failure_reason: payError.message || 'Payment failed',

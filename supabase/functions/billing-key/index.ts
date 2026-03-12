@@ -45,13 +45,15 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    const { planKey, authKey, orgId } = await req.json();
+    const { planKey, authKey, orgId, billingCycle = 'monthly', startTrial = false } = await req.json();
     if (!planKey || !authKey || !orgId) {
       return new Response(
         JSON.stringify({ error: 'planKey, authKey, and orgId are required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const cycle = billingCycle === 'yearly' ? 'yearly' : 'monthly';
 
     // Service Role 클라이언트
     const supabaseAdmin = createClient(
@@ -132,8 +134,8 @@ serve(async (req) => {
     const billingData = await billingRes.json();
     const billingKey = billingData.billingKey;
 
-    // 첫 결제 실행
-    const amount = plan.price_monthly;
+    // 첫 결제 실행 (월간/연간에 따라 금액 결정)
+    const amount = cycle === 'yearly' ? plan.price_yearly : plan.price_monthly;
     const orderId = `order_${user.id.slice(0, 8)}_${Date.now()}`;
 
     const paymentRes = await fetch('https://api.tosspayments.com/v1/billing/' + billingKey, {
@@ -161,10 +163,14 @@ serve(async (req) => {
 
     const paymentData = await paymentRes.json();
 
-    // 구독 생성
+    // 구독 생성 (월간: +1개월, 연간: +12개월, 트라이얼: 7일 후 시작)
     const now = new Date();
     const periodEnd = new Date(now);
-    periodEnd.setMonth(periodEnd.getMonth() + 1);
+    if (cycle === 'yearly') {
+      periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+    } else {
+      periodEnd.setMonth(periodEnd.getMonth() + 1);
+    }
 
     // 기존 free 구독이 있으면 삭제 (유료 전환)
     await supabaseAdmin
@@ -191,6 +197,7 @@ serve(async (req) => {
         status: 'active',
         billing_provider: 'toss',
         billing_key: billingKey,
+        billing_cycle: cycle,
         provider_subscription_id: orderId,
         current_period_start: now.toISOString(),
         current_period_end: periodEnd.toISOString(),

@@ -27,6 +27,7 @@ export default function PlanSelectScreen() {
     paymentStatus?: string;
     code?: string;
     message?: string;
+    cycle?: string;
   }>();
 
   const { user, currentOrg, orgRole, isAuthenticated, _profileVerified } = useAuth();
@@ -38,6 +39,7 @@ export default function PlanSelectScreen() {
   const [processingMessage, setProcessingMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
 
   // 콜백 중복 처리 방지
   const callbackProcessed = useRef(false);
@@ -69,7 +71,8 @@ export default function PlanSelectScreen() {
     if (!currentOrg?.id) return;
 
     callbackProcessed.current = true;
-    processPaymentCallback(params.authKey, params.planKey, currentOrg.id);
+    const cycle = params.cycle === 'yearly' ? 'yearly' : 'monthly';
+    processPaymentCallback(params.authKey, params.planKey, currentOrg.id, cycle);
   }, [params.authKey, params.planKey, isAuthenticated, _profileVerified, currentOrg, isProcessing]);
 
   // 결제 실패 콜백
@@ -80,13 +83,13 @@ export default function PlanSelectScreen() {
   }, [params.paymentStatus, params.message]);
 
   // 결제 완료 처리
-  const processPaymentCallback = async (authKey: string, planKey: string, orgId: string) => {
+  const processPaymentCallback = async (authKey: string, planKey: string, orgId: string, cycle: 'monthly' | 'yearly' = 'monthly') => {
     setIsProcessing(true);
     setProcessingMessage('결제를 처리하고 있습니다...');
     setError(null);
 
     try {
-      const { error: billingError } = await issueBillingKey(planKey, authKey, orgId);
+      const { error: billingError } = await issueBillingKey(planKey, authKey, orgId, cycle);
 
       if (billingError) {
         setError(getUserMessage(billingError));
@@ -124,6 +127,7 @@ export default function PlanSelectScreen() {
       url.searchParams.delete('paymentStatus');
       url.searchParams.delete('code');
       url.searchParams.delete('message');
+      url.searchParams.delete('cycle');
       window.history.replaceState({}, '', url.pathname);
     }
   };
@@ -223,9 +227,14 @@ export default function PlanSelectScreen() {
           return;
         }
 
+        // billingCycle을 successUrl에 추가
+        const successWithCycle = billingCycle === 'yearly'
+          ? `${urls.successUrl}&cycle=yearly`
+          : urls.successUrl;
+
         await requestTossBillingAuth({
           customerKey: user.id,
-          successUrl: urls.successUrl,
+          successUrl: successWithCycle,
           failUrl: urls.failUrl,
         });
         // 리다이렉트됨 — 이후 코드 실행 안 됨
@@ -320,6 +329,41 @@ export default function PlanSelectScreen() {
         학원에 맞는 플랜을 선택하세요
       </Text>
 
+      {/* 월간/연간 토글 */}
+      <View style={[styles.cycleToggle, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Pressable
+          style={[
+            styles.cycleOption,
+            billingCycle === 'monthly' && { backgroundColor: colors.primary },
+          ]}
+          onPress={() => setBillingCycle('monthly')}
+        >
+          <Text style={[
+            styles.cycleText,
+            { color: billingCycle === 'monthly' ? '#fff' : colors.textSecondary },
+          ]}>
+            월간
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[
+            styles.cycleOption,
+            billingCycle === 'yearly' && { backgroundColor: colors.primary },
+          ]}
+          onPress={() => setBillingCycle('yearly')}
+        >
+          <Text style={[
+            styles.cycleText,
+            { color: billingCycle === 'yearly' ? '#fff' : colors.textSecondary },
+          ]}>
+            연간
+          </Text>
+          <View style={[styles.discountBadge, { backgroundColor: colors.accentGreenBg }]}>
+            <Text style={[styles.discountText, { color: colors.accentGreenText }]}>할인</Text>
+          </View>
+        </Pressable>
+      </View>
+
       {sortedPlans.map((plan) => {
         const isCurrent = plan.plan_key === (currentPlanKey || 'free');
         const isHighlighted = plan.plan_key === 'pro';
@@ -359,17 +403,37 @@ export default function PlanSelectScreen() {
               {plan.name}
             </Text>
             <View style={styles.priceRow}>
-              <Text style={[styles.price, { color: colors.textPrimary }]}>
-                {plan.plan_key === 'academy'
-                  ? '문의'
-                  : plan.price_monthly === 0
-                    ? '₩0'
-                    : `₩${plan.price_monthly.toLocaleString('ko-KR')}`}
-              </Text>
-              {plan.price_monthly > 0 && (
-                <Text style={[styles.period, { color: colors.textDisabled }]}>/월</Text>
+              {billingCycle === 'monthly' || plan.price_monthly === 0 ? (
+                <>
+                  <Text style={[styles.price, { color: colors.textPrimary }]}>
+                    {plan.plan_key === 'academy'
+                      ? '문의'
+                      : plan.price_monthly === 0
+                        ? '₩0'
+                        : `₩${plan.price_monthly.toLocaleString('ko-KR')}`}
+                  </Text>
+                  {plan.price_monthly > 0 && (
+                    <Text style={[styles.period, { color: colors.textDisabled }]}>/월</Text>
+                  )}
+                </>
+              ) : (
+                <>
+                  <Text style={[styles.price, { color: colors.textPrimary }]}>
+                    {plan.plan_key === 'academy'
+                      ? '문의'
+                      : `₩${plan.price_yearly.toLocaleString('ko-KR')}`}
+                  </Text>
+                  <Text style={[styles.period, { color: colors.textDisabled }]}>/년</Text>
+                </>
               )}
             </View>
+            {billingCycle === 'yearly' && plan.price_monthly > 0 && plan.plan_key !== 'academy' && (
+              <View style={styles.savingsRow}>
+                <Text style={[styles.savingsText, { color: colors.success }]}>
+                  월 ₩{Math.round(plan.price_yearly / 12).toLocaleString('ko-KR')} · {Math.round((1 - plan.price_yearly / (plan.price_monthly * 12)) * 100)}% 절약
+                </Text>
+              </View>
+            )}
 
             {/* 기능 목록 */}
             <View style={styles.featureList}>
@@ -538,6 +602,44 @@ const styles = StyleSheet.create({
   ctaText: {
     fontSize: 15,
     fontFamily: 'Pretendard-SemiBold',
+  },
+
+  cycleToggle: {
+    flexDirection: 'row',
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 3,
+    marginBottom: 4,
+  },
+  cycleOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  cycleText: {
+    fontSize: 14,
+    fontFamily: 'Pretendard-SemiBold',
+  },
+  discountBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+  },
+  discountText: {
+    fontSize: 10,
+    fontFamily: 'Pretendard-Bold',
+  },
+  savingsRow: {
+    marginTop: -8,
+    marginBottom: 8,
+  },
+  savingsText: {
+    fontSize: 12,
+    fontFamily: 'Pretendard-Medium',
   },
 
   note: {

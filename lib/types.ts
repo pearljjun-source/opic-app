@@ -46,6 +46,9 @@ export type CancellationReason = 'too_expensive' | 'not_using' | 'missing_featur
 /** 취소 최종 액션 */
 export type CancellationAction = 'canceled' | 'downgraded' | 'retained';
 
+/** 결제 주기 */
+export type BillingCycle = 'monthly' | 'yearly';
+
 /** 난이도 레벨 */
 export type DifficultyLevel = 1 | 2 | 3 | 4 | 5 | 6;
 

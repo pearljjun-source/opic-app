@@ -138,7 +138,7 @@ describe('issueBillingKey()', () => {
 
     expect(mockInvokeFunction).toHaveBeenCalledWith(
       'billing-key',
-      { planKey: 'pro', authKey: 'auth-key-123', orgId: 'org-1' },
+      { planKey: 'pro', authKey: 'auth-key-123', orgId: 'org-1', billingCycle: 'monthly' },
     );
     expect(result.data).toEqual({ subscriptionId: 'sub-1' });
     expect(result.error).toBeNull();

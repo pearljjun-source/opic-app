@@ -77,7 +77,8 @@ export async function getMySubscription(orgId?: string): Promise<{
 export async function issueBillingKey(
   planKey: string,
   authKey: string,
-  orgId: string
+  orgId: string,
+  billingCycle: 'monthly' | 'yearly' = 'monthly'
 ): Promise<{ data: { subscriptionId: string } | null; error: Error | null }> {
   // Valibot 검증
   const result = safeParse(BillingKeySchema, { planKey, authKey });
@@ -94,7 +95,7 @@ export async function issueBillingKey(
 
   const { data, error } = await invokeFunction<{ subscriptionId: string }>(
     'billing-key',
-    { planKey: result.output.planKey, authKey: result.output.authKey, orgId },
+    { planKey: result.output.planKey, authKey: result.output.authKey, orgId, billingCycle },
   );
 
   if (error) {
