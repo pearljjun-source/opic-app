@@ -55,6 +55,7 @@ export interface ScriptDetail {
 export interface StudentScriptDetail {
   id: string;
   content: string;
+  content_ko: string | null;
   comment: string | null;
   question: {
     id: string;
@@ -161,6 +162,11 @@ export async function createScript(params: {
     return { data: null, error: classifyError(error, { resource: 'script' }) };
   }
 
+  // 번역 생성 (fire-and-forget: 실패해도 무시, 학생 진입 시 재시도)
+  if (data?.id) {
+    translateScript(data.id).catch(() => {});
+  }
+
   return { data: { id: data.id }, error: null };
 }
 
@@ -260,6 +266,9 @@ export async function updateScript(params: {
   if (error) {
     return { error: classifyError(error, { resource: 'script' }) };
   }
+
+  // content 변경 시 DB 트리거가 content_ko를 NULL로 리셋 → 재번역
+  translateScript(params.scriptId).catch(() => {});
 
   return { error: null };
 }
@@ -374,6 +383,7 @@ export async function getStudentScript(scriptId: string): Promise<{
       .select(`
         id,
         content,
+        content_ko,
         comment,
         question:questions!scripts_question_id_fkey (
           id,
@@ -398,6 +408,7 @@ export async function getStudentScript(scriptId: string): Promise<{
       data: {
         id: data.id,
         content: data.content,
+        content_ko: data.content_ko,
         comment: data.comment,
         question,
       },
@@ -405,5 +416,37 @@ export async function getStudentScript(scriptId: string): Promise<{
     };
   } catch (err) {
     return { data: null, error: classifyError(err, { resource: 'script' }) };
+  }
+}
+
+// ============================================================================
+// 스크립트 번역 (한→영 연습용)
+// ============================================================================
+
+/**
+ * 스크립트 한국어 번역 요청 (Edge Function)
+ * - content_ko 캐시가 있으면 바로 반환 (API 호출 없음)
+ * - 없으면 Claude로 번역 → DB 캐싱
+ */
+export async function translateScript(scriptId: string): Promise<{
+  data: { content_ko: string; cached: boolean } | null;
+  error: Error | null;
+}> {
+  try {
+    const { data, error } = await supabase.functions.invoke('translate-script', {
+      body: { scriptId },
+    });
+
+    if (error) {
+      return { data: null, error: classifyError(error, { apiType: 'claude' }) };
+    }
+
+    if (data?.error) {
+      return { data: null, error: classifyError(new Error(data.error), { apiType: 'claude' }) };
+    }
+
+    return { data: { content_ko: data.content_ko, cached: data.cached }, error: null };
+  } catch (err) {
+    return { data: null, error: classifyError(err, { apiType: 'claude' }) };
   }
 }

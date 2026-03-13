@@ -43,6 +43,10 @@ export default function ScriptViewScreen() {
     router.push(`/(student)/script/${id}/shadowing`);
   };
 
+  const handleTranslationPractice = () => {
+    router.push(`/(student)/script/${id}/translation-practice`);
+  };
+
   const handlePractice = () => {
     router.push(`/(student)/script/${id}/practice`);
   };
@@ -98,23 +102,27 @@ export default function ScriptViewScreen() {
         <View style={[styles.tipBox, { backgroundColor: colors.secondary + '15' }]}>
           <Ionicons name="bulb-outline" size={18} color={colors.secondary} />
           <Text style={[styles.tipText, { color: colors.textSecondary }]}>
-            먼저 쉐도잉으로 발음을 연습한 후,{'\n'}
-            실전 연습으로 스크립트 없이 말해보세요!
+            쉐도잉 → 한→영 연습 → 실전 연습{'\n'}
+            순서로 단계별 학습을 추천합니다!
           </Text>
         </View>
       </ScrollView>
 
       <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
         <View style={styles.buttonRow}>
-          <Pressable style={[styles.shadowingButton, { backgroundColor: colors.primary + '15', borderColor: colors.primary }]} onPress={handleShadowing}>
-            <Ionicons name="headset" size={20} color={colors.primary} />
-            <Text style={[styles.shadowingButtonText, { color: colors.primary }]}>쉐도잉</Text>
+          <Pressable style={[styles.outlineButton, { backgroundColor: colors.primary + '15', borderColor: colors.primary }]} onPress={handleShadowing}>
+            <Ionicons name="headset" size={18} color={colors.primary} />
+            <Text style={[styles.outlineButtonText, { color: colors.primary }]}>쉐도잉</Text>
           </Pressable>
-          <Pressable style={[styles.practiceButton, { backgroundColor: colors.primary }]} onPress={handlePractice}>
-            <Ionicons name="mic" size={20} color="#FFFFFF" />
-            <Text style={styles.practiceButtonText}>실전 연습</Text>
+          <Pressable style={[styles.outlineButton, { backgroundColor: colors.secondary + '15', borderColor: colors.secondary }]} onPress={handleTranslationPractice}>
+            <Ionicons name="language" size={18} color={colors.secondary} />
+            <Text style={[styles.outlineButtonText, { color: colors.secondary }]}>한→영</Text>
           </Pressable>
         </View>
+        <Pressable style={[styles.practiceButton, { backgroundColor: colors.primary }]} onPress={handlePractice}>
+          <Ionicons name="mic" size={20} color="#FFFFFF" />
+          <Text style={styles.practiceButtonText}>실전 연습</Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -215,27 +223,27 @@ const styles = StyleSheet.create({
   footer: {
     padding: 16,
     borderTopWidth: 1,
+    gap: 10,
   },
   buttonRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
-  shadowingButton: {
+  outlineButton: {
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 14,
     borderRadius: 12,
-    gap: 8,
+    gap: 6,
     borderWidth: 1,
   },
-  shadowingButtonText: {
-    fontSize: 16,
+  outlineButtonText: {
+    fontSize: 15,
     fontFamily: 'Pretendard-SemiBold',
   },
   practiceButton: {
-    flex: 1,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',

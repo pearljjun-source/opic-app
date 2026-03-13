@@ -339,6 +339,7 @@ END IF;
 | `delete-user` | 사용자 데이터 삭제 | — |
 | `update-billing-key` | 결제 수단 변경 (빌링키 재발급) | TOSS Payments |
 | `change-plan` | 플랜 업/다운그레이드 (proration) | TOSS Payments |
+| `translate-script` | 영→한 스크립트 번역 (캐싱) | Claude Haiku |
 
 ---
 
@@ -445,12 +446,19 @@ END IF;
 - [x] issueBillingKey 서비스: billingCycle 파라미터 추가
 - [x] `get_plan_yearly_discount` RPC 함수
 
+### Phase 7 — 한→영 연습 ✅
+- [x] scripts.content_ko 컬럼 + 자동 리셋 트리거 (050 마이그레이션)
+- [x] `translate-script` Edge Function (Claude Haiku, DB 캐싱)
+- [x] 서비스: `translateScript()`, createScript/updateScript에서 fire-and-forget 번역
+- [x] 한→영 연습 화면 (`translation-practice.tsx`)
+- [x] 스크립트 상세 3버튼 UI (쉐도잉 / 한→영 / 실전 연습)
+
 ### 예정 📋
 - [ ] 프로덕션 배포 준비
 
 ---
 
-## 마이그레이션 이력 (48개)
+## 마이그레이션 이력 (50개)
 
 | 범위 | 파일 | 내용 |
 |------|------|------|
@@ -468,6 +476,8 @@ END IF;
 | 구독 | 046 | Phase 6A: pending_plan_id, grace period, 상태 전이 트리거 |
 | 구독 | 047 | Phase 6B: dunning_started_at, cancellation_feedback, 취소 리텐션 |
 | 구독 | 048 | Phase 6C: billing_cycle, trial_ends_at, 연간 결제 |
+| 가격 | 049 | 구독 플랜 가격 조정 (Solo 29,900/Pro 69,900/Academy 199,000) |
+| 기능 | 050 | scripts.content_ko 컬럼 + content 변경 시 자동 리셋 트리거 |
 
 ---
 

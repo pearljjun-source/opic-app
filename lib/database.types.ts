@@ -738,6 +738,7 @@ export type Database = {
         Row: {
           comment: string | null
           content: string
+          content_ko: string | null
           created_at: string | null
           deleted_at: string | null
           id: string
@@ -751,6 +752,7 @@ export type Database = {
         Insert: {
           comment?: string | null
           content: string
+          content_ko?: string | null
           created_at?: string | null
           deleted_at?: string | null
           id?: string
@@ -764,6 +766,7 @@ export type Database = {
         Update: {
           comment?: string | null
           content?: string
+          content_ko?: string | null
           created_at?: string | null
           deleted_at?: string | null
           id?: string

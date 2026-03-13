@@ -26,8 +26,9 @@ export default function ScriptLayout() {
       }}
     >
       <Stack.Screen name="[id]/index" options={{ title: '스크립트' }} />
-      <Stack.Screen name="[id]/practice" options={{ title: '연습하기' }} />
       <Stack.Screen name="[id]/shadowing" options={{ title: '셰도잉' }} />
+      <Stack.Screen name="[id]/translation-practice" options={{ title: '한→영 연습' }} />
+      <Stack.Screen name="[id]/practice" options={{ title: '실전 연습' }} />
       <Stack.Screen name="[id]/result" options={{ title: '연습 결과' }} />
       <Stack.Screen name="practice/[practiceId]" options={{ title: '연습 상세' }} />
     </Stack>
