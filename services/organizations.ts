@@ -6,12 +6,6 @@ import { AppError, classifyError, classifyRpcError } from '@/lib/errors';
 // Types
 // ============================================================================
 
-interface OrgMutationResult {
-  success: boolean;
-  organization_id?: string;
-  error?: string;
-}
-
 interface MemberMutationResult {
   success: boolean;
   error?: string;
@@ -35,28 +29,6 @@ export async function getMyOrganizations(): Promise<{
   }
 
   return { data: (data as MyOrganization[]) || [], error: null };
-}
-
-// ============================================================================
-// 조직 생성
-// ============================================================================
-
-/** 새 학원/조직 생성 (owner로 자동 등록) */
-export async function createOrganization(name: string): Promise<OrgMutationResult> {
-  const { data, error } = await (supabase.rpc as CallableFunction)(
-    'create_organization',
-    { p_name: name }
-  );
-
-  if (error) {
-    return { success: false, error: classifyError(error, { resource: 'organization' }).userMessage };
-  }
-
-  const result = data as OrgMutationResult;
-  if (!result.success && result.error) {
-    result.error = classifyRpcError(result.error, { resource: 'organization' }).userMessage;
-  }
-  return result;
 }
 
 // ============================================================================

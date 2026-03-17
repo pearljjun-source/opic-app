@@ -46,7 +46,7 @@ OPIc 시험 대비 학습 SaaS 플랫폼.
 
 ```
 app/
-├── (auth)/          # 인증: login, signup, verify-email, confirm, forgot-password, create-academy
+├── (auth)/          # 인증: login, signup, verify-email, confirm, forgot-password
 ├── (admin)/         # 슈퍼 관리자: 대시보드, 학원/사용자/구독/랜딩 관리
 │   └── (tabs)/      # 6탭: index, landing, academies, users, billing, settings
 ├── (teacher)/       # 강사: 대시보드, 학생/반/스크립트/초대/구독 관리
@@ -264,7 +264,6 @@ END IF;
 **조직 관리**:
 | 함수 | 용도 |
 |------|------|
-| `create_organization` | 조직 생성 |
 | `get_my_organizations` | 내 조직 목록 |
 | `get_org_teachers` | 조직 강사 목록 |
 | `remove_org_member` | 멤버 제거 (SECURITY DEFINER) |
@@ -479,6 +478,8 @@ END IF;
 | 가격 | 049 | 구독 플랜 가격 조정 (Solo 29,900/Pro 69,900/Academy 199,000) |
 | 기능 | 050 | scripts.content_ko 컬럼 + content 변경 시 자동 리셋 트리거 |
 | 권한 | 051 | 학생 스크립트 수정 (UPDATE RLS + 컬럼 보호 트리거) |
+| 보안 | 052 | billing_key 암호화 문서화 (AES-256-GCM, Edge Function 기반) |
+| 보안 | 053 | create_organization RPC 삭제 (셀프 서비스 학원 생성 보안 위험 제거) |
 
 ---
 
