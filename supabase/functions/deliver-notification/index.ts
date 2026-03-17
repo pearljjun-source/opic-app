@@ -6,17 +6,12 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { getCorsHeaders, handleCorsPreFlight } from '../_shared/cors.ts';
 
 serve(async (req) => {
   // CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  const preFlightResponse = handleCorsPreFlight(req);
+  if (preFlightResponse) return preFlightResponse;
 
   try {
     // 인증 확인 (호출자가 로그인된 사용자인지)
@@ -71,7 +66,7 @@ serve(async (req) => {
     if (notification.sent_at) {
       return new Response(
         JSON.stringify({ success: true, already_sent: true }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -92,7 +87,7 @@ serve(async (req) => {
 
       return new Response(
         JSON.stringify({ success: true, pushed: false, reason: 'no_push_token' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -131,7 +126,7 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ success: true, pushed: true }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
@@ -139,7 +134,7 @@ serve(async (req) => {
       JSON.stringify({ error: message }),
       {
         status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       }
     );
   }

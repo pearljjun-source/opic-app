@@ -106,7 +106,7 @@ COLORS.PRIMARY  // #D4707F (딥 로즈)
 |--------|:-----------:|:-----------:|:-------:|:-------:|------|
 | users | ✅ | 🔸 | 🔸 | 🔸 | SA: 전체 / owner: 같은 조직원 / 나머지: 본인+연결 |
 | organizations | ✅ | 🔸 | ❌ | ❌ | owner: 본인 조직 |
-| scripts | 🔸 | 🔸 | 🔸 | 🔸 | teacher: 본인 작성 / student: 본인 것 |
+| scripts | 🔸 | 🔸 | 🔸 | 🔸 | teacher: 본인 작성(CRUD) / student: 본인 것(읽기+content 수정) |
 | practices | 🔸 | 🔸 | 🔸 | 🔸 | teacher: 연결된 학생 / student: 본인 |
 | invites | 🔸 | 🔸 | 🔸 | 🔸 | teacher: 본인 것 / student: 코드 사용 |
 | subscriptions | ✅ | 🔸 | ❌ | ❌ | owner: 본인 조직 |
@@ -458,7 +458,7 @@ END IF;
 
 ---
 
-## 마이그레이션 이력 (50개)
+## 마이그레이션 이력 (51개)
 
 | 범위 | 파일 | 내용 |
 |------|------|------|
@@ -478,6 +478,7 @@ END IF;
 | 구독 | 048 | Phase 6C: billing_cycle, trial_ends_at, 연간 결제 |
 | 가격 | 049 | 구독 플랜 가격 조정 (Solo 29,900/Pro 69,900/Academy 199,000) |
 | 기능 | 050 | scripts.content_ko 컬럼 + content 변경 시 자동 리셋 트리거 |
+| 권한 | 051 | 학생 스크립트 수정 (UPDATE RLS + 컬럼 보호 트리거) |
 
 ---
 

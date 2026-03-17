@@ -22,6 +22,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 import { useThemeColors } from '@/hooks/useTheme';
+import { useVoiceConsent } from '@/hooks/useVoiceConsent';
 import { useExamRoutes } from '@/hooks/useExamRoutes';
 import { EXAM_CONFIG, EXAM_TYPE_LABELS } from '@/lib/constants';
 import { abandonExamSession, generateLevelTestQuestions, checkExamAvailability, createExamSession } from '@/services/exams';
@@ -31,6 +32,7 @@ import { getUserMessage } from '@/lib/errors';
 import { alert as xAlert, confirm as xConfirm } from '@/lib/alert';
 import type { ExamType, ExamRecording } from '@/lib/types';
 import type { GeneratedQuestion } from '@/services/exams';
+import { VoiceConsentModal } from '@/components/ui/VoiceConsentModal';
 
 type SessionState = 'loading' | 'ready' | 'playing_question' | 'recording' | 'between_questions' | 'exam_end';
 
@@ -72,6 +74,8 @@ export default function ExamSessionScreen() {
   const webMimeTypeRef = useRef<string>('audio/webm');
 
   const { currentOrg } = useAuth();
+  const { requireConsent, showConsentModal, handleAgree, handleDecline } = useVoiceConsent();
+  const [consentLoading, setConsentLoading] = useState(false);
   const sessionIdRef = useRef(sessionId);
   const isActionRef = useRef(false);
   const isInitRef = useRef(false);
@@ -177,7 +181,7 @@ export default function ExamSessionScreen() {
     return () => {
       if (totalTimerRef.current) clearInterval(totalTimerRef.current);
     };
-  }, [isMockExam, sessionState === 'loading', sessionState === 'exam_end']);
+  }, [isMockExam, sessionState]);
 
   // 뒤로가기 차단
   useEffect(() => {
@@ -353,6 +357,8 @@ export default function ExamSessionScreen() {
 
   // 녹음 시작
   const handleStartRecording = async () => {
+    if (!requireConsent()) return;
+
     try {
       if (Platform.OS === 'web') {
         // 웹: 직접 MediaRecorder API 사용 (expo-audio 웹 녹음 불안정)
@@ -721,6 +727,20 @@ export default function ExamSessionScreen() {
           )
         )}
       </View>
+
+      <VoiceConsentModal
+        visible={showConsentModal}
+        onAgree={async () => {
+          setConsentLoading(true);
+          const success = await handleAgree();
+          setConsentLoading(false);
+          if (!success) {
+            xAlert('오류', '동의 저장에 실패했습니다. 다시 시도해주세요.');
+          }
+        }}
+        onDecline={handleDecline}
+        loading={consentLoading}
+      />
     </View>
   );
 }

@@ -10,11 +10,8 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { getCorsHeaders, handleCorsPreFlight } from '../_shared/cors.ts';
+import { logger } from '../_shared/logger.ts';
 
 // HMAC-SHA256 서명 검증
 async function verifySignature(body: string, signature: string, secretKey: string): Promise<boolean> {
@@ -32,9 +29,8 @@ async function verifySignature(body: string, signature: string, secretKey: strin
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  const preFlightResponse = handleCorsPreFlight(req);
+  if (preFlightResponse) return preFlightResponse;
 
   try {
     const tossWebhookSecret = Deno.env.get('TOSS_WEBHOOK_SECRET');
@@ -48,10 +44,10 @@ serve(async (req) => {
 
     const isValid = await verifySignature(bodyText, signature, tossWebhookSecret);
     if (!isValid) {
-      console.error('Invalid webhook signature');
+      logger.error('Invalid webhook signature');
       return new Response(
         JSON.stringify({ error: 'Invalid signature' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 401, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -68,7 +64,7 @@ serve(async (req) => {
     if (!paymentKey) {
       return new Response(
         JSON.stringify({ message: 'No paymentKey, ignoring' }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -86,7 +82,7 @@ serve(async (req) => {
           if (existingPayment.status === 'paid') {
             return new Response(
               JSON.stringify({ message: 'Already processed' }),
-              { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
             );
           }
           // pending → paid 업데이트
@@ -121,18 +117,18 @@ serve(async (req) => {
       }
 
       default:
-        console.log('Unhandled event type:', eventType);
+        logger.warn('Unhandled event type', eventType);
     }
 
     return new Response(
       JSON.stringify({ message: 'OK' }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('toss-webhook error:', error);
+    logger.error('toss-webhook error', error);
     return new Response(
       JSON.stringify({ error: error.message || 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }
 });

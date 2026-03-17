@@ -20,6 +20,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 import { useThemeColors } from '@/hooks/useTheme';
+import { useVoiceConsent } from '@/hooks/useVoiceConsent';
 import { NOTIFICATION_TYPES } from '@/lib/constants';
 import { getStudentScript, translateScript, StudentScriptDetail } from '@/services/scripts';
 import {
@@ -31,6 +32,7 @@ import {
 } from '@/services/practices';
 import { notifyAction, deliverNotification } from '@/services/notifications';
 import { getUserMessage } from '@/lib/errors';
+import { VoiceConsentModal } from '@/components/ui/VoiceConsentModal';
 
 type PracticeState = 'loading' | 'translating' | 'ready' | 'recording' | 'processing';
 type ProcessingStep = 'upload' | 'save' | 'stt' | 'feedback' | 'done';
@@ -46,7 +48,9 @@ const STEP_LABELS: Record<ProcessingStep, string> = {
 export default function TranslationPracticeScreen() {
   const colors = useThemeColors();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { requireConsent, showConsentModal, handleAgree, handleDecline } = useVoiceConsent();
 
+  const [consentLoading, setConsentLoading] = useState(false);
   const [script, setScript] = useState<StudentScriptDetail | null>(null);
   const [contentKo, setContentKo] = useState<string | null>(null);
   const [practiceState, setPracticeState] = useState<PracticeState>('loading');
@@ -119,6 +123,8 @@ export default function TranslationPracticeScreen() {
 
   // 녹음 시작
   const handleStartRecording = async () => {
+    if (!requireConsent()) return;
+
     try {
       if (Platform.OS === 'web') {
         if (typeof navigator === 'undefined' || !navigator.mediaDevices || typeof MediaRecorder === 'undefined') {
@@ -458,6 +464,20 @@ export default function TranslationPracticeScreen() {
           <Text style={[styles.cancelText, { color: colors.textSecondary }]}>취소</Text>
         </Pressable>
       )}
+
+      <VoiceConsentModal
+        visible={showConsentModal}
+        onAgree={async () => {
+          setConsentLoading(true);
+          const success = await handleAgree();
+          setConsentLoading(false);
+          if (!success) {
+            Alert.alert('오류', '동의 저장에 실패했습니다. 다시 시도해주세요.');
+          }
+        }}
+        onDecline={handleDecline}
+        loading={consentLoading}
+      />
     </View>
   );
 }

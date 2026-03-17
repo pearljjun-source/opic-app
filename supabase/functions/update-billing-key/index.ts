@@ -11,21 +11,24 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { getCorsHeaders, handleCorsPreFlight } from '../_shared/cors.ts';
+import { logger } from '../_shared/logger.ts';
+import { encryptValue } from '../_shared/crypto.ts';
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  const preFlightResponse = handleCorsPreFlight(req);
+  if (preFlightResponse) return preFlightResponse;
 
   try {
     const tossSecretKey = Deno.env.get('TOSS_SECRET_KEY');
     if (!tossSecretKey) {
       throw new Error('TOSS_SECRET_KEY is not configured');
+    }
+
+    // 암호화 키 사전 검증 (Toss API 호출 후 DB 저장 실패 방지)
+    const billingEncKey = Deno.env.get('BILLING_ENCRYPTION_KEY');
+    if (!billingEncKey || billingEncKey.length !== 64) {
+      throw new Error('BILLING_ENCRYPTION_KEY is not configured');
     }
 
     // 인증 확인
@@ -48,7 +51,7 @@ serve(async (req) => {
     if (!authKey || !orgId) {
       return new Response(
         JSON.stringify({ error: 'authKey and orgId are required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -71,7 +74,7 @@ serve(async (req) => {
     if (!membership) {
       return new Response(
         JSON.stringify({ error: 'NOT_ORG_OWNER' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 403, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -86,7 +89,7 @@ serve(async (req) => {
     if (subError || !subscription) {
       return new Response(
         JSON.stringify({ error: 'NO_ACTIVE_SUBSCRIPTION' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 404, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -106,10 +109,10 @@ serve(async (req) => {
 
     if (!billingRes.ok) {
       const billingError = await billingRes.json();
-      console.error('Toss billing key error:', billingError);
+      logger.error('Toss billing key error', billingError);
       return new Response(
         JSON.stringify({ error: 'BILLING_KEY_FAILED', detail: billingError.message }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -119,23 +122,23 @@ serve(async (req) => {
     // 구독의 billing_key 업데이트
     const { error: updateError } = await supabaseAdmin
       .from('subscriptions')
-      .update({ billing_key: billingKey })
+      .update({ billing_key: await encryptValue(billingKey) })
       .eq('id', subscription.id);
 
     if (updateError) {
-      console.error('Subscription update error:', updateError);
+      logger.error('Subscription update error', updateError);
       throw new Error('Failed to update billing key');
     }
 
     return new Response(
       JSON.stringify({ success: true }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('update-billing-key error:', error);
+    logger.error('update-billing-key error', error);
     return new Response(
       JSON.stringify({ error: error.message || 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }
 });

@@ -28,6 +28,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS trg_reset_content_ko ON public.scripts;
 CREATE TRIGGER trg_reset_content_ko
   BEFORE UPDATE ON public.scripts
   FOR EACH ROW

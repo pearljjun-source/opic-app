@@ -6,11 +6,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { checkOrgEntitlement } from '../_shared/check-subscription.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { getCorsHeaders, handleCorsPreFlight } from '../_shared/cors.ts';
 
 const SYSTEM_PROMPT = `You are an expert OPIc (Oral Proficiency Interview - computer) speaking coach for Korean students learning English.
 
@@ -121,9 +117,8 @@ const FEEDBACK_SCHEMA = {
 
 serve(async (req) => {
   // CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  const preFlightResponse = handleCorsPreFlight(req);
+  if (preFlightResponse) return preFlightResponse;
 
   try {
     const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
@@ -184,7 +179,7 @@ serve(async (req) => {
           plan_key: entitlement.planKey,
         }),
         {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
           status: 403,
         }
       );
@@ -198,7 +193,7 @@ serve(async (req) => {
           reset_at: rateLimit.reset_at,
         }),
         {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
           status: 429,
         }
       );
@@ -276,7 +271,7 @@ Please analyze and compare these two texts.`;
         feedback,
       }),
       {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
         status: 200,
       }
     );
@@ -284,7 +279,7 @@ Please analyze and compare these two texts.`;
     return new Response(
       JSON.stringify({ error: error.message }),
       {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
         status: 400,
       }
     );

@@ -1,10 +1,10 @@
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, TextInput, Alert, Platform, KeyboardAvoidingView } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useThemeColors } from '@/hooks/useTheme';
-import { getStudentScript, StudentScriptDetail } from '@/services/scripts';
+import { getStudentScript, updateScriptAsStudent, StudentScriptDetail } from '@/services/scripts';
 import { getUserMessage } from '@/lib/errors';
 
 export default function ScriptViewScreen() {
@@ -14,6 +14,12 @@ export default function ScriptViewScreen() {
   const [script, setScript] = useState<StudentScriptDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // 수정 모드
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const textInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     const loadScript = async () => {
@@ -51,6 +57,52 @@ export default function ScriptViewScreen() {
     router.push(`/(student)/script/${id}/practice`);
   };
 
+  const handleStartEdit = () => {
+    if (!script) return;
+    setEditContent(script.content);
+    setIsEditing(true);
+    setTimeout(() => textInputRef.current?.focus(), 100);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditContent('');
+  };
+
+  const handleSave = async () => {
+    if (!id || !script) return;
+
+    const trimmed = editContent.trim();
+    if (!trimmed) {
+      Alert.alert('오류', '스크립트 내용을 입력해주세요.');
+      return;
+    }
+
+    if (trimmed === script.content) {
+      setIsEditing(false);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const { error: saveError } = await updateScriptAsStudent({
+        scriptId: id,
+        content: trimmed,
+      });
+
+      if (saveError) {
+        Alert.alert('오류', getUserMessage(saveError));
+      } else {
+        setScript({ ...script, content: trimmed, content_ko: null });
+        setIsEditing(false);
+      }
+    } catch (err) {
+      Alert.alert('오류', getUserMessage(err));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
@@ -73,7 +125,11 @@ export default function ScriptViewScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}>
+    <KeyboardAvoidingView
+      style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+    >
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* 질문 */}
         <View style={[styles.questionCard, { backgroundColor: colors.primary + '15' }]}>
@@ -82,10 +138,55 @@ export default function ScriptViewScreen() {
         </View>
 
         {/* 스크립트 */}
-        <Text style={[styles.label, { color: colors.textSecondary }]}>스크립트</Text>
-        <View style={[styles.scriptBox, { backgroundColor: colors.surface, shadowColor: colors.shadowColor }]}>
-          <Text style={[styles.scriptText, { color: colors.textPrimary }]}>{script.content}</Text>
+        <View style={styles.labelRow}>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>스크립트</Text>
+          {!isEditing && (
+            <Pressable style={styles.editButton} onPress={handleStartEdit}>
+              <Ionicons name="pencil" size={14} color={colors.primary} />
+              <Text style={[styles.editButtonText, { color: colors.primary }]}>수정</Text>
+            </Pressable>
+          )}
         </View>
+
+        {isEditing ? (
+          <View style={[styles.scriptBox, { backgroundColor: colors.surface, shadowColor: colors.shadowColor }]}>
+            <TextInput
+              ref={textInputRef}
+              style={[styles.scriptInput, { color: colors.textPrimary }]}
+              value={editContent}
+              onChangeText={setEditContent}
+              multiline
+              textAlignVertical="top"
+              placeholder="스크립트 내용을 입력하세요"
+              placeholderTextColor={colors.textSecondary}
+              editable={!isSaving}
+            />
+            <View style={styles.editActions}>
+              <Pressable
+                style={[styles.editActionButton, { backgroundColor: colors.surfaceSecondary }]}
+                onPress={handleCancelEdit}
+                disabled={isSaving}
+              >
+                <Text style={[styles.editActionText, { color: colors.textSecondary }]}>취소</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.editActionButton, { backgroundColor: colors.primary }]}
+                onPress={handleSave}
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={[styles.editActionText, { color: '#FFFFFF' }]}>저장</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        ) : (
+          <View style={[styles.scriptBox, { backgroundColor: colors.surface, shadowColor: colors.shadowColor }]}>
+            <Text style={[styles.scriptText, { color: colors.textPrimary }]}>{script.content}</Text>
+          </View>
+        )}
 
         {/* 강사 코멘트 */}
         {script.comment && (
@@ -108,23 +209,25 @@ export default function ScriptViewScreen() {
         </View>
       </ScrollView>
 
-      <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
-        <View style={styles.buttonRow}>
-          <Pressable style={[styles.outlineButton, { backgroundColor: colors.primary + '15', borderColor: colors.primary }]} onPress={handleShadowing}>
-            <Ionicons name="headset" size={18} color={colors.primary} />
-            <Text style={[styles.outlineButtonText, { color: colors.primary }]}>쉐도잉</Text>
-          </Pressable>
-          <Pressable style={[styles.outlineButton, { backgroundColor: colors.secondary + '15', borderColor: colors.secondary }]} onPress={handleTranslationPractice}>
-            <Ionicons name="language" size={18} color={colors.secondary} />
-            <Text style={[styles.outlineButtonText, { color: colors.secondary }]}>한→영</Text>
+      {!isEditing && (
+        <View style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+          <View style={styles.buttonRow}>
+            <Pressable style={[styles.outlineButton, { backgroundColor: colors.primary + '15', borderColor: colors.primary }]} onPress={handleShadowing}>
+              <Ionicons name="headset" size={18} color={colors.primary} />
+              <Text style={[styles.outlineButtonText, { color: colors.primary }]}>쉐도잉</Text>
+            </Pressable>
+            <Pressable style={[styles.outlineButton, { backgroundColor: colors.secondary + '15', borderColor: colors.secondary }]} onPress={handleTranslationPractice}>
+              <Ionicons name="language" size={18} color={colors.secondary} />
+              <Text style={[styles.outlineButtonText, { color: colors.secondary }]}>한→영</Text>
+            </Pressable>
+          </View>
+          <Pressable style={[styles.practiceButton, { backgroundColor: colors.primary }]} onPress={handlePractice}>
+            <Ionicons name="mic" size={20} color="#FFFFFF" />
+            <Text style={styles.practiceButtonText}>실전 연습</Text>
           </Pressable>
         </View>
-        <Pressable style={[styles.practiceButton, { backgroundColor: colors.primary }]} onPress={handlePractice}>
-          <Ionicons name="mic" size={20} color="#FFFFFF" />
-          <Text style={styles.practiceButtonText}>실전 연습</Text>
-        </Pressable>
-      </View>
-    </View>
+      )}
+    </KeyboardAvoidingView>
   );
 }
 
@@ -176,10 +279,26 @@ const styles = StyleSheet.create({
     fontFamily: 'Pretendard-SemiBold',
     lineHeight: 24,
   },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   label: {
     fontSize: 14,
     fontFamily: 'Pretendard-Medium',
-    marginBottom: 8,
+  },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  editButtonText: {
+    fontSize: 13,
+    fontFamily: 'Pretendard-Medium',
   },
   scriptBox: {
     padding: 16,
@@ -193,6 +312,31 @@ const styles = StyleSheet.create({
   scriptText: {
     fontSize: 16,
     lineHeight: 26,
+  },
+  scriptInput: {
+    fontSize: 16,
+    lineHeight: 26,
+    minHeight: 120,
+  },
+  editActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E0E0E0',
+  },
+  editActionButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    minWidth: 60,
+    alignItems: 'center',
+  },
+  editActionText: {
+    fontSize: 14,
+    fontFamily: 'Pretendard-SemiBold',
   },
   commentBox: {
     flexDirection: 'row',

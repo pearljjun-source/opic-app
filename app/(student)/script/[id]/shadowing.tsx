@@ -21,9 +21,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 import { useThemeColors } from '@/hooks/useTheme';
+import { useVoiceConsent } from '@/hooks/useVoiceConsent';
 import { getStudentScript, StudentScriptDetail } from '@/services/scripts';
 import { generateScriptAudio } from '@/services/practices';
 import { getUserMessage } from '@/lib/errors';
+import { VoiceConsentModal } from '@/components/ui/VoiceConsentModal';
 
 type ShadowingState = 'loading' | 'ready' | 'playing_tts' | 'recording' | 'playing_recording';
 
@@ -36,7 +38,9 @@ function splitSentences(text: string): string[] {
 export default function ShadowingScreen() {
   const colors = useThemeColors();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { requireConsent, showConsentModal, handleAgree, handleDecline } = useVoiceConsent();
 
+  const [consentLoading, setConsentLoading] = useState(false);
   const [script, setScript] = useState<StudentScriptDetail | null>(null);
   const [state, setState] = useState<ShadowingState>('loading');
   const [recordingTime, setRecordingTime] = useState(0);
@@ -188,6 +192,8 @@ export default function ShadowingScreen() {
 
   // ── 녹음 시작 ──
   const handleStartRecording = async () => {
+    if (!requireConsent()) return;
+
     try {
       if (Platform.OS === 'web') {
         // 웹: 직접 MediaRecorder API 사용 (expo-audio 웹 녹음 불안정)
@@ -591,6 +597,20 @@ export default function ShadowingScreen() {
           <Text style={[styles.backButtonText, { color: colors.textSecondary }]}>스크립트로 돌아가기</Text>
         </Pressable>
       )}
+
+      <VoiceConsentModal
+        visible={showConsentModal}
+        onAgree={async () => {
+          setConsentLoading(true);
+          const success = await handleAgree();
+          setConsentLoading(false);
+          if (!success) {
+            Alert.alert('오류', '동의 저장에 실패했습니다. 다시 시도해주세요.');
+          }
+        }}
+        onDecline={handleDecline}
+        loading={consentLoading}
+      />
     </View>
   );
 }

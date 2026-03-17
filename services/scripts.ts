@@ -419,6 +419,43 @@ export async function getStudentScript(scriptId: string): Promise<{
   }
 }
 
+/**
+ * 스크립트 수정 (학생용) - content만 변경 가능
+ * DB 트리거(protect_script_student_update)가 다른 컬럼 변경을 차단
+ */
+export async function updateScriptAsStudent(params: {
+  scriptId: string;
+  content: string;
+}): Promise<{
+  error: Error | null;
+}> {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: new AppError('AUTH_REQUIRED') };
+  }
+
+  const { error } = await supabase
+    .from('scripts')
+    .update({
+      content: params.content,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', params.scriptId)
+    .eq('student_id', user.id)
+    .eq('status', 'complete')
+    .is('deleted_at', null);
+
+  if (error) {
+    return { error: classifyError(error, { resource: 'script' }) };
+  }
+
+  // content 변경 시 DB 트리거가 content_ko를 NULL로 리셋 → 재번역
+  translateScript(params.scriptId).catch(() => {});
+
+  return { error: null };
+}
+
 // ============================================================================
 // 스크립트 번역 (한→영 연습용)
 // ============================================================================

@@ -6,11 +6,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { checkOrgEntitlement } from '../_shared/check-subscription.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { getCorsHeaders, handleCorsPreFlight } from '../_shared/cors.ts';
 
 // ============================================================================
 // ACTFL 채점 시스템 프롬프트
@@ -205,9 +201,8 @@ function clampScore(value: unknown): number {
 // ============================================================================
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  const preFlightResponse = handleCorsPreFlight(req);
+  if (preFlightResponse) return preFlightResponse;
 
   try {
     const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
@@ -254,7 +249,7 @@ serve(async (req) => {
     if (sessionError || !session) {
       return new Response(
         JSON.stringify({ error: 'EXAM_SESSION_NOT_FOUND' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+        { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 404 }
       );
     }
 
@@ -262,7 +257,7 @@ serve(async (req) => {
     if (session.student_id !== user.id) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
+        { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 403 }
       );
     }
 
@@ -270,13 +265,13 @@ serve(async (req) => {
     if (session.processing_status === 'processing') {
       return new Response(
         JSON.stringify({ error: 'EXAM_ALREADY_PROCESSING' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 409 }
+        { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 409 }
       );
     }
     if (session.processing_status === 'completed') {
       return new Response(
         JSON.stringify({ error: 'EXAM_ALREADY_COMPLETED' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 409 }
+        { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 409 }
       );
     }
 
@@ -294,14 +289,14 @@ serve(async (req) => {
     if (!entitlement.allowed) {
       return new Response(
         JSON.stringify({ error: entitlement.reason || 'FEATURE_NOT_AVAILABLE', plan_key: entitlement.planKey }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
+        { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 403 }
       );
     }
 
     if (rateLimit && !rateLimit.allowed) {
       return new Response(
         JSON.stringify({ error: 'Rate limit exceeded', remaining: rateLimit.remaining, reset_at: rateLimit.reset_at }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 429 }
+        { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 429 }
       );
     }
 
@@ -317,7 +312,7 @@ serve(async (req) => {
     if (!updateResult) {
       return new Response(
         JSON.stringify({ error: 'EXAM_ALREADY_PROCESSING' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 409 }
+        { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 409 }
       );
     }
 
@@ -335,7 +330,7 @@ serve(async (req) => {
         .eq('id', examSessionId);
       return new Response(
         JSON.stringify({ error: 'EXAM_NO_RECORDINGS' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 400 }
       );
     }
 
@@ -529,12 +524,12 @@ serve(async (req) => {
     // 16. 응답
     return new Response(
       JSON.stringify(evaluationReport),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 200 }
     );
   } catch (error) {
     return new Response(
       JSON.stringify({ error: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 400 }
     );
   }
 });

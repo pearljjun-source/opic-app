@@ -196,7 +196,7 @@ export async function submitCancellationFlow(params: {
   if (!user) return { data: null, error: new AppError('AUTH_REQUIRED') };
 
   // 1. cancellation_feedback 기록
-  const { error: feedbackError } = await supabase
+  const { error: feedbackError } = await (supabase as any)
     .from('cancellation_feedback')
     .insert({
       organization_id: params.orgId,
@@ -215,12 +215,16 @@ export async function submitCancellationFlow(params: {
 
   // 2. 최종 액션 실행
   if (params.action === 'canceled') {
-    return cancelSubscription(params.subscriptionId);
+    const result = await cancelSubscription(params.subscriptionId);
+    if (result.error) return { data: null, error: result.error };
+    return { data: { success: true, action: 'canceled' }, error: null };
   }
 
   if (params.action === 'downgraded') {
     // Free 플랜으로 다운그레이드 (다음 갱신 시 적용)
-    return changePlan('free', params.orgId);
+    const result = await changePlan('free', params.orgId);
+    if (result.error) return { data: null, error: result.error };
+    return { data: { success: true, action: 'downgraded' }, error: null };
   }
 
   // retained: 사용자가 제안을 수락하고 취소 안 함

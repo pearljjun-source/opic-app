@@ -56,7 +56,7 @@ export async function checkOrgEntitlement(
   // 2. org의 활성 구독 + 플랜 조회
   const { data: sub } = await supabaseAdmin
     .from('subscriptions')
-    .select('id, status, plan_id, subscription_plans(*)')
+    .select('id, status, plan_id, subscription_plans!subscriptions_plan_id_fkey(*)')
     .eq('organization_id', orgId)
     .in('status', ['active', 'trialing', 'past_due'])
     .limit(1)

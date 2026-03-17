@@ -1,8 +1,9 @@
 import {
   View, Text, StyleSheet, ScrollView, Pressable, TextInput,
-  ActivityIndicator, Alert, RefreshControl, Modal, Platform,
+  ActivityIndicator, RefreshControl, Modal, Platform,
   KeyboardAvoidingView,
 } from 'react-native';
+import { alert as xAlert, confirm as xConfirm } from '@/lib/alert';
 import { useState, useEffect, useCallback } from 'react';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -58,7 +59,7 @@ export default function AdminAcademiesScreen() {
   }) {
     const handleCopy = async () => {
       await Clipboard.setStringAsync(invite.code);
-      Alert.alert('복사 완료', `코드 ${invite.code}가 클립보드에 복사되었습니다.`);
+      xAlert('복사 완료', `코드 ${invite.code}가 클립보드에 복사되었습니다.`);
     };
 
     const isPending = invite.status === 'pending';
@@ -201,22 +202,17 @@ export default function AdminAcademiesScreen() {
     });
 
     if (result.error) {
-      Alert.alert('오류', getUserMessage(result.error));
+      xAlert('오류', getUserMessage(result.error));
     } else if (result.data) {
       setModalVisible(false);
       setOrgName('');
       setExpiresInDays('30');
 
-      Alert.alert(
+      // 웹에서 Alert 버튼 onPress가 작동하지 않으므로, 자동 복사 후 알림
+      await Clipboard.setStringAsync(result.data.code);
+      xAlert(
         '초대 코드 생성 완료',
-        `학원: ${result.data.organization_name}\n코드: ${result.data.code}\n만료: ${new Date(result.data.expires_at).toLocaleDateString('ko-KR')}`,
-        [
-          {
-            text: '코드 복사',
-            onPress: () => Clipboard.setStringAsync(result.data!.code),
-          },
-          { text: '확인' },
-        ]
+        `학원: ${result.data.organization_name}\n코드: ${result.data.code}\n만료: ${new Date(result.data.expires_at).toLocaleDateString('ko-KR')}\n\n코드가 클립보드에 복사되었습니다.`
       );
 
       await fetchData();
@@ -226,24 +222,18 @@ export default function AdminAcademiesScreen() {
   };
 
   const handleDelete = (inviteId: string) => {
-    Alert.alert(
+    xConfirm(
       '초대 삭제',
       '이 초대 코드를 삭제하시겠습니까?',
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '삭제',
-          style: 'destructive',
-          onPress: async () => {
-            const result = await deleteOwnerInvite(inviteId);
-            if (result.error) {
-              Alert.alert('오류', getUserMessage(result.error));
-            } else {
-              await fetchData();
-            }
-          },
-        },
-      ]
+      async () => {
+        const result = await deleteOwnerInvite(inviteId);
+        if (result.error) {
+          xAlert('오류', getUserMessage(result.error));
+        } else {
+          await fetchData();
+        }
+      },
+      { confirmText: '삭제', cancelText: '취소' }
     );
   };
 

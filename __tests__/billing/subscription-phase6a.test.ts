@@ -89,8 +89,8 @@ describe('update-billing-key Edge Function', () => {
     expect(code).toContain('billing/authorizations/issue');
   });
 
-  test('구독 billing_key 업데이트', () => {
-    expect(code).toContain('billing_key: billingKey');
+  test('구독 billing_key 업데이트 (암호화)', () => {
+    expect(code).toContain('billing_key: await encryptValue(billingKey)');
   });
 
   test('NO_ACTIVE_SUBSCRIPTION 에러 코드', () => {

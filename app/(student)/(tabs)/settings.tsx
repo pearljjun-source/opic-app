@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 
@@ -144,6 +144,24 @@ export default function StudentSettings() {
             label="다크"
             onPress={() => handleThemeChange('dark')}
             selected={themePref === 'dark'}
+          />
+        </View>
+      </View>
+
+      {/* 법적 고지 */}
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>법적 고지</Text>
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+          <SettingsRow
+            icon="document-text-outline"
+            label="이용약관"
+            onPress={() => Linking.openURL('https://speaky.kr/terms')}
+          />
+          <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
+          <SettingsRow
+            icon="shield-checkmark-outline"
+            label="개인정보 처리방침"
+            onPress={() => Linking.openURL('https://speaky.kr/privacy')}
           />
         </View>
       </View>

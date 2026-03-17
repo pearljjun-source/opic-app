@@ -12,21 +12,24 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { getCorsHeaders, handleCorsPreFlight } from '../_shared/cors.ts';
+import { logger } from '../_shared/logger.ts';
+import { encryptValue } from '../_shared/crypto.ts';
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  const preFlightResponse = handleCorsPreFlight(req);
+  if (preFlightResponse) return preFlightResponse;
 
   try {
     const tossSecretKey = Deno.env.get('TOSS_SECRET_KEY');
     if (!tossSecretKey) {
       throw new Error('TOSS_SECRET_KEY is not configured');
+    }
+
+    // 암호화 키 사전 검증 (결제 후 DB 저장 실패 방지)
+    const billingEncKey = Deno.env.get('BILLING_ENCRYPTION_KEY');
+    if (!billingEncKey || billingEncKey.length !== 64) {
+      throw new Error('BILLING_ENCRYPTION_KEY is not configured');
     }
 
     // 인증 확인
@@ -49,7 +52,7 @@ serve(async (req) => {
     if (!planKey || !authKey || !orgId) {
       return new Response(
         JSON.stringify({ error: 'planKey, authKey, and orgId are required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -74,7 +77,7 @@ serve(async (req) => {
     if (!membership) {
       return new Response(
         JSON.stringify({ error: 'NOT_ORG_OWNER' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 403, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -89,7 +92,7 @@ serve(async (req) => {
     if (planError || !plan) {
       return new Response(
         JSON.stringify({ error: 'PLAN_NOT_FOUND' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -104,7 +107,7 @@ serve(async (req) => {
     if (existingSub) {
       return new Response(
         JSON.stringify({ error: 'ALREADY_SUBSCRIBED' }),
-        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 409, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -124,10 +127,10 @@ serve(async (req) => {
 
     if (!billingRes.ok) {
       const billingError = await billingRes.json();
-      console.error('Toss billing key error:', billingError);
+      logger.error('Toss billing key error', billingError);
       return new Response(
         JSON.stringify({ error: 'BILLING_KEY_FAILED', detail: billingError.message }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -154,10 +157,10 @@ serve(async (req) => {
 
     if (!paymentRes.ok) {
       const paymentError = await paymentRes.json();
-      console.error('Toss payment error:', paymentError);
+      logger.error('Toss payment error', paymentError);
       return new Response(
         JSON.stringify({ error: 'BILLING_PAYMENT_FAILED', detail: paymentError.message }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -196,7 +199,7 @@ serve(async (req) => {
         plan_id: plan.id,
         status: 'active',
         billing_provider: 'toss',
-        billing_key: billingKey,
+        billing_key: await encryptValue(billingKey),
         billing_cycle: cycle,
         provider_subscription_id: orderId,
         current_period_start: now.toISOString(),
@@ -206,7 +209,7 @@ serve(async (req) => {
       .single();
 
     if (subError) {
-      console.error('Subscription insert error:', subError);
+      logger.error('Subscription insert error', subError);
       throw new Error('Failed to create subscription');
     }
 
@@ -226,13 +229,13 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ subscriptionId: subscription.id }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('billing-key error:', error);
+    logger.error('billing-key error', error);
     return new Response(
       JSON.stringify({ error: error.message || 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }
 });

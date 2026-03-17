@@ -123,7 +123,7 @@ export default function CancellationFlow({
                   style={[
                     styles.reasonItem,
                     { borderColor: selectedReason === item.key ? colors.primary : colors.border },
-                    selectedReason === item.key && { backgroundColor: colors.primaryBg },
+                    selectedReason === item.key && { backgroundColor: colors.primaryLight },
                   ]}
                   onPress={() => handleSelectReason(item.key)}
                 >

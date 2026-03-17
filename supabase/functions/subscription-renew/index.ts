@@ -10,16 +10,13 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { getCorsHeaders, handleCorsPreFlight } from '../_shared/cors.ts';
+import { logger } from '../_shared/logger.ts';
+import { decryptValue, isEncrypted } from '../_shared/crypto.ts';
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  const preFlightResponse = handleCorsPreFlight(req);
+  if (preFlightResponse) return preFlightResponse;
 
   try {
     const tossSecretKey = Deno.env.get('TOSS_SECRET_KEY');
@@ -39,7 +36,7 @@ serve(async (req) => {
 
     const { data: dueSubs, error: queryError } = await supabaseAdmin
       .from('subscriptions')
-      .select('*, subscription_plans(*)')
+      .select('*, subscription_plans!subscriptions_plan_id_fkey(*)')
       .lte('current_period_end', tomorrow.toISOString())
       .eq('cancel_at_period_end', false)
       .in('status', ['active', 'past_due']);
@@ -51,7 +48,7 @@ serve(async (req) => {
     if (!dueSubs || dueSubs.length === 0) {
       return new Response(
         JSON.stringify({ message: 'No subscriptions to renew', count: 0 }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -127,7 +124,7 @@ serve(async (req) => {
             }),
           });
         } catch (pushErr) {
-          console.error('Push notification failed:', pushErr);
+          logger.error('Push notification failed', pushErr);
         }
       }
 
@@ -163,8 +160,13 @@ serve(async (req) => {
       const orderId = `renew_${sub.user_id.slice(0, 8)}_${Date.now()}`;
 
       try {
+        // billing_key 복호화 (암호화된 경우)
+        const rawBillingKey = isEncrypted(sub.billing_key)
+          ? await decryptValue(sub.billing_key)
+          : sub.billing_key;
+
         // 토스 빌링 결제
-        const payRes = await fetch(`https://api.tosspayments.com/v1/billing/${sub.billing_key}`, {
+        const payRes = await fetch(`https://api.tosspayments.com/v1/billing/${rawBillingKey}`, {
           method: 'POST',
           headers: {
             'Authorization': authHeader,
@@ -224,7 +226,7 @@ serve(async (req) => {
           results.renewed++;
         } else {
           const payError = await payRes.json();
-          console.error(`Payment failed for ${sub.id}:`, payError);
+          logger.error(`Payment failed for ${sub.id}`, payError);
 
           // Dunning: dunning_started_at 기반 마일스톤 알림 + 14일 후 canceled
           const dunningStart = sub.dunning_started_at
@@ -277,7 +279,7 @@ serve(async (req) => {
           });
         }
       } catch (err) {
-        console.error(`Error processing sub ${sub.id}:`, err);
+        logger.error(`Error processing sub ${sub.id}`, err);
         results.failed++;
       }
     }
@@ -302,13 +304,13 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ message: 'Renewal complete', results }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('subscription-renew error:', error);
+    logger.error('subscription-renew error', error);
     return new Response(
       JSON.stringify({ error: error.message || 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }
 });

@@ -12,16 +12,13 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { getCorsHeaders, handleCorsPreFlight } from '../_shared/cors.ts';
+import { logger } from '../_shared/logger.ts';
+import { decryptValue, isEncrypted } from '../_shared/crypto.ts';
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  const preFlightResponse = handleCorsPreFlight(req);
+  if (preFlightResponse) return preFlightResponse;
 
   try {
     const tossSecretKey = Deno.env.get('TOSS_SECRET_KEY');
@@ -49,7 +46,7 @@ serve(async (req) => {
     if (!newPlanKey || !orgId) {
       return new Response(
         JSON.stringify({ error: 'newPlanKey and orgId are required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -72,14 +69,14 @@ serve(async (req) => {
     if (!membership) {
       return new Response(
         JSON.stringify({ error: 'NOT_ORG_OWNER' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 403, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
     // 활성 구독 조회
     const { data: subscription, error: subError } = await supabaseAdmin
       .from('subscriptions')
-      .select('*, subscription_plans(*)')
+      .select('*, subscription_plans!subscriptions_plan_id_fkey(*)')
       .eq('organization_id', orgId)
       .in('status', ['active', 'trialing'])
       .single();
@@ -87,7 +84,7 @@ serve(async (req) => {
     if (subError || !subscription) {
       return new Response(
         JSON.stringify({ error: 'NO_ACTIVE_SUBSCRIPTION' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -95,7 +92,7 @@ serve(async (req) => {
     if (!currentPlan) {
       return new Response(
         JSON.stringify({ error: 'PLAN_NOT_FOUND', detail: 'Current plan not found' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -110,7 +107,7 @@ serve(async (req) => {
     if (newPlanError || !newPlan) {
       return new Response(
         JSON.stringify({ error: 'PLAN_NOT_FOUND', detail: 'New plan not found' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -118,7 +115,7 @@ serve(async (req) => {
     if (currentPlan.id === newPlan.id) {
       return new Response(
         JSON.stringify({ error: 'SAME_PLAN' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -130,7 +127,7 @@ serve(async (req) => {
       if (!subscription.billing_key) {
         return new Response(
           JSON.stringify({ error: 'NO_BILLING_KEY' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
         );
       }
 
@@ -155,8 +152,13 @@ serve(async (req) => {
         const authHeader = 'Basic ' + btoa(`${tossSecretKey}:`);
         const orderId = `upgrade_${user.id.slice(0, 8)}_${Date.now()}`;
 
+        // billing_key 복호화 (암호화된 경우)
+        const rawBillingKey = isEncrypted(subscription.billing_key)
+          ? await decryptValue(subscription.billing_key)
+          : subscription.billing_key;
+
         const paymentRes = await fetch(
-          `https://api.tosspayments.com/v1/billing/${subscription.billing_key}`,
+          `https://api.tosspayments.com/v1/billing/${rawBillingKey}`,
           {
             method: 'POST',
             headers: {
@@ -174,10 +176,10 @@ serve(async (req) => {
 
         if (!paymentRes.ok) {
           const paymentError = await paymentRes.json();
-          console.error('Toss payment error:', paymentError);
+          logger.error('Toss payment error', paymentError);
           return new Response(
             JSON.stringify({ error: 'BILLING_PAYMENT_FAILED', detail: paymentError.message }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
           );
         }
 
@@ -209,7 +211,7 @@ serve(async (req) => {
         .eq('id', subscription.id);
 
       if (updateError) {
-        console.error('Subscription update error:', updateError);
+        logger.error('Subscription update error', updateError);
         throw new Error('Failed to update subscription');
       }
 
@@ -219,7 +221,7 @@ serve(async (req) => {
           type: 'upgrade',
           proratedAmount,
         }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     } else {
       // ========== 다운그레이드: 다음 갱신 시 적용 ==========
@@ -239,7 +241,7 @@ serve(async (req) => {
             error: 'DOWNGRADE_USAGE_EXCEEDED',
             detail: `현재 학생 수(${studentCount}명)가 새 플랜 한도(${newPlan.max_students}명)를 초과합니다. 다운그레이드 전에 학생 수를 줄여주세요.`,
           }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
         );
       }
 
@@ -269,7 +271,7 @@ serve(async (req) => {
             error: 'DOWNGRADE_USAGE_EXCEEDED',
             detail: `현재 스크립트 수(${scriptCount}개)가 새 플랜 한도(${newPlan.max_scripts}개)를 초과합니다. 다운그레이드 전에 스크립트 수를 줄여주세요.`,
           }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
         );
       }
 
@@ -283,7 +285,7 @@ serve(async (req) => {
         .eq('id', subscription.id);
 
       if (updateError) {
-        console.error('Subscription update error:', updateError);
+        logger.error('Subscription update error', updateError);
         throw new Error('Failed to set pending plan');
       }
 
@@ -292,14 +294,14 @@ serve(async (req) => {
           success: true,
           type: 'downgrade',
         }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
   } catch (error) {
-    console.error('change-plan error:', error);
+    logger.error('change-plan error', error);
     return new Response(
       JSON.stringify({ error: error.message || 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }
 });
