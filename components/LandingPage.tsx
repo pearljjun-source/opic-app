@@ -923,11 +923,11 @@ export default function LandingPage() {
           </View>
           <Text style={s.footerTag}>OPIc 강사·학원을 위한 AI 학습 관리 플랫폼</Text>
           <View style={s.footerLinks}>
-            <Pressable><Text style={s.footerLink}>개인정보처리방침</Text></Pressable>
+            <Pressable onPress={() => router.push('/privacy')}><Text style={s.footerLink}>개인정보처리방침</Text></Pressable>
             <Text style={s.footerDiv}>|</Text>
-            <Pressable><Text style={s.footerLink}>이용약관</Text></Pressable>
+            <Pressable onPress={() => router.push('/terms')}><Text style={s.footerLink}>이용약관</Text></Pressable>
             <Text style={s.footerDiv}>|</Text>
-            <Pressable><Text style={s.footerLink}>문의하기</Text></Pressable>
+            <Pressable onPress={() => Linking.openURL('mailto:speaky@support.com')}><Text style={s.footerLink}>문의하기</Text></Pressable>
           </View>
           <Text style={s.footerCopy}>© 2026 Speaky. All rights reserved.</Text>
         </View>

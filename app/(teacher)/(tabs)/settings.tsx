@@ -192,13 +192,13 @@ export default function TeacherSettings() {
           <SettingsRow
             icon="document-text-outline"
             label="이용약관"
-            onPress={() => Linking.openURL('https://speaky.kr/terms')}
+            onPress={() => router.push('/terms')}
           />
           <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
           <SettingsRow
             icon="shield-checkmark-outline"
             label="개인정보 처리방침"
-            onPress={() => Linking.openURL('https://speaky.kr/privacy')}
+            onPress={() => router.push('/privacy')}
           />
         </View>
       </View>

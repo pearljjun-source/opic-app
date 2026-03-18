@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform, Linking } from 'react-native';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 
@@ -155,13 +156,13 @@ export default function StudentSettings() {
           <SettingsRow
             icon="document-text-outline"
             label="이용약관"
-            onPress={() => Linking.openURL('https://speaky.kr/terms')}
+            onPress={() => router.push('/terms')}
           />
           <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
           <SettingsRow
             icon="shield-checkmark-outline"
             label="개인정보 처리방침"
-            onPress={() => Linking.openURL('https://speaky.kr/privacy')}
+            onPress={() => router.push('/privacy')}
           />
         </View>
       </View>
