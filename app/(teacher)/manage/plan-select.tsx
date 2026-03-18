@@ -44,6 +44,12 @@ export default function PlanSelectScreen() {
 
   // 결제 시작
   const handleSelectPlan = async (plan: SubscriptionPlan) => {
+    if (__DEV__) console.warn('[PlanSelect] handleSelectPlan:', {
+      planKey: plan.plan_key, user: !!user, currentOrg: !!currentOrg,
+      isOwner, currentPlanKey, hasSubscription: !!subscription,
+      subscriptionStatus: subscription?.status,
+    });
+
     if (!user || !currentOrg) {
       Alert.alert('오류', '로그인 정보를 확인해 주세요.');
       return;
