@@ -1,18 +1,19 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, Pressable, StyleSheet,
   Alert, ActivityIndicator, Platform,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useThemeColors } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscription } from '@/hooks/useSubscription';
-import { getSubscriptionPlans, issueBillingKey, changePlan } from '@/services/billing';
+import { getSubscriptionPlans, changePlan } from '@/services/billing';
 import { getUserMessage } from '@/lib/errors';
 import { requestTossBillingAuth, isTossConfigured, buildPaymentUrls } from '@/lib/toss';
+import { PAYMENT_CALLBACK } from '@/lib/constants';
 import type { SubscriptionPlan } from '@/lib/types';
 
 const PLAN_ORDER = ['free', 'solo', 'pro', 'academy'];
@@ -20,17 +21,8 @@ const PLAN_ORDER = ['free', 'solo', 'pro', 'academy'];
 export default function PlanSelectScreen() {
   const colors = useThemeColors();
   const router = useRouter();
-  const params = useLocalSearchParams<{
-    authKey?: string;
-    customerKey?: string;
-    planKey?: string;
-    paymentStatus?: string;
-    code?: string;
-    message?: string;
-    cycle?: string;
-  }>();
 
-  const { user, currentOrg, orgRole, isAuthenticated, _profileVerified } = useAuth();
+  const { user, currentOrg, orgRole } = useAuth();
   const { subscription, planKey: currentPlanKey, refresh: refreshSubscription } = useSubscription();
 
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
@@ -38,11 +30,7 @@ export default function PlanSelectScreen() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMessage, setProcessingMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
-
-  // 콜백 중복 처리 방지
-  const callbackProcessed = useRef(false);
 
   const isOwner = orgRole === 'owner';
 
@@ -53,84 +41,6 @@ export default function PlanSelectScreen() {
       setIsLoading(false);
     });
   }, []);
-
-  // ────────────────────────────────────────────────────────────
-  // Toss 결제 콜백 처리 (웹: 리다이렉트 후 URL 파라미터로 authKey 수신)
-  //
-  // Toss 리다이렉트 → 앱 리로드 → auth 초기화 → 이 컴포넌트 마운트
-  // auth가 완전히 초기화된 후에만 billingKey 발급 진행
-  // ────────────────────────────────────────────────────────────
-  useEffect(() => {
-    // 콜백 파라미터가 없거나, 이미 처리했거나, 처리 중이면 무시
-    if (!params.authKey || !params.planKey || callbackProcessed.current || isProcessing) return;
-
-    // auth 초기화 대기 (Toss 리다이렉트 후 앱이 리로드되므로)
-    if (!isAuthenticated || !_profileVerified) return;
-
-    // org 정보 필요
-    if (!currentOrg?.id) return;
-
-    callbackProcessed.current = true;
-    const cycle = params.cycle === 'yearly' ? 'yearly' : 'monthly';
-    processPaymentCallback(params.authKey, params.planKey, currentOrg.id, cycle);
-  }, [params.authKey, params.planKey, isAuthenticated, _profileVerified, currentOrg, isProcessing]);
-
-  // 결제 실패 콜백
-  useEffect(() => {
-    if (params.paymentStatus === 'fail') {
-      setError(params.message || '결제가 취소되었습니다.');
-    }
-  }, [params.paymentStatus, params.message]);
-
-  // 결제 완료 처리
-  const processPaymentCallback = async (authKey: string, planKey: string, orgId: string, cycle: 'monthly' | 'yearly' = 'monthly') => {
-    setIsProcessing(true);
-    setProcessingMessage('결제를 처리하고 있습니다...');
-    setError(null);
-
-    try {
-      const { error: billingError } = await issueBillingKey(planKey, authKey, orgId, cycle);
-
-      if (billingError) {
-        setError(getUserMessage(billingError));
-        setIsProcessing(false);
-
-        // URL 파라미터 정리 (재시도 가능하도록)
-        callbackProcessed.current = false;
-        cleanUrlParams();
-        return;
-      }
-
-      // 구독 상태 새로고침
-      await refreshSubscription();
-      setIsProcessing(false);
-      setSuccess(true);
-
-      // URL 파라미터 정리
-      cleanUrlParams();
-    } catch (err) {
-      if (__DEV__) console.warn('[AppError] processPaymentCallback:', err);
-      setError(getUserMessage(err));
-      setIsProcessing(false);
-      callbackProcessed.current = false;
-      cleanUrlParams();
-    }
-  };
-
-  // 웹: URL 파라미터 정리 (리로드 시 재처리 방지)
-  const cleanUrlParams = () => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      const url = new URL(window.location.href);
-      url.searchParams.delete('authKey');
-      url.searchParams.delete('customerKey');
-      url.searchParams.delete('planKey');
-      url.searchParams.delete('paymentStatus');
-      url.searchParams.delete('code');
-      url.searchParams.delete('message');
-      url.searchParams.delete('cycle');
-      window.history.replaceState({}, '', url.pathname);
-    }
-  };
 
   // 결제 시작
   const handleSelectPlan = async (plan: SubscriptionPlan) => {
@@ -171,13 +81,13 @@ export default function PlanSelectScreen() {
               onPress: async () => {
                 setIsProcessing(true);
                 setProcessingMessage('플랜을 변경하고 있습니다...');
-                const { data, error: changeError } = await changePlan(plan.plan_key, currentOrg!.id);
+                const { error: changeError } = await changePlan(plan.plan_key, currentOrg!.id);
                 setIsProcessing(false);
                 if (changeError) {
                   setError(getUserMessage(changeError));
                 } else {
                   await refreshSubscription();
-                  setSuccess(true);
+                  Alert.alert('완료', '플랜이 변경되었습니다.');
                 }
               },
             },
@@ -195,13 +105,13 @@ export default function PlanSelectScreen() {
               onPress: async () => {
                 setIsProcessing(true);
                 setProcessingMessage('업그레이드를 처리하고 있습니다...');
-                const { data, error: changeError } = await changePlan(plan.plan_key, currentOrg!.id);
+                const { error: changeError } = await changePlan(plan.plan_key, currentOrg!.id);
                 setIsProcessing(false);
                 if (changeError) {
                   setError(getUserMessage(changeError));
                 } else {
                   await refreshSubscription();
-                  setSuccess(true);
+                  Alert.alert('완료', '업그레이드가 완료되었습니다.');
                 }
               },
             },
@@ -221,20 +131,19 @@ export default function PlanSelectScreen() {
       }
 
       try {
-        const urls = buildPaymentUrls(plan.plan_key);
+        const urls = buildPaymentUrls({
+          action: 'new-subscription',
+          planKey: plan.plan_key,
+          cycle: billingCycle,
+        });
         if (!urls) {
           Alert.alert('오류', '결제 URL을 생성할 수 없습니다.');
           return;
         }
 
-        // billingCycle을 successUrl에 추가
-        const successWithCycle = billingCycle === 'yearly'
-          ? `${urls.successUrl}&cycle=yearly`
-          : urls.successUrl;
-
         await requestTossBillingAuth({
           customerKey: user.id,
-          successUrl: successWithCycle,
+          successUrl: urls.successUrl,
           failUrl: urls.failUrl,
         });
         // 리다이렉트됨 — 이후 코드 실행 안 됨
@@ -274,7 +183,7 @@ export default function PlanSelectScreen() {
     );
   }
 
-  // ── 결제 처리 중 ──
+  // ── 결제 처리 중 (change-plan) ──
   if (isProcessing) {
     return (
       <View style={[styles.center, { backgroundColor: colors.surfaceSecondary }]}>
@@ -282,27 +191,6 @@ export default function PlanSelectScreen() {
         <Text style={[styles.processingText, { color: colors.textSecondary }]}>
           {processingMessage}
         </Text>
-      </View>
-    );
-  }
-
-  // ── 결제 완료 ──
-  if (success) {
-    return (
-      <View style={[styles.center, { backgroundColor: colors.surfaceSecondary }]}>
-        <Ionicons name="checkmark-circle" size={64} color={colors.success} />
-        <Text style={[styles.successTitle, { color: colors.textPrimary }]}>
-          구독이 완료되었습니다
-        </Text>
-        <Text style={[styles.successSub, { color: colors.textSecondary }]}>
-          새로운 플랜이 즉시 적용됩니다
-        </Text>
-        <Pressable
-          style={[styles.successButton, { backgroundColor: colors.primary }]}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.successButtonText}>확인</Text>
-        </Pressable>
       </View>
     );
   }
@@ -653,27 +541,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: 'Pretendard-Medium',
     marginTop: 16,
-  },
-
-  successTitle: {
-    fontSize: 20,
-    fontFamily: 'Pretendard-Bold',
-    marginTop: 16,
-  },
-  successSub: {
-    fontSize: 14,
-    fontFamily: 'Pretendard-Regular',
-    marginTop: 6,
-  },
-  successButton: {
-    marginTop: 24,
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 10,
-  },
-  successButtonText: {
-    fontSize: 15,
-    fontFamily: 'Pretendard-SemiBold',
-    color: '#fff',
   },
 });

@@ -190,6 +190,27 @@ export const COLORS = {
 } as const;
 
 // ============================================================================
+// 결제 콜백
+// ============================================================================
+
+/** 결제 콜백 액션/상태 상수 */
+export const PAYMENT_CALLBACK = {
+  /** 콜백 전용 라우트 경로 */
+  PATH: '/(teacher)/manage/payment-callback',
+  /** 콜백 액션 */
+  ACTIONS: {
+    NEW_SUBSCRIPTION: 'new-subscription',
+    UPDATE_BILLING: 'update-billing',
+  },
+  /** 콜백 상태 */
+  STATUS: {
+    SUCCESS: 'success',
+    FAIL: 'fail',
+    PROCESSING: 'processing',
+  },
+} as const;
+
+// ============================================================================
 // 앱 설정
 // ============================================================================
 
@@ -197,6 +218,7 @@ export const APP_CONFIG = {
   // 초대 코드
   INVITE_CODE_LENGTH: 6,
   INVITE_EXPIRE_DAYS: 7,
+  INVITE_MAX_USES_OPTIONS: [1, 10, 30, 50, 0] as const, // 0 = 무제한
 
   // 녹음
   MAX_RECORDING_DURATION_SEC: 120, // 2분

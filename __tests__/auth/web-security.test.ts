@@ -180,13 +180,13 @@ describe('route path collision fix (settings → manage)', () => {
     expect(content).toContain('/(teacher)/manage/subscription');
   });
 
-  it('toss.ts uses /(teacher)/manage/plan-select path', () => {
+  it('toss.ts uses payment-callback route via PAYMENT_CALLBACK constant', () => {
     const fs = require('fs');
     const path = require('path');
     const tossPath = path.resolve(__dirname, '../../lib/toss.ts');
     const content = fs.readFileSync(tossPath, 'utf8');
 
-    expect(content).toContain('/(teacher)/manage/plan-select');
+    expect(content).toContain('PAYMENT_CALLBACK.PATH');
     expect(content).not.toContain('/(teacher)/settings/plan-select');
   });
 
@@ -376,7 +376,7 @@ describe('end-to-end scenarios', () => {
   });
 
   describe('Scenario: 결제 URL에 올바른 경로 사용', () => {
-    it('toss payment URLs use /manage/plan-select', () => {
+    it('toss payment URLs use /manage/payment-callback', () => {
       // Re-import to get fresh module with updated paths
       jest.resetModules();
 
@@ -394,11 +394,11 @@ describe('end-to-end scenarios', () => {
       });
 
       const { buildPaymentUrls } = require('../../lib/toss');
-      const result = buildPaymentUrls('pro');
+      const result = buildPaymentUrls({ action: 'new-subscription', planKey: 'pro' });
 
       expect(result).not.toBeNull();
-      expect(result.successUrl).toContain('/manage/plan-select');
-      expect(result.failUrl).toContain('/manage/plan-select');
+      expect(result.successUrl).toContain('/manage/payment-callback');
+      expect(result.failUrl).toContain('/manage/payment-callback');
       expect(result.successUrl).not.toContain('/settings/plan-select');
 
       Object.defineProperty(window, 'location', {

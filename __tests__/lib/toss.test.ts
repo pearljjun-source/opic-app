@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { isTossConfigured, buildPaymentUrls, requestTossBillingAuth } from '@/lib/toss';
+import { isTossConfigured, buildPaymentUrls, requestTossBillingAuth, cleanPaymentUrlParams } from '@/lib/toss';
 
 // ============================================================================
 // lib/toss.ts 테스트
@@ -31,25 +31,10 @@ describe('isTossConfigured', () => {
 describe('buildPaymentUrls', () => {
   it('returns null on non-web platform', () => {
     mockPlatformOS('ios');
-    expect(buildPaymentUrls('pro')).toBeNull();
+    expect(buildPaymentUrls({ action: 'new-subscription', planKey: 'pro' })).toBeNull();
   });
 
-  it('returns URLs with planKey on web', () => {
-    mockPlatformOS('web');
-    // jsdom에서 window.location.origin 설정
-    Object.defineProperty(window, 'location', {
-      value: { origin: 'https://app.test.com' },
-      writable: true,
-      configurable: true,
-    });
-
-    const result = buildPaymentUrls('pro');
-    expect(result).not.toBeNull();
-    expect(result!.successUrl).toBe('https://app.test.com/(teacher)/manage/plan-select?planKey=pro');
-    expect(result!.failUrl).toBe('https://app.test.com/(teacher)/manage/plan-select?paymentStatus=fail');
-  });
-
-  it('encodes special characters in planKey', () => {
+  it('returns URLs pointing to payment-callback route on web', () => {
     mockPlatformOS('web');
     Object.defineProperty(window, 'location', {
       value: { origin: 'https://app.test.com' },
@@ -57,9 +42,64 @@ describe('buildPaymentUrls', () => {
       configurable: true,
     });
 
-    const result = buildPaymentUrls('pro & test');
+    const result = buildPaymentUrls({ action: 'new-subscription', planKey: 'pro' });
     expect(result).not.toBeNull();
-    expect(result!.successUrl).toContain(encodeURIComponent('pro & test'));
+    expect(result!.successUrl).toContain('/(teacher)/manage/payment-callback');
+    expect(result!.successUrl).toContain('action=new-subscription');
+    expect(result!.successUrl).toContain('planKey=pro');
+    expect(result!.failUrl).toContain('status=fail');
+    expect(result!.failUrl).toContain('action=new-subscription');
+  });
+
+  it('includes cycle=yearly when specified', () => {
+    mockPlatformOS('web');
+    Object.defineProperty(window, 'location', {
+      value: { origin: 'https://app.test.com' },
+      writable: true,
+      configurable: true,
+    });
+
+    const result = buildPaymentUrls({ action: 'new-subscription', planKey: 'pro', cycle: 'yearly' });
+    expect(result).not.toBeNull();
+    expect(result!.successUrl).toContain('cycle=yearly');
+  });
+
+  it('omits cycle param when monthly (default)', () => {
+    mockPlatformOS('web');
+    Object.defineProperty(window, 'location', {
+      value: { origin: 'https://app.test.com' },
+      writable: true,
+      configurable: true,
+    });
+
+    const result = buildPaymentUrls({ action: 'new-subscription', planKey: 'solo', cycle: 'monthly' });
+    expect(result).not.toBeNull();
+    expect(result!.successUrl).not.toContain('cycle=');
+  });
+
+  it('builds update-billing URLs correctly', () => {
+    mockPlatformOS('web');
+    Object.defineProperty(window, 'location', {
+      value: { origin: 'https://app.test.com' },
+      writable: true,
+      configurable: true,
+    });
+
+    const result = buildPaymentUrls({ action: 'update-billing' });
+    expect(result).not.toBeNull();
+    expect(result!.successUrl).toContain('action=update-billing');
+    expect(result!.successUrl).not.toContain('planKey');
+  });
+});
+
+// ============================================================================
+// cleanPaymentUrlParams
+// ============================================================================
+describe('cleanPaymentUrlParams', () => {
+  it('does nothing on non-web platform', () => {
+    mockPlatformOS('ios');
+    // Should not throw
+    cleanPaymentUrlParams();
   });
 });
 

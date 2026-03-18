@@ -1,13 +1,12 @@
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Alert, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Alert, RefreshControl, Platform, Linking } from 'react-native';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Platform, Linking } from 'react-native';
 import { useThemeColors } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscription } from '@/hooks/useSubscription';
-import { getRemainingQuota, getPaymentHistory, cancelSubscription, updateBillingKey, submitCancellationFlow } from '@/services/billing';
+import { getRemainingQuota, getPaymentHistory, cancelSubscription, submitCancellationFlow } from '@/services/billing';
 import { getUserMessage } from '@/lib/errors';
 import { requestTossBillingAuth, isTossConfigured, buildPaymentUrls } from '@/lib/toss';
 import type { PaymentRecord, CancellationReason, CancellationAction } from '@/lib/types';
@@ -92,31 +91,6 @@ export default function SubscriptionScreen() {
     refresh();
   };
 
-  // 결제 수단 변경 콜백 처리 (웹: Toss 리다이렉트 후)
-  useEffect(() => {
-    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
-    const url = new URL(window.location.href);
-    const authKey = url.searchParams.get('authKey');
-    const action = url.searchParams.get('action');
-    if (authKey && action === 'update-billing' && currentOrg?.id) {
-      // URL 파라미터 정리
-      url.searchParams.delete('authKey');
-      url.searchParams.delete('customerKey');
-      url.searchParams.delete('action');
-      window.history.replaceState({}, '', url.pathname);
-
-      (async () => {
-        const { error } = await updateBillingKey(authKey, currentOrg.id);
-        if (error) {
-          Alert.alert('오류', getUserMessage(error));
-        } else {
-          showToast('결제 수단이 변경되었습니다.');
-          refresh();
-        }
-      })();
-    }
-  }, [currentOrg]);
-
   const handleUpdateBillingKey = async () => {
     if (!user || !currentOrg) return;
 
@@ -126,13 +100,17 @@ export default function SubscriptionScreen() {
         return;
       }
       try {
-        const base = window.location.origin;
-        const path = '/(teacher)/manage/subscription';
+        const urls = buildPaymentUrls({ action: 'update-billing' });
+        if (!urls) {
+          Alert.alert('오류', '결제 URL을 생성할 수 없습니다.');
+          return;
+        }
         await requestTossBillingAuth({
           customerKey: user.id,
-          successUrl: `${base}${path}?action=update-billing`,
-          failUrl: `${base}${path}`,
+          successUrl: urls.successUrl,
+          failUrl: urls.failUrl,
         });
+        // 리다이렉트됨 — 콜백은 payment-callback 라우트에서 처리
       } catch (err) {
         Alert.alert('오류', getUserMessage(err));
       }

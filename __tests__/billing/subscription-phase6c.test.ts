@@ -161,12 +161,8 @@ describe('plan-select screen - billing cycle toggle', () => {
     expect(code).toContain('절약');
   });
 
-  test('cycle 파라미터 URL에 추가', () => {
-    expect(code).toContain('cycle=yearly');
-  });
-
-  test('콜백에서 cycle 파라미터 처리', () => {
-    expect(code).toContain("params.cycle");
+  test('cycle 파라미터를 buildPaymentUrls에 전달', () => {
+    expect(code).toContain('cycle: billingCycle');
   });
 });
 

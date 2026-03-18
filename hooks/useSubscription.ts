@@ -25,14 +25,14 @@ export function useSubscription() {
   const [plan, setPlan] = useState<SubscriptionPlan | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // 안정적 의존성: 객체 참조(currentOrg) 대신 문자열(currentOrg?.id) 사용
+  const orgId = currentOrg?.id;
+
   useEffect(() => {
     if (!isAuthenticated) {
       setIsLoading(false);
       return;
     }
-
-    // org 기반 구독 조회: currentOrg가 있으면 org_id 사용, 없으면 user_id 폴백
-    const orgId = currentOrg?.id;
 
     getMySubscription(orgId).then(({ data }) => {
       if (data) {
@@ -41,20 +41,19 @@ export function useSubscription() {
       }
       setIsLoading(false);
     });
-  }, [isAuthenticated, orgRole, currentOrg]);
+  }, [isAuthenticated, orgRole, orgId]);
 
   /** 구독 정보 새로고침 */
   const refresh = useCallback(async () => {
     if (!isAuthenticated) return;
     setIsLoading(true);
-    const orgId = currentOrg?.id;
     const { data } = await getMySubscription(orgId);
     if (data) {
       setSubscription(data.subscription);
       setPlan(data.plan);
     }
     setIsLoading(false);
-  }, [isAuthenticated, currentOrg]);
+  }, [isAuthenticated, orgId]);
 
   /** 기능 접근 체크 (ai_feedback, tts) — check_org_entitlement RPC 사용 */
   const checkAccess = useCallback(async (feature: 'ai_feedback' | 'tts') => {

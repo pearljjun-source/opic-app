@@ -1,13 +1,15 @@
 import { Platform } from 'react-native';
 
+import { PAYMENT_CALLBACK } from '@/lib/constants';
+
 // ============================================================================
 // Toss Payments SDK 헬퍼 — 웹 전용 (빌링키 인증)
 //
-// 흐름:
+// 토스 표준 패턴:
 // 1. requestTossBillingAuth() → Toss 카드 등록 페이지로 리다이렉트
 // 2. 사용자가 카드 등록
-// 3. Toss가 successUrl로 리다이렉트 (?authKey=xxx&customerKey=xxx)
-// 4. 클라이언트가 authKey를 billing-key Edge Function에 전달
+// 3. Toss가 successUrl(전용 콜백 라우트)로 리다이렉트 (?authKey=xxx&customerKey=xxx)
+// 4. 콜백 라우트에서 마운트 1회 처리 → 빌링키 발급 → 결과 표시
 //
 // 네이티브: expo-web-browser로 웹 결제 페이지 열기
 // ============================================================================
@@ -79,15 +81,40 @@ export function isTossConfigured(): boolean {
   return !!TOSS_CLIENT_KEY;
 }
 
-/** 결제 성공 URL 생성 (planKey를 쿼리 파라미터에 포함) */
-export function buildPaymentUrls(planKey: string): { successUrl: string; failUrl: string } | null {
+/**
+ * 결제 콜백 URL 생성 (토스 표준 패턴)
+ *
+ * successUrl → 전용 콜백 라우트 (payment-callback)
+ * failUrl → 전용 콜백 라우트 + status=fail
+ */
+export function buildPaymentUrls(params: {
+  action: 'new-subscription' | 'update-billing';
+  planKey?: string;
+  cycle?: 'monthly' | 'yearly';
+}): { successUrl: string; failUrl: string } | null {
   if (Platform.OS !== 'web' || typeof window === 'undefined') return null;
 
   const base = window.location.origin;
-  const path = '/(teacher)/manage/plan-select';
+  const path = PAYMENT_CALLBACK.PATH;
+
+  const successParams = new URLSearchParams();
+  successParams.set('action', params.action);
+  if (params.planKey) successParams.set('planKey', params.planKey);
+  if (params.cycle && params.cycle !== 'monthly') successParams.set('cycle', params.cycle);
+
+  const failParams = new URLSearchParams();
+  failParams.set('status', PAYMENT_CALLBACK.STATUS.FAIL);
+  failParams.set('action', params.action);
 
   return {
-    successUrl: `${base}${path}?planKey=${encodeURIComponent(planKey)}`,
-    failUrl: `${base}${path}?paymentStatus=fail`,
+    successUrl: `${base}${path}?${successParams.toString()}`,
+    failUrl: `${base}${path}?${failParams.toString()}`,
   };
+}
+
+/** URL 파라미터 즉시 정리 (콜백 처리 후 재실행 방지) */
+export function cleanPaymentUrlParams(): void {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    window.history.replaceState({}, '', window.location.pathname);
+  }
 }
