@@ -53,6 +53,7 @@ app/
 │   └── (tabs)/      # 4탭: index, classes, invite, settings
 ├── (student)/       # 학생: 연습, 이력, 토픽, 연결
 │   └── (tabs)/      # 3탭: index, history, settings
+├── join/[code].tsx   # 공개 초대 링크 (speaky.kr/join/CODE)
 └── index.tsx        # 랜딩 페이지 (미인증) / 홈 리다이렉트 (인증)
 
 services/            # 12개 서비스 (admin, billing, classes, connection, invites,
@@ -273,9 +274,10 @@ END IF;
 **초대/연결**:
 | 함수 | 용도 |
 |------|------|
-| `create_invite` | 초대 코드 생성 (조직 기반) |
-| `use_invite_code` | 초대 코드 사용 (CAS 패턴 + SECURITY DEFINER) |
+| `create_invite` | 초대 코드 생성 (반 연결 + 다회용 지원) |
+| `use_invite_code` | 초대 코드 사용 (다회용 CAS + 반 자동 배정 + SECURITY DEFINER) |
 | `soft_delete_invite` | 초대 삭제 (소유권 검증) |
+| `get_invite_usage_stats` | 초대 코드 사용 현황 (강사 전용) |
 
 **학생/학습**:
 | 함수 | 용도 |
@@ -452,12 +454,27 @@ END IF;
 - [x] 한→영 연습 화면 (`translation-practice.tsx`)
 - [x] 스크립트 상세 3버튼 UI (쉐도잉 / 한→영 / 실전 연습)
 
+### Phase 8 — 초대 시스템 재설계 ✅
+- [x] 반별 다회용 초대 코드 (054 마이그레이션)
+- [x] `invite_uses` 테이블 + RLS (다회용 사용 이력)
+- [x] `create_invite` RPC 재작성 (class_id, max_uses 파라미터)
+- [x] `use_invite_code` RPC 재작성 (다회용 CAS + 반 자동 배정)
+- [x] `get_invite_usage_stats` RPC (사용 현황 조회)
+- [x] InviteCodeCard 재설계 (공유 3버튼: 코드/링크/QR)
+- [x] InviteQRModal 컴포넌트 (QR 코드 모달)
+- [x] 초대 화면: 반 선택 + 사용 횟수 선택
+- [x] `/join/[code]` 공개 라우트 (웹 초대 링크)
+- [x] `usePendingInvite` 훅 (auth flow 후 자동 코드 사용)
+- [x] useAuth 라우팅: join 라우트 허용
+- [x] 학생 connect 화면: 코드 프리필 지원
+
 ### 예정 📋
+- [ ] Universal Links / App Links (Phase E — 별도 EAS 빌드 필요)
 - [ ] 프로덕션 배포 준비
 
 ---
 
-## 마이그레이션 이력 (51개)
+## 마이그레이션 이력 (53개)
 
 | 범위 | 파일 | 내용 |
 |------|------|------|
@@ -480,6 +497,10 @@ END IF;
 | 권한 | 051 | 학생 스크립트 수정 (UPDATE RLS + 컬럼 보호 트리거) |
 | 보안 | 052 | billing_key 암호화 문서화 (AES-256-GCM, Edge Function 기반) |
 | 보안 | 053 | create_organization RPC 삭제 (셀프 서비스 학원 생성 보안 위험 제거) |
+| 초대 | 054 | 반별 다회용 초대 코드 (class_id, max_uses, invite_uses, RPC 재작성) |
+| 캐시 | 055 | PostgREST 스키마 캐시 리로드 (054 FK 인식) |
+| RLS | 056 | classes ↔ class_members RLS 무한 재귀 수정 (SECURITY DEFINER 헬퍼) |
+| 보안 | 057 | 조직 단위 데이터 격리 RLS 강화 (_user_org_ids 헬퍼, 6개 테이블 정책 재작성, org_members DELETE 정책) |
 
 ---
 
