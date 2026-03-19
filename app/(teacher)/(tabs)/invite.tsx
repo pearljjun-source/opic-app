@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, ScrollView, RefreshControl } from 'react-native';
+import { alert as xAlert, confirm as xConfirm } from '@/lib/alert';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -92,17 +93,16 @@ export default function InviteScreen() {
     if (targetRole === 'student') {
       const quota = await getRemainingQuota('students');
       if (!quota.allowed) {
-        Alert.alert(
-          '학생 수 한도 도달',
-          `현재 플랜의 학생 수 한도(${quota.limit}명)에 도달했습니다. 플랜을 업그레이드해 주세요.`,
-          [
-            { text: '확인', style: 'cancel' },
-            ...(orgRole === 'owner' ? [{
-              text: '업그레이드',
-              onPress: () => router.push('/(teacher)/manage/plan-select'),
-            }] : []),
-          ]
-        );
+        if (orgRole === 'owner') {
+          xConfirm(
+            '학생 수 한도 도달',
+            `현재 플랜의 학생 수 한도(${quota.limit}명)에 도달했습니다. 플랜을 업그레이드해 주세요.`,
+            () => router.push('/(teacher)/manage/plan-select'),
+            { confirmText: '업그레이드', cancelText: '확인' }
+          );
+        } else {
+          xAlert('학생 수 한도 도달', `현재 플랜의 학생 수 한도(${quota.limit}명)에 도달했습니다. 원장에게 문의해 주세요.`);
+        }
         setCreatingRole(null);
         return;
       }
@@ -129,30 +129,23 @@ export default function InviteScreen() {
 
   // 초대 코드 삭제
   const handleDeleteInvite = (invite: Invite, role: OrgRole) => {
-    Alert.alert(
+    xConfirm(
       '초대 코드 삭제',
       `코드 ${invite.code}를 삭제하시겠습니까?`,
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '삭제',
-          style: 'destructive',
-          onPress: async () => {
-            const { error: deleteError } = await deleteInvite(invite.id);
+      async () => {
+        const { error: deleteError } = await deleteInvite(invite.id);
 
-            if (deleteError) {
-              setError(getUserMessage(deleteError));
-            } else {
-              // 상태에서 해당 코드만 제거
-              if (role === 'student') {
-                setStudentInvites(prev => prev.filter(i => i.id !== invite.id));
-              } else {
-                setTeacherInvites(prev => prev.filter(i => i.id !== invite.id));
-              }
-            }
-          },
-        },
-      ]
+        if (deleteError) {
+          setError(getUserMessage(deleteError));
+        } else {
+          if (role === 'student') {
+            setStudentInvites(prev => prev.filter(i => i.id !== invite.id));
+          } else {
+            setTeacherInvites(prev => prev.filter(i => i.id !== invite.id));
+          }
+        }
+      },
+      { confirmText: '삭제' }
     );
   };
 
