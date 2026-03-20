@@ -1,4 +1,5 @@
 export { InviteCodeCard } from './InviteCodeCard';
+export { InviteQRModal } from './InviteQRModal';
 export { StudentCard } from './StudentCard';
 export { ClassCard } from './ClassCard';
 export { StudentInfoCard } from './StudentInfoCard';

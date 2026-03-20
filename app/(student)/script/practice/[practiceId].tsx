@@ -65,6 +65,13 @@ export default function PracticeDetailScreen() {
     load();
   }, [practiceId]);
 
+  // 클린업: 화면 이탈 시 오디오 정지
+  useEffect(() => {
+    return () => {
+      player.pause();
+    };
+  }, []);
+
   const handlePlayAudio = async () => {
     if (!result?.audio_url) return;
 

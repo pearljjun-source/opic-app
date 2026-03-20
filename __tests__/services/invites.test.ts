@@ -9,7 +9,7 @@ jest.mock('@/lib/supabase', () => ({
 // Import AFTER mocking
 import {
   createInvite,
-  useInviteCode,
+  redeemInviteCode,
   getActiveInvite,
   getMyInvites,
   deleteInvite,
@@ -35,7 +35,7 @@ describe('createInvite()', () => {
 
     const result = await createInvite(7);
 
-    expect(mockSupabase.rpc).toHaveBeenCalledWith('create_invite', { p_expires_in_days: 7, p_target_role: 'student' });
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('create_invite', { p_expires_in_days: 7, p_target_role: 'student', p_max_uses: 1 });
     expect(result.success).toBe(true);
     expect(result.invite_id).toBe('inv-1');
     expect(result.code).toBe('ABC123');
@@ -50,7 +50,7 @@ describe('createInvite()', () => {
 
     await createInvite();
 
-    expect(mockSupabase.rpc).toHaveBeenCalledWith('create_invite', { p_expires_in_days: 7, p_target_role: 'student' });
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('create_invite', { p_expires_in_days: 7, p_target_role: 'student', p_max_uses: 1 });
   });
 
   it('RPC Supabase error returns success: false with Korean error message', async () => {
@@ -94,9 +94,9 @@ describe('createInvite()', () => {
 });
 
 // ============================================================================
-// useInviteCode()
+// redeemInviteCode()
 // ============================================================================
-describe('useInviteCode()', () => {
+describe('redeemInviteCode()', () => {
   it('RPC success returns success: true with teacher_id', async () => {
     const mockData = {
       success: true,
@@ -105,7 +105,7 @@ describe('useInviteCode()', () => {
     };
     mockSupabase.rpc.mockResolvedValueOnce({ data: mockData, error: null });
 
-    const result = await useInviteCode('ABC123');
+    const result = await redeemInviteCode('ABC123');
 
     expect(mockSupabase.rpc).toHaveBeenCalledWith('use_invite_code', { p_code: 'ABC123' });
     expect(result.success).toBe(true);
@@ -117,7 +117,7 @@ describe('useInviteCode()', () => {
     const supabaseError = { code: 'PGRST116', message: 'Row not found' };
     mockSupabase.rpc.mockResolvedValueOnce({ data: null, error: supabaseError });
 
-    const result = await useInviteCode('BADCODE');
+    const result = await redeemInviteCode('BADCODE');
 
     expect(result.success).toBe(false);
     expect(typeof result.error).toBe('string');
@@ -135,7 +135,7 @@ describe('useInviteCode()', () => {
     };
     mockSupabase.rpc.mockResolvedValueOnce({ data: mockData, error: null });
 
-    const result = await useInviteCode('WRONG1');
+    const result = await redeemInviteCode('WRONG1');
 
     expect(result.success).toBe(false);
     // classifyRpcError('INVALID_CODE') -> VAL_INVITE_CODE_INVALID
@@ -149,7 +149,7 @@ describe('useInviteCode()', () => {
     };
     mockSupabase.rpc.mockResolvedValueOnce({ data: mockData, error: null });
 
-    const result = await useInviteCode('USED01');
+    const result = await redeemInviteCode('USED01');
 
     expect(result.success).toBe(false);
     // classifyRpcError('CODE_ALREADY_USED') -> CONFLICT_CODE_USED
@@ -162,7 +162,7 @@ describe('useInviteCode()', () => {
       error: null,
     });
 
-    await useInviteCode('  abc123  ');
+    await redeemInviteCode('  abc123  ');
 
     expect(mockSupabase.rpc).toHaveBeenCalledWith('use_invite_code', { p_code: 'ABC123' });
   });
@@ -174,7 +174,7 @@ describe('useInviteCode()', () => {
     };
     mockSupabase.rpc.mockResolvedValueOnce({ data: mockData, error: null });
 
-    const result = await useInviteCode('CODE01');
+    const result = await redeemInviteCode('CODE01');
 
     expect(result.success).toBe(false);
     expect(result.error).toBe(ERROR_MESSAGES.CONFLICT_ALREADY_CONNECTED);

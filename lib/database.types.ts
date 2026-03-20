@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       admin_audit_log: {
@@ -120,6 +145,60 @@ export type Database = {
         }
         Relationships: []
       }
+      cancellation_feedback: {
+        Row: {
+          created_at: string | null
+          detail: string | null
+          final_action: string
+          id: string
+          offer_accepted: boolean | null
+          offer_shown: string | null
+          organization_id: string
+          reason: string
+          subscription_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          detail?: string | null
+          final_action?: string
+          id?: string
+          offer_accepted?: boolean | null
+          offer_shown?: string | null
+          organization_id: string
+          reason: string
+          subscription_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          detail?: string | null
+          final_action?: string
+          id?: string
+          offer_accepted?: boolean | null
+          offer_shown?: string | null
+          organization_id?: string
+          reason?: string
+          subscription_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cancellation_feedback_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cancellation_feedback_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       class_members: {
         Row: {
           class_id: string
@@ -207,50 +286,272 @@ export type Database = {
           },
         ]
       }
+      exam_responses: {
+        Row: {
+          audio_url: string | null
+          combo_number: number | null
+          combo_position: number | null
+          created_at: string | null
+          duration_sec: number | null
+          exam_session_id: string
+          feedback: Json | null
+          id: string
+          is_scored: boolean | null
+          processing_status: string | null
+          question_id: string | null
+          question_order: number
+          roleplay_question_id: string | null
+          score: number | null
+          transcription: string | null
+        }
+        Insert: {
+          audio_url?: string | null
+          combo_number?: number | null
+          combo_position?: number | null
+          created_at?: string | null
+          duration_sec?: number | null
+          exam_session_id: string
+          feedback?: Json | null
+          id?: string
+          is_scored?: boolean | null
+          processing_status?: string | null
+          question_id?: string | null
+          question_order: number
+          roleplay_question_id?: string | null
+          score?: number | null
+          transcription?: string | null
+        }
+        Update: {
+          audio_url?: string | null
+          combo_number?: number | null
+          combo_position?: number | null
+          created_at?: string | null
+          duration_sec?: number | null
+          exam_session_id?: string
+          feedback?: Json | null
+          id?: string
+          is_scored?: boolean | null
+          processing_status?: string | null
+          question_id?: string | null
+          question_order?: number
+          roleplay_question_id?: string | null
+          score?: number | null
+          transcription?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_responses_exam_session_id_fkey"
+            columns: ["exam_session_id"]
+            isOneToOne: false
+            referencedRelation: "exam_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_responses_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_responses_roleplay_question_id_fkey"
+            columns: ["roleplay_question_id"]
+            isOneToOne: false
+            referencedRelation: "roleplay_scenario_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exam_sessions: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          deleted_at: string | null
+          estimated_grade: string | null
+          evaluation_report: Json | null
+          exam_type: string
+          id: string
+          organization_id: string | null
+          overall_score: number | null
+          processing_status: string | null
+          roleplay_scenario_id: string | null
+          score_accuracy: number | null
+          score_content: number | null
+          score_function: number | null
+          score_text_type: number | null
+          self_assessment_level: number | null
+          started_at: string | null
+          status: string
+          student_id: string
+          survey_topics: Json | null
+          total_duration_sec: number | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          estimated_grade?: string | null
+          evaluation_report?: Json | null
+          exam_type: string
+          id?: string
+          organization_id?: string | null
+          overall_score?: number | null
+          processing_status?: string | null
+          roleplay_scenario_id?: string | null
+          score_accuracy?: number | null
+          score_content?: number | null
+          score_function?: number | null
+          score_text_type?: number | null
+          self_assessment_level?: number | null
+          started_at?: string | null
+          status?: string
+          student_id: string
+          survey_topics?: Json | null
+          total_duration_sec?: number | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          estimated_grade?: string | null
+          evaluation_report?: Json | null
+          exam_type?: string
+          id?: string
+          organization_id?: string | null
+          overall_score?: number | null
+          processing_status?: string | null
+          roleplay_scenario_id?: string | null
+          score_accuracy?: number | null
+          score_content?: number | null
+          score_function?: number | null
+          score_text_type?: number | null
+          self_assessment_level?: number | null
+          started_at?: string | null
+          status?: string
+          student_id?: string
+          survey_topics?: Json | null
+          total_duration_sec?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_sessions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_sessions_roleplay_scenario_id_fkey"
+            columns: ["roleplay_scenario_id"]
+            isOneToOne: false
+            referencedRelation: "roleplay_scenarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_sessions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invite_uses: {
+        Row: {
+          id: string
+          invite_id: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          invite_id: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          id?: string
+          invite_id?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invite_uses_invite_id_fkey"
+            columns: ["invite_id"]
+            isOneToOne: false
+            referencedRelation: "invites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invite_uses_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invites: {
         Row: {
+          class_id: string | null
           code: string
           created_at: string | null
           deleted_at: string | null
           expires_at: string
           id: string
+          max_uses: number
           organization_id: string | null
           organization_name: string | null
           status: Database["public"]["Enums"]["invite_status"] | null
           target_role: Database["public"]["Enums"]["org_role"]
           teacher_id: string
+          use_count: number
           used_at: string | null
           used_by: string | null
         }
         Insert: {
+          class_id?: string | null
           code: string
           created_at?: string | null
           deleted_at?: string | null
           expires_at: string
           id?: string
+          max_uses?: number
           organization_id?: string | null
           organization_name?: string | null
           status?: Database["public"]["Enums"]["invite_status"] | null
           target_role?: Database["public"]["Enums"]["org_role"]
           teacher_id: string
+          use_count?: number
           used_at?: string | null
           used_by?: string | null
         }
         Update: {
+          class_id?: string | null
           code?: string
           created_at?: string | null
           deleted_at?: string | null
           expires_at?: string
           id?: string
+          max_uses?: number
           organization_id?: string | null
           organization_name?: string | null
           status?: Database["public"]["Enums"]["invite_status"] | null
           target_role?: Database["public"]["Enums"]["org_role"]
           teacher_id?: string
+          use_count?: number
           used_at?: string | null
           used_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "invites_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "invites_organization_id_fkey"
             columns: ["organization_id"]
@@ -705,6 +1006,83 @@ export type Database = {
           },
         ]
       }
+      roleplay_scenario_questions: {
+        Row: {
+          audio_url: string | null
+          hint_ko: string | null
+          id: string
+          position: number
+          question_text: string
+          roleplay_type: string
+          scenario_id: string
+        }
+        Insert: {
+          audio_url?: string | null
+          hint_ko?: string | null
+          id?: string
+          position: number
+          question_text: string
+          roleplay_type: string
+          scenario_id: string
+        }
+        Update: {
+          audio_url?: string | null
+          hint_ko?: string | null
+          id?: string
+          position?: number
+          question_text?: string
+          roleplay_type?: string
+          scenario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roleplay_scenario_questions_scenario_id_fkey"
+            columns: ["scenario_id"]
+            isOneToOne: false
+            referencedRelation: "roleplay_scenarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roleplay_scenarios: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          description_ko: string | null
+          difficulty: number
+          id: string
+          is_active: boolean | null
+          scenario_context: string
+          sort_order: number | null
+          title_en: string
+          title_ko: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          description_ko?: string | null
+          difficulty: number
+          id?: string
+          is_active?: boolean | null
+          scenario_context: string
+          sort_order?: number | null
+          title_en: string
+          title_ko: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          description_ko?: string | null
+          difficulty?: number
+          id?: string
+          is_active?: boolean | null
+          scenario_context?: string
+          sort_order?: number | null
+          title_en?: string
+          title_ko?: string
+        }
+        Relationships: []
+      }
       script_views: {
         Row: {
           deleted_at: string | null
@@ -900,6 +1278,7 @@ export type Database = {
       }
       subscriptions: {
         Row: {
+          billing_cycle: Database["public"]["Enums"]["billing_cycle"] | null
           billing_key: string | null
           billing_provider: string
           cancel_at_period_end: boolean
@@ -907,15 +1286,19 @@ export type Database = {
           created_at: string
           current_period_end: string
           current_period_start: string
+          dunning_started_at: string | null
           id: string
           organization_id: string | null
+          pending_plan_id: string | null
           plan_id: string
           provider_subscription_id: string | null
           status: string
+          trial_ends_at: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          billing_cycle?: Database["public"]["Enums"]["billing_cycle"] | null
           billing_key?: string | null
           billing_provider?: string
           cancel_at_period_end?: boolean
@@ -923,15 +1306,19 @@ export type Database = {
           created_at?: string
           current_period_end: string
           current_period_start?: string
+          dunning_started_at?: string | null
           id?: string
           organization_id?: string | null
+          pending_plan_id?: string | null
           plan_id: string
           provider_subscription_id?: string | null
           status?: string
+          trial_ends_at?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          billing_cycle?: Database["public"]["Enums"]["billing_cycle"] | null
           billing_key?: string | null
           billing_provider?: string
           cancel_at_period_end?: boolean
@@ -939,11 +1326,14 @@ export type Database = {
           created_at?: string
           current_period_end?: string
           current_period_start?: string
+          dunning_started_at?: string | null
           id?: string
           organization_id?: string | null
+          pending_plan_id?: string | null
           plan_id?: string
           provider_subscription_id?: string | null
           status?: string
+          trial_ends_at?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -953,6 +1343,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_pending_plan_id_fkey"
+            columns: ["pending_plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
             referencedColumns: ["id"]
           },
           {
@@ -1195,6 +1592,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _check_org_quota: {
+        Args: { p_feature_key: string; p_org_id: string }
+        Returns: Json
+      }
       _entitlement_free_default: {
         Args: { p_feature_key: string; p_org_id: string; p_user_id: string }
         Returns: Json
@@ -1224,6 +1625,7 @@ export type Database = {
         Args: { p_invite_id: string }
         Returns: Json
       }
+      admin_get_cancellation_stats: { Args: never; Returns: Json }
       admin_get_org_payments: {
         Args: { p_limit?: number; p_org_id: string }
         Returns: Json
@@ -1291,6 +1693,10 @@ export type Database = {
         }
         Returns: Json
       }
+      check_exam_availability: {
+        Args: { p_exam_type: string; p_question_count?: number }
+        Returns: Json
+      }
       check_org_entitlement: { Args: { p_feature_key: string }; Returns: Json }
       cleanup_expired_invites: { Args: never; Returns: number }
       create_class: {
@@ -1299,18 +1705,22 @@ export type Database = {
       }
       create_invite: {
         Args: {
+          p_class_id?: string
           p_expires_in_days?: number
+          p_max_uses?: number
           p_target_role?: Database["public"]["Enums"]["org_role"]
         }
         Returns: Json
       }
-      create_organization: {
-        Args: { p_name: string; p_slug?: string }
+      generate_invite_code: { Args: never; Returns: string }
+      generate_level_test_questions: { Args: never; Returns: Json }
+      generate_mock_exam_questions: {
+        Args: { p_self_assessment: number; p_survey_topic_ids: string[] }
         Returns: Json
       }
-      generate_invite_code: { Args: never; Returns: string }
       get_admin_dashboard_stats: { Args: never; Returns: Json }
       get_class_detail: { Args: { p_class_id: string }; Returns: Json }
+      get_invite_usage_stats: { Args: { p_invite_id: string }; Returns: Json }
       get_my_organizations: {
         Args: never
         Returns: {
@@ -1331,6 +1741,7 @@ export type Database = {
           students_count: number
         }[]
       }
+      get_plan_yearly_discount: { Args: { p_plan_key: string }; Returns: Json }
       get_practice_streak: { Args: { p_student_id: string }; Returns: Json }
       get_script_view_count: { Args: { p_script_id: string }; Returns: number }
       get_student_detail: { Args: { p_student_id: string }; Returns: Json }
@@ -1533,6 +1944,7 @@ export type Database = {
     }
     Enums: {
       api_type: "whisper" | "claude" | "tts"
+      billing_cycle: "monthly" | "yearly"
       invite_status: "pending" | "used" | "expired"
       org_role: "owner" | "teacher" | "student"
       platform_role: "super_admin"
@@ -1670,9 +2082,13 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       api_type: ["whisper", "claude", "tts"],
+      billing_cycle: ["monthly", "yearly"],
       invite_status: ["pending", "used", "expired"],
       org_role: ["owner", "teacher", "student"],
       platform_role: ["super_admin"],

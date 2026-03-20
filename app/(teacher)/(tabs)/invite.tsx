@@ -1,29 +1,39 @@
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, ScrollView, RefreshControl } from 'react-native';
-import { alert as xAlert, confirm as xConfirm } from '@/lib/alert';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { APP_CONFIG, ORG_ROLE_LABELS } from '@/lib/constants';
 import { createInvite, getActiveInvites, deleteInvite } from '@/services/invites';
-import { InviteCodeCard } from '@/components/teacher';
+import { getTeacherClasses } from '@/services/classes';
+import { InviteCodeCard, InviteQRModal } from '@/components/teacher';
 import { useAuth } from '@/hooks/useAuth';
 import { canInviteTeacher } from '@/lib/permissions';
-import type { Invite, OrgRole } from '@/lib/types';
+import type { InviteWithClass, OrgRole } from '@/lib/types';
 import { getUserMessage } from '@/lib/errors';
 import { useThemeColors } from '@/hooks/useTheme';
 import { getRemainingQuota } from '@/services/billing';
 import { QuotaIndicator } from '@/components/ui';
+import { alert as xAlert, confirm as xConfirm } from '@/lib/alert';
+
+const MAX_USES_OPTIONS = APP_CONFIG.INVITE_MAX_USES_OPTIONS;
+const MAX_USES_LABELS: Record<number, string> = {
+  1: '1회용',
+  10: '10명',
+  30: '30명',
+  50: '50명',
+  0: '무제한',
+};
 
 /**
  * 초대 화면
  *
  * 기능:
  * - 활성 초대 코드를 리스트로 표시 (여러 개 동시 가능)
- * - 새 코드 생성 버튼은 항상 표시
+ * - 반 선택 + 사용 횟수 선택 후 코드 생성 (학생)
  * - owner: 학생 + 강사 초대를 독립적으로 관리
  * - teacher: 학생 초대만 가능
- * - 코드 삭제 가능
+ * - 코드 삭제, 링크 복사, QR 공유 지원
  */
 export default function InviteScreen() {
   const { orgRole } = useAuth();
@@ -31,19 +41,36 @@ export default function InviteScreen() {
   const router = useRouter();
   const canInviteTeachers = canInviteTeacher(orgRole);
 
-  const [studentInvites, setStudentInvites] = useState<Invite[]>([]);
-  const [teacherInvites, setTeacherInvites] = useState<Invite[]>([]);
+  const [studentInvites, setStudentInvites] = useState<InviteWithClass[]>([]);
+  const [teacherInvites, setTeacherInvites] = useState<InviteWithClass[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [creatingRole, setCreatingRole] = useState<OrgRole | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [studentQuota, setStudentQuota] = useState<{ used: number; limit: number } | null>(null);
 
+  // 반 목록 (학생 초대 시 선택)
+  const [classes, setClasses] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  const [selectedMaxUses, setSelectedMaxUses] = useState<number>(30);
+
+  // QR 모달
+  const [qrInvite, setQrInvite] = useState<InviteWithClass | null>(null);
+
+  // 반 목록 로드
+  useEffect(() => {
+    getTeacherClasses().then(({ data }) => {
+      if (data) {
+        setClasses(data.map((c: any) => ({ id: c.id, name: c.name })));
+      }
+    });
+  }, []);
+
   // 활성 초대 코드 + 쿼터 조회
   const fetchActiveInvites = useCallback(async () => {
     setError(null);
 
-    const requests: Promise<{ data: Invite[]; error: Error | null }>[] = [
+    const requests: Promise<{ data: InviteWithClass[]; error: Error | null }>[] = [
       getActiveInvites('student'),
     ];
     if (canInviteTeachers) {
@@ -96,19 +123,39 @@ export default function InviteScreen() {
         if (orgRole === 'owner') {
           xConfirm(
             '학생 수 한도 도달',
-            `현재 플랜의 학생 수 한도(${quota.limit}명)에 도달했습니다. 플랜을 업그레이드해 주세요.`,
+            `현재 플랜의 학생 수 한도(${quota.limit}명)에 도달했습니다. 플랜을 업그레이드하시겠습니까?`,
             () => router.push('/(teacher)/manage/plan-select'),
             { confirmText: '업그레이드', cancelText: '확인' }
           );
         } else {
-          xAlert('학생 수 한도 도달', `현재 플랜의 학생 수 한도(${quota.limit}명)에 도달했습니다. 원장에게 문의해 주세요.`);
+          xAlert(
+            '학생 수 한도 도달',
+            `현재 플랜의 학생 수 한도(${quota.limit}명)에 도달했습니다. 원장에게 플랜 업그레이드를 요청해 주세요.`
+          );
         }
         setCreatingRole(null);
         return;
       }
     }
 
-    const result = await createInvite(APP_CONFIG.INVITE_EXPIRE_DAYS, targetRole);
+    const classId = targetRole === 'student' ? (selectedClassId || undefined) : undefined;
+    const maxUses = targetRole === 'student' ? selectedMaxUses : 1;
+
+    // 동일 반에 활성 코드가 이미 있으면 중복 생성 방지
+    if (classId) {
+      const existingForClass = studentInvites.find(i => i.class_id === classId);
+      if (existingForClass) {
+        const className = existingForClass.classes?.name || '해당 반';
+        xAlert(
+          '이미 활성 코드 존재',
+          `${className}에 이미 활성 초대 코드(${existingForClass.code})가 있습니다. 기존 코드를 삭제한 후 새로 생성해 주세요.`
+        );
+        setCreatingRole(null);
+        return;
+      }
+    }
+
+    const result = await createInvite(APP_CONFIG.INVITE_EXPIRE_DAYS, targetRole, classId, maxUses);
 
     if (result.success) {
       // 해당 역할의 초대 목록 새로고침
@@ -128,7 +175,7 @@ export default function InviteScreen() {
   };
 
   // 초대 코드 삭제
-  const handleDeleteInvite = (invite: Invite, role: OrgRole) => {
+  const handleDeleteInvite = (invite: InviteWithClass, role: OrgRole) => {
     xConfirm(
       '초대 코드 삭제',
       `코드 ${invite.code}를 삭제하시겠습니까?`,
@@ -159,6 +206,61 @@ export default function InviteScreen() {
     );
   }
 
+  // 반 선택기 (학생 초대 전용)
+  const renderClassSelector = () => (
+    <View style={styles.selectorContainer}>
+      <Text style={[styles.selectorLabel, { color: colors.textSecondary }]}>반 선택</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
+        <Pressable
+          style={[
+            styles.chip,
+            { borderColor: !selectedClassId ? colors.primary : colors.border },
+            !selectedClassId && { backgroundColor: colors.primaryLight },
+          ]}
+          onPress={() => setSelectedClassId(null)}
+        >
+          <Text style={[styles.chipText, { color: !selectedClassId ? colors.primary : colors.textSecondary }]}>
+            전체
+          </Text>
+        </Pressable>
+        {classes.map((cls) => (
+          <Pressable
+            key={cls.id}
+            style={[
+              styles.chip,
+              { borderColor: selectedClassId === cls.id ? colors.primary : colors.border },
+              selectedClassId === cls.id && { backgroundColor: colors.primaryLight },
+            ]}
+            onPress={() => setSelectedClassId(cls.id)}
+          >
+            <Text style={[styles.chipText, { color: selectedClassId === cls.id ? colors.primary : colors.textSecondary }]}>
+              {cls.name}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+
+      <Text style={[styles.selectorLabel, { color: colors.textSecondary, marginTop: 12 }]}>사용 횟수</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
+        {MAX_USES_OPTIONS.map((n) => (
+          <Pressable
+            key={n}
+            style={[
+              styles.chip,
+              { borderColor: selectedMaxUses === n ? colors.primary : colors.border },
+              selectedMaxUses === n && { backgroundColor: colors.primaryLight },
+            ]}
+            onPress={() => setSelectedMaxUses(n)}
+          >
+            <Text style={[styles.chipText, { color: selectedMaxUses === n ? colors.primary : colors.textSecondary }]}>
+              {MAX_USES_LABELS[n] || `${n}명`}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+    </View>
+  );
+
   // 섹션 렌더링: 생성 버튼 + 코드 리스트
   const renderInviteSection = (role: 'student' | 'teacher') => {
     const invites = role === 'student' ? studentInvites : teacherInvites;
@@ -167,7 +269,10 @@ export default function InviteScreen() {
 
     return (
       <View>
-        {/* 생성 버튼 — 항상 표시 */}
+        {/* 학생 초대: 반 선택 + 사용 횟수 */}
+        {role === 'student' && classes.length > 0 && renderClassSelector()}
+
+        {/* 생성 버튼 */}
         <Pressable
           style={[styles.createButton, { backgroundColor: colors.primary }, isCreating && styles.buttonDisabled]}
           onPress={() => handleCreateInvite(role)}
@@ -192,6 +297,7 @@ export default function InviteScreen() {
                 invite={invite}
                 targetRole={role}
                 onDelete={() => handleDeleteInvite(invite, role)}
+                onShowQR={() => setQrInvite(invite)}
               />
             </View>
           ))
@@ -205,36 +311,48 @@ export default function InviteScreen() {
   };
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}
-      contentContainerStyle={styles.scrollContent}
-      refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
-    >
-      {error && (
-        <View style={[styles.errorContainer, { backgroundColor: colors.accentRedBg }]}>
-          <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
-        </View>
-      )}
+    <>
+      <ScrollView
+        style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
+      >
+        {error && (
+          <View style={[styles.errorContainer, { backgroundColor: colors.accentRedBg }]}>
+            <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+          </View>
+        )}
 
-      {/* 학생 쿼터 */}
-      {studentQuota && (
-        <QuotaIndicator label="학생" used={studentQuota.used} limit={studentQuota.limit} />
-      )}
+        {/* 학생 쿼터 */}
+        {studentQuota && (
+          <QuotaIndicator label="학생" used={studentQuota.used} limit={studentQuota.limit} />
+        )}
 
-      {/* 학생 초대 섹션 */}
-      <View style={styles.sectionContainer}>
-        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{ORG_ROLE_LABELS.student} 초대</Text>
-        {renderInviteSection('student')}
-      </View>
-
-      {/* 강사 초대 섹션 (owner만) */}
-      {canInviteTeachers && (
+        {/* 학생 초대 섹션 */}
         <View style={styles.sectionContainer}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{ORG_ROLE_LABELS.teacher} 초대</Text>
-          {renderInviteSection('teacher')}
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{ORG_ROLE_LABELS.student} 초대</Text>
+          {renderInviteSection('student')}
         </View>
+
+        {/* 강사 초대 섹션 (owner만) */}
+        {canInviteTeachers && (
+          <View style={styles.sectionContainer}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{ORG_ROLE_LABELS.teacher} 초대</Text>
+            {renderInviteSection('teacher')}
+          </View>
+        )}
+      </ScrollView>
+
+      {/* QR 모달 */}
+      {qrInvite && (
+        <InviteQRModal
+          visible={!!qrInvite}
+          code={qrInvite.code}
+          className={qrInvite.classes?.name}
+          onClose={() => setQrInvite(null)}
+        />
       )}
-    </ScrollView>
+    </>
   );
 }
 
@@ -272,6 +390,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Pretendard-SemiBold',
     marginBottom: 12,
+  },
+  selectorContainer: {
+    marginBottom: 16,
+  },
+  selectorLabel: {
+    fontSize: 13,
+    fontFamily: 'Pretendard-Medium',
+    marginBottom: 8,
+  },
+  chipScroll: {
+    flexGrow: 0,
+  },
+  chip: {
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    marginRight: 8,
+  },
+  chipText: {
+    fontSize: 13,
+    fontFamily: 'Pretendard-Medium',
   },
   createButton: {
     flexDirection: 'row',

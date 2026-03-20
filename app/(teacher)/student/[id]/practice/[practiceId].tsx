@@ -78,6 +78,13 @@ export default function TeacherPracticeDetailScreen() {
     loadPractice();
   }, [practiceId]);
 
+  // 클린업: 화면 이탈 시 오디오 정지
+  useEffect(() => {
+    return () => {
+      player.pause();
+    };
+  }, []);
+
   // 오디오 재생/정지
   const handleToggleAudio = async () => {
     if (!practice?.audio_url) {

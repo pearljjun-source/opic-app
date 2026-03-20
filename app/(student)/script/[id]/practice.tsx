@@ -100,6 +100,7 @@ export default function PracticeScreen() {
   // 클린업
   useEffect(() => {
     return () => {
+      player.pause();
       if (timerRef.current) clearInterval(timerRef.current);
       if (Platform.OS === 'web' && webRecorderRef.current) {
         if (webRecorderRef.current.state !== 'inactive') {
@@ -107,6 +108,8 @@ export default function PracticeScreen() {
         }
         webRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
         webRecorderRef.current = null;
+      } else if (Platform.OS !== 'web' && recorder.isRecording) {
+        recorder.stop();
       }
     };
   }, []);

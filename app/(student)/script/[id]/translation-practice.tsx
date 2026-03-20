@@ -117,6 +117,8 @@ export default function TranslationPracticeScreen() {
         }
         webRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
         webRecorderRef.current = null;
+      } else if (Platform.OS !== 'web' && recorder.isRecording) {
+        recorder.stop();
       }
     };
   }, []);

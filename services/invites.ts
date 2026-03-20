@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import type { Invite, OrgRole } from '@/lib/types';
+import type { Invite, InviteWithClass, OrgRole } from '@/lib/types';
 import { AppError, classifyError, classifyRpcError } from '@/lib/errors';
 
 // ============================================================================
@@ -12,6 +12,9 @@ interface CreateInviteResult {
   code?: string;
   target_role?: OrgRole;
   expires_at?: string;
+  class_id?: string;
+  class_name?: string;
+  max_uses?: number;
   error?: string;
 }
 
@@ -21,6 +24,8 @@ interface UseInviteResult {
   organization_id?: string;
   role?: OrgRole;
   notification_log_id?: string;
+  class_id?: string;
+  class_name?: string;
   error?: string;
 }
 
@@ -31,22 +36,29 @@ interface UseInviteResult {
 /**
  * 초대 코드 생성 (강사/원장용)
  * DB 함수 create_invite를 호출하여 새로운 초대 코드를 생성합니다.
- * @param targetRole - 초대 대상 역할 ('student' 또는 'teacher'). teacher 초대는 owner만 가능.
+ * @param expiresInDays - 만료까지 일수 (기본: 7)
+ * @param targetRole - 초대 대상 역할 ('student' 또는 'teacher')
+ * @param classId - 연결할 반 ID (학생 초대만, 선택)
+ * @param maxUses - 최대 사용 횟수 (기본: 1, 0 = 무제한)
  */
 export async function createInvite(
   expiresInDays: number = 7,
-  targetRole: OrgRole = 'student'
+  targetRole: OrgRole = 'student',
+  classId?: string,
+  maxUses: number = 1,
 ): Promise<CreateInviteResult> {
-  const { data, error } = await supabase.rpc('create_invite', {
+  const { data, error } = await (supabase.rpc as CallableFunction)('create_invite', {
     p_expires_in_days: expiresInDays,
     p_target_role: targetRole,
+    ...(classId ? { p_class_id: classId } : {}),
+    p_max_uses: maxUses,
   });
 
   if (error) {
     return { success: false, error: classifyError(error, { resource: 'invite' }).userMessage };
   }
 
-  const result = data as unknown as CreateInviteResult;
+  const result = data as CreateInviteResult;
   if (!result.success && result.error) {
     result.error = classifyRpcError(result.error, { resource: 'invite' }).userMessage;
   }
@@ -116,7 +128,7 @@ export async function getActiveInvite(targetRole?: OrgRole): Promise<{ data: Inv
  * 아직 사용되지 않고 만료되지 않은 초대 코드를 모두 반환
  * @param targetRole - 필터링할 대상 역할. 지정하면 해당 역할의 초대만 반환.
  */
-export async function getActiveInvites(targetRole?: OrgRole): Promise<{ data: Invite[]; error: Error | null }> {
+export async function getActiveInvites(targetRole?: OrgRole): Promise<{ data: InviteWithClass[]; error: Error | null }> {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
@@ -125,7 +137,7 @@ export async function getActiveInvites(targetRole?: OrgRole): Promise<{ data: In
 
   let query = supabase
     .from('invites')
-    .select('*')
+    .select('*, classes(name)')
     .eq('teacher_id', user.id)
     .eq('status', 'pending')
     .gt('expires_at', new Date().toISOString())
@@ -141,7 +153,7 @@ export async function getActiveInvites(targetRole?: OrgRole): Promise<{ data: In
     return { data: [], error: classifyError(error, { resource: 'invite' }) };
   }
 
-  return { data: data || [], error: null };
+  return { data: (data || []) as InviteWithClass[], error: null };
 }
 
 /**
@@ -173,7 +185,7 @@ export async function deleteInvite(inviteId: string): Promise<{ error: Error | n
  * 초대 코드 사용 (학생용)
  * DB 함수 use_invite_code를 호출하여 강사와 연결합니다.
  */
-export async function useInviteCode(code: string): Promise<UseInviteResult> {
+export async function redeemInviteCode(code: string): Promise<UseInviteResult> {
   const { data, error } = await supabase.rpc('use_invite_code', {
     p_code: code.toUpperCase().trim(),
   });
@@ -208,4 +220,34 @@ export async function validateInviteCode(code: string): Promise<{ valid: boolean
   }
 
   return { valid: true };
+}
+
+// ============================================================================
+// 유틸리티
+// ============================================================================
+
+/** 초대 코드의 전체 링크 URL 생성 */
+export function getInviteLink(code: string): string {
+  return `https://speaky.kr/join/${code}`;
+}
+
+/** 초대 코드 사용 현황 조회 (강사용) */
+export async function getInviteUsageStats(inviteId: string): Promise<{
+  data: { use_count: number; max_uses: number; users: Array<{ user_id: string; name: string; used_at: string }> } | null;
+  error: string | null;
+}> {
+  const { data, error } = await (supabase.rpc as CallableFunction)('get_invite_usage_stats', {
+    p_invite_id: inviteId,
+  });
+
+  if (error) {
+    return { data: null, error: classifyError(error, { resource: 'invite' }).userMessage };
+  }
+
+  const result = data as { error?: string; use_count: number; max_uses: number; users: Array<{ user_id: string; name: string; used_at: string }> };
+  if (result.error) {
+    return { data: null, error: classifyRpcError(result.error, { resource: 'invite' }).userMessage };
+  }
+
+  return { data: result, error: null };
 }

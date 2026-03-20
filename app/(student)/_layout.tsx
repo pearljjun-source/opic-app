@@ -2,10 +2,14 @@ import { Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useThemeColors } from '@/hooks/useTheme';
+import { usePendingInvite } from '@/hooks/usePendingInvite';
 
 export default function StudentLayout() {
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
+
+  // auth flow 완료 후 대기 중인 초대 코드 자동 사용
+  usePendingInvite();
 
   const headerOptions = {
     headerShown: true,

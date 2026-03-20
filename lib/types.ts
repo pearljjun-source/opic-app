@@ -333,6 +333,9 @@ export interface ExamRecording {
 
 export type User = Database['public']['Tables']['users']['Row'];
 export type Invite = Database['public']['Tables']['invites']['Row'];
+
+/** 초대 코드 + 반 이름 (PostgREST 임베딩) */
+export type InviteWithClass = Invite & { classes: { name: string } | null };
 export type TeacherStudent = Database['public']['Tables']['teacher_student']['Row'];
 export type Topic = Database['public']['Tables']['topics']['Row'];
 export type Question = Database['public']['Tables']['questions']['Row'];

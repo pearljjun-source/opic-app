@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.opic.app",
+      "sha256_cert_fingerprints": [
+        "8B:D6:08:4B:F1:A7:82:7C:C2:26:6B:31:51:A5:ED:04:C6:B1:E2:F2:67:EF:BB:39:F0:92:E9:D5:89:6A:7D:88"
+      ]
+    }
+  }
+]

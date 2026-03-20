@@ -1,18 +1,26 @@
 import { View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator } from 'react-native';
-import { useState } from 'react';
-import { router } from 'expo-router';
+import { useState, useEffect } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
 
 import { useThemeColors } from '@/hooks/useTheme';
-import { useInviteCode } from '@/services/invites';
+import { redeemInviteCode } from '@/services/invites';
 import { deliverNotification } from '@/services/notifications';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function ConnectScreen() {
   const colors = useThemeColors();
   const { refreshUser } = useAuth();
+  const { code: prefillCode } = useLocalSearchParams<{ code?: string }>();
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // 딥링크에서 코드 프리필
+  useEffect(() => {
+    if (prefillCode) {
+      setCode(prefillCode.toUpperCase());
+    }
+  }, [prefillCode]);
 
   const handleConnect = async () => {
     if (code.length !== 6) {
@@ -23,7 +31,7 @@ export default function ConnectScreen() {
     setIsLoading(true);
     setError('');
 
-    const result = await useInviteCode(code);
+    const result = await redeemInviteCode(code);
 
     if (result.success) {
       // 알림: 강사에게 학생 연결 알림 (fire-and-forget)

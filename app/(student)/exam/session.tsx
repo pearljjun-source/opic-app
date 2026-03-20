@@ -196,6 +196,7 @@ export default function ExamSessionScreen() {
   // 클린업
   useEffect(() => {
     return () => {
+      player.pause();
       if (recTimerRef.current) clearInterval(recTimerRef.current);
       if (totalTimerRef.current) clearInterval(totalTimerRef.current);
       if (Platform.OS === 'web' && webRecorderRef.current) {
@@ -204,6 +205,8 @@ export default function ExamSessionScreen() {
         }
         webRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
         webRecorderRef.current = null;
+      } else if (Platform.OS !== 'web' && recorder.isRecording) {
+        recorder.stop();
       }
     };
   }, []);

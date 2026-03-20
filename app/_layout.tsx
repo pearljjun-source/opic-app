@@ -84,6 +84,7 @@ function RootLayoutNav() {
             <Stack.Screen name="(admin)" />
             <Stack.Screen name="(teacher)" />
             <Stack.Screen name="(student)" />
+            <Stack.Screen name="join" options={{ headerShown: false }} />
             <Stack.Screen name="terms" options={{ title: '이용약관', headerShown: Platform.OS !== 'web' }} />
             <Stack.Screen name="privacy" options={{ title: '개인정보 처리방침', headerShown: Platform.OS !== 'web' }} />
 
