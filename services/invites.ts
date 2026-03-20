@@ -228,7 +228,7 @@ export async function validateInviteCode(code: string): Promise<{ valid: boolean
 
 /** 초대 코드의 전체 링크 URL 생성 */
 export function getInviteLink(code: string): string {
-  return `https://speaky.kr/join/${code}`;
+  return `https://speaky.co.kr/join/${code}`;
 }
 
 /** 초대 코드 사용 현황 조회 (강사용) */

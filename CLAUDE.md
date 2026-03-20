@@ -53,7 +53,7 @@ app/
 │   └── (tabs)/      # 4탭: index, classes, invite, settings
 ├── (student)/       # 학생: 연습, 이력, 토픽, 연결
 │   └── (tabs)/      # 3탭: index, history, settings
-├── join/[code].tsx   # 공개 초대 링크 (speaky.kr/join/CODE)
+├── join/[code].tsx   # 공개 초대 링크 (speaky.co.kr/join/CODE)
 └── index.tsx        # 랜딩 페이지 (미인증) / 홈 리다이렉트 (인증)
 
 services/            # 12개 서비스 (admin, billing, classes, connection, invites,

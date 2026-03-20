@@ -32,7 +32,7 @@ interface InviteQRModalProps {
 /**
  * InviteQRModal - 초대 코드 QR 코드 모달
  *
- * QR 코드에 초대 링크(https://speaky.kr/join/CODE)를 인코딩하여 표시.
+ * QR 코드에 초대 링크(https://speaky.co.kr/join/CODE)를 인코딩하여 표시.
  * 학생이 스캔하면 바로 가입 플로우로 진입.
  */
 export function InviteQRModal({ visible, code, className, onClose }: InviteQRModalProps) {
