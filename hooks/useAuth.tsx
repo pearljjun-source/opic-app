@@ -7,6 +7,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
 import type { User, OrgRole, PlatformRole, MyOrganization } from '@/lib/types';
 import { canTeach } from '@/lib/permissions';
+import { setSentryUser, clearSentryUser } from '@/lib/sentry';
+import { identify, setUserProperties, resetAnalytics } from '@/lib/analytics';
 
 // ============================================================================
 // SSR-safe cache helpers
@@ -233,6 +235,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { profile, orgs } = await fetchUserProfile(session.user.id);
       if (profile) {
         const freshState = await buildAuthState(session, profile, orgs);
+        setSentryUser(session.user.id);
+        identify(session.user.id);
+        setUserProperties({
+          name: profile.name,
+          orgRole: freshState.orgRole,
+          orgId: freshState.currentOrg?.id,
+        });
         setState(prev => {
           // signOut이 이미 실행되었으면 프로필 로드 결과 무시 (경쟁 조건 방지)
           if (!prev.isAuthenticated) return prev;
@@ -513,6 +522,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Sign out
   // ============================================================================
   const signOut = useCallback(async () => {
+    clearSentryUser();
+    resetAnalytics();
     safeMultiRemove([CACHE_KEY_PROFILE, CACHE_KEY_ORG, CACHE_KEY_ORGS]);
 
     // 네이티브: 로컬 상태 즉시 초기화 (UI 즉시 반영)

@@ -12,6 +12,7 @@ import { canInviteTeacher } from '@/lib/permissions';
 import type { InviteWithClass, OrgRole } from '@/lib/types';
 import { getUserMessage } from '@/lib/errors';
 import { useThemeColors } from '@/hooks/useTheme';
+import { useOfflineGuard } from '@/hooks/useOfflineGuard';
 import { getRemainingQuota } from '@/services/billing';
 import { QuotaIndicator } from '@/components/ui';
 import { alert as xAlert, confirm as xConfirm } from '@/lib/alert';
@@ -100,6 +101,8 @@ export default function InviteScreen() {
       }
     }
   }, [canInviteTeachers]);
+
+  useOfflineGuard(fetchActiveInvites);
 
   useEffect(() => {
     fetchActiveInvites().finally(() => setIsLoading(false));

@@ -15,6 +15,7 @@ import { useThemeColors } from '@/hooks/useTheme';
 import { SkeletonList } from '@/components/ui/Loading';
 import { getMyPractices } from '@/services/practices';
 import { getUserMessage } from '@/lib/errors';
+import { useOfflineGuard } from '@/hooks/useOfflineGuard';
 
 interface PracticeItem {
   id: string;
@@ -43,6 +44,8 @@ export default function HistoryScreen() {
       setError(null);
     }
   }, []);
+
+  useOfflineGuard(loadPractices);
 
   useEffect(() => {
     const init = async () => {

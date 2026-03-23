@@ -24,7 +24,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '@/hooks/useTheme';
 import { useVoiceConsent } from '@/hooks/useVoiceConsent';
 import { useExamRoutes } from '@/hooks/useExamRoutes';
-import { EXAM_CONFIG, EXAM_TYPE_LABELS } from '@/lib/constants';
+import { EXAM_CONFIG, EXAM_TYPE_LABELS, QUESTION_TIME_LIMITS } from '@/lib/constants';
 import { abandonExamSession, generateLevelTestQuestions, checkExamAvailability, createExamSession } from '@/services/exams';
 import { useAuth } from '@/hooks/useAuth';
 import { generateQuestionAudio } from '@/services/practices';
@@ -60,6 +60,8 @@ export default function ExamSessionScreen() {
   const [sessionState, setSessionState] = useState<SessionState>('loading');
   const [recordingTime, setRecordingTime] = useState(0);
   const [totalElapsed, setTotalElapsed] = useState(0);
+  const [questionTimeRemaining, setQuestionTimeRemaining] = useState(0);
+  const [questionTimeUp, setQuestionTimeUp] = useState(false);
 
   // 녹음 데이터 (로컬)
   const [recordings, setRecordings] = useState<ExamRecording[]>([]);
@@ -67,6 +69,7 @@ export default function ExamSessionScreen() {
   // Refs
   const recTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const totalTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const questionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // 웹 전용: 직접 MediaRecorder API 사용 (expo-audio 웹 녹음 불안정)
   const webRecorderRef = useRef<MediaRecorder | null>(null);
@@ -79,6 +82,7 @@ export default function ExamSessionScreen() {
   const sessionIdRef = useRef(sessionId);
   const isActionRef = useRef(false);
   const isInitRef = useRef(false);
+  const wasAutoAdvancedRef = useRef(false);
   const currentQuestionRef = useRef<GeneratedQuestion | null>(null);
   const recordingTimeRef = useRef(0);
 
@@ -90,6 +94,14 @@ export default function ExamSessionScreen() {
   const currentQuestion = questions[currentIndex];
   const isMockExam = (examType as ExamType) === 'mock_exam';
   const totalTime = isMockExam ? EXAM_CONFIG.MOCK_EXAM_DURATION_SEC : 0;
+
+  /** 현재 문항의 답변 시간 제한 (초) */
+  const getQuestionTimeLimit = useCallback((q: GeneratedQuestion | undefined): number => {
+    if (!q) return QUESTION_TIME_LIMITS.default;
+    return QUESTION_TIME_LIMITS[q.question_type] || QUESTION_TIME_LIMITS.default;
+  }, []);
+
+  const isQuestionWarning = questionTimeRemaining > 0 && questionTimeRemaining <= EXAM_CONFIG.QUESTION_WARNING_THRESHOLD_SEC;
 
   // Ref 동기화 (stale closure 방지 — handleTimeUp에서 사용)
   useEffect(() => { currentQuestionRef.current = currentQuestion || null; }, [currentQuestion]);
@@ -199,6 +211,7 @@ export default function ExamSessionScreen() {
       player.pause();
       if (recTimerRef.current) clearInterval(recTimerRef.current);
       if (totalTimerRef.current) clearInterval(totalTimerRef.current);
+      if (questionTimerRef.current) clearInterval(questionTimerRef.current);
       if (Platform.OS === 'web' && webRecorderRef.current) {
         if (webRecorderRef.current.state !== 'inactive') {
           webRecorderRef.current.stop();
@@ -234,10 +247,92 @@ export default function ExamSessionScreen() {
     return uri;
   }, []);
 
-  // 시간 초과
+  // 문항별 타이머 시작/중지
+  const startQuestionTimer = useCallback((q: GeneratedQuestion | undefined) => {
+    if (questionTimerRef.current) {
+      clearInterval(questionTimerRef.current);
+      questionTimerRef.current = null;
+    }
+    const limit = getQuestionTimeLimit(q);
+    setQuestionTimeRemaining(limit);
+    setQuestionTimeUp(false);
+
+    questionTimerRef.current = setInterval(() => {
+      setQuestionTimeRemaining((prev) => {
+        if (prev <= 1) {
+          if (questionTimerRef.current) {
+            clearInterval(questionTimerRef.current);
+            questionTimerRef.current = null;
+          }
+          // 다음 tick에서 처리 (state 업데이트 충돌 방지)
+          setTimeout(() => setQuestionTimeUp(true), 0);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, [getQuestionTimeLimit]);
+
+  const stopQuestionTimer = useCallback(() => {
+    if (questionTimerRef.current) {
+      clearInterval(questionTimerRef.current);
+      questionTimerRef.current = null;
+    }
+  }, []);
+
+  // 문항별 시간 초과 처리
+  useEffect(() => {
+    if (!questionTimeUp || sessionState !== 'recording') return;
+    setQuestionTimeUp(false);
+
+    // 녹음 중지 + 자동 넘김 (handleStopRecording 로직 재사용)
+    const autoAdvance = async () => {
+      if (recTimerRef.current) {
+        clearInterval(recTimerRef.current);
+        recTimerRef.current = null;
+      }
+
+      try {
+        let uri: string | null = null;
+        if (Platform.OS === 'web') {
+          uri = await stopWebRecording();
+        } else {
+          await recorder.stop();
+          uri = recorder.uri;
+          await setAudioModeAsync({ allowsRecording: false }).catch(() => {});
+        }
+
+        if (uri && currentQuestionRef.current) {
+          const q = currentQuestionRef.current;
+          setRecordings((prev) => [...prev, {
+            questionOrder: q.question_order,
+            questionId: q.question_id || q.roleplay_question_id || '',
+            questionType: q.source === 'roleplay_question' ? 'roleplay_question' : 'question',
+            uri,
+            duration: recordingTimeRef.current,
+          }]);
+        }
+      } catch {
+        if (__DEV__) console.warn('[AppError] Auto-advance recording stop error');
+      }
+
+      // 다음 문항 또는 시험 종료
+      wasAutoAdvancedRef.current = true;
+      if (currentIndex < questions.length - 1) {
+        setSessionState('between_questions');
+      } else {
+        setSessionState('exam_end');
+      }
+    };
+
+    autoAdvance();
+  }, [questionTimeUp, sessionState]);
+
+  // 시간 초과 (전체)
   const handleTimeUp = useCallback(() => {
     if (totalTimerRef.current) clearInterval(totalTimerRef.current);
     if (recTimerRef.current) clearInterval(recTimerRef.current);
+    stopQuestionTimer();
 
     const isWebRecording = Platform.OS === 'web' && webRecorderRef.current?.state === 'recording';
     const isNativeRecording = Platform.OS !== 'web' && recorder.isRecording;
@@ -411,6 +506,9 @@ export default function ExamSessionScreen() {
       recTimerRef.current = setInterval(() => {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
+
+      // 문항별 카운트다운 타이머 시작
+      startQuestionTimer(currentQuestion);
     } catch (err: any) {
       if (__DEV__) console.warn('[AppError] Recording start error:', err);
       if (Platform.OS !== 'web') {
@@ -437,6 +535,7 @@ export default function ExamSessionScreen() {
       clearInterval(recTimerRef.current);
       recTimerRef.current = null;
     }
+    stopQuestionTimer();
 
     try {
       let uri: string | null = null;
@@ -476,8 +575,10 @@ export default function ExamSessionScreen() {
 
   // 다음 문항
   const handleNextQuestion = () => {
+    wasAutoAdvancedRef.current = false;
     setCurrentIndex((prev) => prev + 1);
     setRecordingTime(0);
+    setQuestionTimeRemaining(0);
     setSessionState('ready');
   };
 
@@ -559,10 +660,17 @@ export default function ExamSessionScreen() {
   }
 
   if (sessionState === 'between_questions') {
+    const autoAdvanced = wasAutoAdvancedRef.current;
     return (
       <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
-        <Ionicons name="checkmark-circle-outline" size={48} color={colors.success} />
-        <Text style={[styles.betweenTitle, { color: colors.textPrimary }]}>답변 완료!</Text>
+        <Ionicons
+          name={autoAdvanced ? 'timer-outline' : 'checkmark-circle-outline'}
+          size={48}
+          color={autoAdvanced ? colors.warning : colors.success}
+        />
+        <Text style={[styles.betweenTitle, { color: colors.textPrimary }]}>
+          {autoAdvanced ? '시간 초과!' : '답변 완료!'}
+        </Text>
         <Text style={[styles.betweenSubtitle, { color: colors.textSecondary }]}>
           Q{currentQuestion?.question_order}/{questions.length} 완료
         </Text>
@@ -660,6 +768,25 @@ export default function ExamSessionScreen() {
 
       {/* 녹음 영역 */}
       <View style={styles.recordArea}>
+        {/* 문항별 남은 시간 (녹음 중에만 표시) */}
+        {sessionState === 'recording' && questionTimeRemaining > 0 && (
+          <View style={styles.questionTimerContainer}>
+            <Ionicons
+              name="timer-outline"
+              size={16}
+              color={isQuestionWarning ? colors.error : colors.textSecondary}
+            />
+            <Text style={[
+              styles.questionTimerText,
+              { color: isQuestionWarning ? colors.error : colors.textSecondary },
+              isQuestionWarning && styles.questionTimerWarning,
+            ]}>
+              남은 시간 {formatTime(questionTimeRemaining)}
+            </Text>
+          </View>
+        )}
+
+        {/* 녹음 시간 (위로 카운트) */}
         <Text style={[styles.recTimer, { color: colors.textPrimary }]}>
           {formatTime(recordingTime)}
         </Text>
@@ -712,6 +839,13 @@ export default function ExamSessionScreen() {
           >
             <Ionicons name="mic" size={36} color="#FFFFFF" />
           </Pressable>
+        )}
+
+        {/* 답변 시간 안내 (녹음 전) */}
+        {sessionState === 'ready' && (
+          <Text style={[styles.timeLimitHint, { color: colors.textDisabled }]}>
+            답변 시간: {formatTime(getQuestionTimeLimit(currentQuestion))}
+          </Text>
         )}
 
         {/* 건너뛰기 */}
@@ -836,6 +970,28 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 4,
+  },
+  questionTimerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  questionTimerText: {
+    fontSize: 14,
+    fontFamily: 'Pretendard-SemiBold',
+    fontVariant: ['tabular-nums'] as any,
+  },
+  questionTimerWarning: {
+    fontFamily: 'Pretendard-Bold',
+  },
+  timeLimitHint: {
+    fontSize: 12,
+    fontFamily: 'Pretendard-Regular',
+    marginTop: 12,
   },
   skipButton: { marginTop: 20 },
   skipText: { fontSize: 14, fontFamily: 'Pretendard-Medium' },

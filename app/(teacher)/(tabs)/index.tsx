@@ -11,9 +11,13 @@ import type { TeacherStudentListItem } from '@/lib/types';
 import { getUserMessage } from '@/lib/errors';
 import { SkeletonDashboard } from '@/components/ui/Loading';
 import { useThemeColors } from '@/hooks/useTheme';
+import { useOfflineGuard } from '@/hooks/useOfflineGuard';
+import { useOnboarding } from '@/hooks/useOnboarding';
+import OnboardingWizard from '@/components/onboarding/OnboardingWizard';
 
 export default function TeacherDashboard() {
   const colors = useThemeColors();
+  const { showOnboarding, isLoading: onboardingLoading, currentStep, steps, completeOnboarding, skipOnboarding, refreshSteps } = useOnboarding();
   const [students, setStudents] = useState<TeacherStudentListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +37,9 @@ export default function TeacherDashboard() {
 
     setIsLoading(false);
   }, []);
+
+  // 오프라인 → 온라인 복구 시 자동 새로고침
+  useOfflineGuard(fetchStudents);
 
   // 초기 로드
   const isFirstMount = useRef(true);
@@ -105,6 +112,16 @@ export default function TeacherDashboard() {
   const attentionItems = computeAttentionItems(students);
 
   return (
+    <>
+    {showOnboarding && (
+      <OnboardingWizard
+        currentStep={currentStep}
+        steps={steps}
+        onComplete={completeOnboarding}
+        onSkip={skipOnboarding}
+        onRefresh={refreshSteps}
+      />
+    )}
     <ScrollView
       style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}
       contentContainerStyle={styles.scrollContent}
@@ -141,6 +158,7 @@ export default function TeacherDashboard() {
         </View>
       ))}
     </ScrollView>
+    </>
   );
 }
 

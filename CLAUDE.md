@@ -309,6 +309,12 @@ END IF;
 | `log_api_usage` | API 사용량 기록 |
 | `validate_subscription_change` | 구독 변경 트리거 |
 
+**온보딩**:
+| 함수 | 용도 |
+|------|------|
+| `get_onboarding_status` | 온보딩 단계 상태 조회 (owner 전용) |
+| `complete_onboarding` | 온보딩 완료 처리 |
+
 **어드민**:
 | 함수 | 용도 |
 |------|------|
@@ -325,22 +331,23 @@ END IF;
 
 ---
 
-## Edge Functions (12개)
+## Edge Functions (13개)
 
 | 함수 | 용도 | 외부 API |
 |------|------|---------|
 | `whisper-stt` | 음성 → 텍스트 변환 | OpenAI Whisper |
 | `tts-generate` | 텍스트 → 음성 변환 | OpenAI TTS |
-| `claude-feedback` | AI 피드백 생성 (스크립트 연습) | Claude Haiku |
-| `claude-exam-evaluate` | 모의고사 AI 평가 (ACTFL 4차원 채점) | Claude Haiku |
+| `claude-feedback` | AI 피드백 생성 (스크립트 연습) | Claude Haiku 4.5 |
+| `claude-exam-evaluate` | 모의고사 AI 평가 (ACTFL 4차원 채점) | Claude Haiku 4.5 |
 | `deliver-notification` | 푸시 알림 배달 | Expo Push |
 | `billing-key` | TOSS 빌링키 발급 | TOSS Payments |
-| `toss-webhook` | 결제 웹훅 처리 | TOSS Payments |
-| `subscription-renew` | 구독 자동 갱신 | TOSS Payments |
+| `toss-webhook` | 결제 웹훅 처리 + webhook_logs 기록 + 결제 확인 이메일 | TOSS Payments, Resend |
+| `subscription-renew` | 구독 자동 갱신 + Dunning/트라이얼/취소 이메일 | TOSS Payments, Resend |
+| `request-refund` | 관리자 환불 처리 | TOSS Payments |
 | `delete-user` | 사용자 데이터 삭제 | — |
 | `update-billing-key` | 결제 수단 변경 (빌링키 재발급) | TOSS Payments |
 | `change-plan` | 플랜 업/다운그레이드 (proration) | TOSS Payments |
-| `translate-script` | 영→한 스크립트 번역 (캐싱) | Claude Haiku |
+| `translate-script` | 영→한 스크립트 번역 (캐싱) | Claude Haiku 4.5 |
 
 ---
 
@@ -468,8 +475,21 @@ END IF;
 - [x] useAuth 라우팅: join 라우트 허용
 - [x] 학생 connect 화면: 코드 프리필 지원
 
+### Phase 9 — 상용화 인프라 ✅
+- [x] Sentry 크래시/에러 모니터링 (`lib/sentry.ts`, `@sentry/react-native`)
+- [x] 트라이얼 온보딩 (059 마이그레이션, 조직 생성 시 14일 Solo 체험 자동 생성)
+- [x] 환불 Edge Function (`request-refund`, 월간/연간 정책 + forceRefund)
+- [x] 환불 에러코드 4개 + 이용약관 업데이트
+- [x] Webhook 이벤트 로깅 (060 마이그레이션, `webhook_logs` 테이블)
+- [x] 비즈니스 이메일 서비스 (Resend, `_shared/email.ts`, 5개 템플릿)
+- [x] 이메일 발송 로깅 (060 마이그레이션, `email_logs` 테이블)
+- [x] 온보딩 위자드 (061 마이그레이션, 3단계 가이드 모달, `useOnboarding` 훅)
+- [x] Analytics (Mixpanel, `lib/analytics.ts`, 자동 Screen Tracking)
+- [x] 번역 재시도 로직 (`translateWithRetry`, 1회 재시도 + Sentry 로깅)
+
 ### 예정 📋
 - [ ] Universal Links / App Links (Phase E — 별도 EAS 빌드 필요)
+- [ ] 세금계산서 자동 발급 (팝빌/바로빌 API 연동)
 - [ ] 프로덕션 배포 준비
 
 ---
@@ -501,6 +521,10 @@ END IF;
 | 캐시 | 055 | PostgREST 스키마 캐시 리로드 (054 FK 인식) |
 | RLS | 056 | classes ↔ class_members RLS 무한 재귀 수정 (SECURITY DEFINER 헬퍼) |
 | 보안 | 057 | 조직 단위 데이터 격리 RLS 강화 (_user_org_ids 헬퍼, 6개 테이블 정책 재작성, org_members DELETE 정책) |
+| 시험 | 058 | 토픽별 전략 메타데이터 |
+| 구독 | 059 | 트라이얼 온보딩 (조직 생성 시 자동 Solo 14일 체험) |
+| 운영 | 060 | webhook_logs + email_logs 테이블 (결제 디버깅 + 이메일 감사) |
+| 온보딩 | 061 | organizations.onboarding_completed_at + get_onboarding_status/complete_onboarding RPC |
 
 ---
 

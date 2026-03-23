@@ -119,7 +119,13 @@ export async function getExamSession(sessionId: string): Promise<{
   if (!user) return { data: null, error: new AppError('AUTH_REQUIRED') };
 
   const { data: session, error: sessionError } = await fromTable('exam_sessions')
-    .select('*')
+    .select(`
+      id, student_id, organization_id, exam_type, self_assessment_level,
+      status, survey_topics, roleplay_scenario_id,
+      started_at, completed_at, total_duration_sec,
+      estimated_grade, score_function, score_accuracy, score_content, score_text_type, overall_score,
+      evaluation_report, processing_status, created_at, deleted_at
+    `)
     .eq('id', sessionId)
     .is('deleted_at', null)
     .single();
@@ -129,7 +135,12 @@ export async function getExamSession(sessionId: string): Promise<{
   }
 
   const { data: responses, error: responsesError } = await fromTable('exam_responses')
-    .select('*')
+    .select(`
+      id, exam_session_id, question_id, roleplay_question_id,
+      question_order, combo_number, combo_position,
+      audio_url, duration_sec, transcription, score,
+      processing_status, is_scored, created_at
+    `)
     .eq('exam_session_id', sessionId)
     .order('question_order', { ascending: true });
 
@@ -571,4 +582,26 @@ export async function getSurveyTopics(): Promise<{
   }
 
   return { data: (data || []) as Topic[], error: null };
+}
+
+/**
+ * 서베이 토픽 + 전략 메타데이터 조회 (서베이 전략 가이드 화면용)
+ */
+export async function getTopicsWithStrategy(): Promise<{
+  data: Array<Topic & { strategy_group: string | null; difficulty_hint: number | null; strategy_tip_ko: string | null }>;
+  error: Error | null;
+}> {
+  const { data, error } = await supabase
+    .from('topics')
+    .select('*, strategy_group, difficulty_hint, strategy_tip_ko')
+    .eq('category', 'survey')
+    .eq('is_active', true)
+    .order('strategy_group', { ascending: true })
+    .order('sort_order', { ascending: true });
+
+  if (error) {
+    return { data: [], error: classifyError(error, { resource: 'topic' }) };
+  }
+
+  return { data: (data || []) as any, error: null };
 }

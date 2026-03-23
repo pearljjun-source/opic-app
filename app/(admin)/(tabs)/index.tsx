@@ -9,6 +9,7 @@ import { getUserMessage } from '@/lib/errors';
 import { getAdminDashboardStats, listOrganizations } from '@/services/admin';
 import { adminGetSubscriptionStats } from '@/services/billing';
 import type { AdminDashboardStats, SubscriptionStats } from '@/lib/types';
+import { useOfflineGuard } from '@/hooks/useOfflineGuard';
 
 export default function AdminDashboard() {
   const colors = useThemeColors();
@@ -55,6 +56,8 @@ export default function AdminDashboard() {
 
     setIsLoading(false);
   }, []);
+
+  useOfflineGuard(fetchData);
 
   useEffect(() => {
     fetchData();

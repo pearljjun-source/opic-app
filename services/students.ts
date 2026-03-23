@@ -69,7 +69,7 @@ export async function getStudentDetails(studentId: string): Promise<{
   // 학생 정보 조회
   const { data: student, error: studentError } = await supabase
     .from('users')
-    .select('*')
+    .select('id, name, email, created_at')
     .eq('id', studentId)
     .is('deleted_at', null)
     .single();

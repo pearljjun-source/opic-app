@@ -13,6 +13,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, handleCorsPreFlight } from '../_shared/cors.ts';
 import { logger } from '../_shared/logger.ts';
 import { decryptValue, isEncrypted } from '../_shared/crypto.ts';
+import { sendEmail, emailTemplates } from '../_shared/email.ts';
 
 serve(async (req) => {
   const preFlightResponse = handleCorsPreFlight(req);
@@ -53,7 +54,7 @@ serve(async (req) => {
     }
 
     const authHeader = 'Basic ' + btoa(`${tossSecretKey}:`);
-    const results = { renewed: 0, failed: 0, canceled: 0, downgraded: 0, notified: 0 };
+    const results: Record<string, number> = { renewed: 0, failed: 0, canceled: 0, downgraded: 0, notified: 0, trialExpired: 0 };
 
     // Dunning 알림 헬퍼: org owner에게 푸시 알림 전송
     async function sendDunningNotification(
@@ -133,6 +134,35 @@ serve(async (req) => {
         .from('notification_logs')
         .update({ sent_at: new Date().toISOString() })
         .eq('id', notif.id);
+
+      // Dunning 이메일 발송
+      const { data: ownerUser } = await supabaseAdmin
+        .from('users')
+        .select('email, name')
+        .eq('id', ownerId)
+        .single();
+
+      if (ownerUser?.email) {
+        // 조직명 조회
+        const { data: ownerOrg } = await supabaseAdmin
+          .from('organizations')
+          .select('name')
+          .eq('id', orgId)
+          .single();
+
+        const { subject, html } = emailTemplates.paymentFailure({
+          orgName: ownerOrg?.name || 'Speaky',
+          day,
+        });
+
+        await sendEmail(supabaseAdmin, {
+          to: ownerUser.email,
+          subject,
+          html,
+          templateType: 'dunning',
+          metadata: { org_id: orgId, subscription_id: subId, dunning_day: day },
+        });
+      }
 
       results.notified++;
     }
@@ -284,6 +314,76 @@ serve(async (req) => {
       }
     }
 
+    // 트라이얼 만료 3일 전 이메일 알림
+    const threeDaysLater = new Date();
+    threeDaysLater.setDate(threeDaysLater.getDate() + 3);
+
+    const { data: expiringTrials } = await supabaseAdmin
+      .from('subscriptions')
+      .select('id, user_id, organization_id, trial_ends_at')
+      .eq('status', 'trialing')
+      .lte('trial_ends_at', threeDaysLater.toISOString())
+      .gt('trial_ends_at', new Date().toISOString());
+
+    if (expiringTrials && expiringTrials.length > 0) {
+      for (const trial of expiringTrials) {
+        const { data: trialOwner } = await supabaseAdmin
+          .from('users')
+          .select('email')
+          .eq('id', trial.user_id)
+          .single();
+
+        if (trialOwner?.email && trial.trial_ends_at) {
+          let orgName = 'Speaky';
+          if (trial.organization_id) {
+            const { data: trialOrg } = await supabaseAdmin
+              .from('organizations')
+              .select('name')
+              .eq('id', trial.organization_id)
+              .single();
+            if (trialOrg) orgName = trialOrg.name;
+          }
+
+          const daysLeft = Math.ceil(
+            (new Date(trial.trial_ends_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+          );
+
+          const { subject, html } = emailTemplates.trialExpiryWarning({
+            orgName,
+            daysLeft,
+            trialEndsAt: trial.trial_ends_at,
+          });
+
+          // resource_id로 중복 방지 (하루에 한 번만)
+          const emailKey = `trial_expiry_${trial.id}_${new Date().toISOString().slice(0, 10)}`;
+          const { data: existingLog } = await supabaseAdmin
+            .from('email_logs')
+            .select('id')
+            .eq('template_type', 'trial_expiry')
+            .eq('metadata->>subscription_id', trial.id)
+            .gte('created_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString())
+            .limit(1)
+            .single();
+
+          if (!existingLog) {
+            await sendEmail(supabaseAdmin, {
+              to: trialOwner.email,
+              subject,
+              html,
+              templateType: 'trial_expiry',
+              metadata: { org_id: trial.organization_id, subscription_id: trial.id },
+            });
+          }
+        }
+      }
+    }
+
+    // 트라이얼 만료 처리: trial_ends_at이 지난 trialing 구독을 Free로 전환
+    const { data: expiredCount } = await supabaseAdmin.rpc('expire_trial_subscriptions');
+    if (expiredCount && expiredCount > 0) {
+      results.trialExpired = expiredCount;
+    }
+
     // cancel_at_period_end인 만료된 구독 처리
     const { data: cancelingSubs } = await supabaseAdmin
       .from('subscriptions')
@@ -294,11 +394,55 @@ serve(async (req) => {
 
     if (cancelingSubs && cancelingSubs.length > 0) {
       for (const cs of cancelingSubs) {
+        // 구독 + 오너 정보 조회 (이메일 발송용)
+        const { data: cancelSub } = await supabaseAdmin
+          .from('subscriptions')
+          .select('user_id, organization_id, current_period_end, subscription_plans!subscriptions_plan_id_fkey(name)')
+          .eq('id', cs.id)
+          .single();
+
         await supabaseAdmin.from('subscriptions').update({
           status: 'canceled',
           updated_at: new Date().toISOString(),
         }).eq('id', cs.id);
         results.canceled++;
+
+        // 취소 확인 이메일
+        if (cancelSub) {
+          const { data: cancelOwner } = await supabaseAdmin
+            .from('users')
+            .select('email')
+            .eq('id', cancelSub.user_id)
+            .single();
+
+          if (cancelOwner?.email) {
+            let cancelOrgName = 'Speaky';
+            if (cancelSub.organization_id) {
+              const { data: cancelOrg } = await supabaseAdmin
+                .from('organizations')
+                .select('name')
+                .eq('id', cancelSub.organization_id)
+                .single();
+              if (cancelOrg) cancelOrgName = cancelOrg.name;
+            }
+
+            const planName = (cancelSub.subscription_plans as { name?: string })?.name || 'Speaky';
+
+            const { subject, html } = emailTemplates.cancellationConfirmation({
+              orgName: cancelOrgName,
+              planName,
+              periodEnd: cancelSub.current_period_end,
+            });
+
+            await sendEmail(supabaseAdmin, {
+              to: cancelOwner.email,
+              subject,
+              html,
+              templateType: 'cancellation',
+              metadata: { org_id: cancelSub.organization_id, subscription_id: cs.id },
+            });
+          }
+        }
       }
     }
 

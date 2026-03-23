@@ -14,6 +14,8 @@ export function useExamRoutes() {
   return {
     /** 시험 허브 탭: /(group)/(tabs)/exam */
     examHub: `/${group}/(tabs)/exam` as const,
+    /** 서베이 전략 가이드: /(group)/exam/survey-guide */
+    surveyGuide: `/${group}/exam/survey-guide` as const,
     /** 모의고사 서베이: /(group)/exam/mock-survey */
     mockSurvey: `/${group}/exam/mock-survey` as const,
     /** 모의고사 시작: /(group)/exam/mock-assessment */

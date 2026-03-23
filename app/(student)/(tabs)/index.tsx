@@ -12,6 +12,7 @@ import { CompactStatsStrip } from '@/components/student/CompactStatsStrip';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SkeletonDashboard } from '@/components/ui/Loading';
 import { getUserMessage } from '@/lib/errors';
+import { useOfflineGuard } from '@/hooks/useOfflineGuard';
 import type { StudentTopicWithProgress, StudentPracticeStats } from '@/lib/types';
 
 export default function StudentDashboard() {
@@ -58,6 +59,9 @@ export default function StudentDashboard() {
 
     setError(null);
   }, []);
+
+  // 오프라인 → 온라인 복구 시 자동 새로고침
+  useOfflineGuard(fetchData);
 
   useEffect(() => {
     const loadData = async () => {

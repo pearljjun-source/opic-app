@@ -23,6 +23,7 @@ export default function ExamLayout() {
         contentStyle: safeContentStyle,
       }}
     >
+      <Stack.Screen name="survey-guide" options={{ title: '서베이 전략 가이드' }} />
       <Stack.Screen name="mock-survey" options={{ title: '토픽 선택' }} />
       <Stack.Screen name="mock-assessment" options={{ title: '자기평가' }} />
       <Stack.Screen name="combo-list" options={{ title: '롤플레이 시나리오' }} />

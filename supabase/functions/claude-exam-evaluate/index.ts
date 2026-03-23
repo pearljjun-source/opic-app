@@ -38,6 +38,15 @@ Grammar, vocabulary range, pronunciation clarity:
 - Pronunciation: Intelligibility to native speakers
 - Self-correction: Ability to notice and fix own errors
 
+### Fluency Assessment (per question)
+For each question, also evaluate fluency metrics:
+- **word_count**: Total words in the answer
+- **answer_length_rating**: too_short (< 30), short (30-60), adequate (61-120), long (> 120)
+- **filler_count**: Count of filler words (um, uh, like, you know, well, so...)
+- **fluency_score**: 0-100, considering speech flow, natural pausing, volume of speech
+- **fluency_comment**: Korean comment on fluency
+OPIc evaluates 발화량(volume of speech) heavily. More speech = higher scores, even with some errors.
+
 ### 3. Content/Context (내용/맥락)
 Relevance, depth, and elaboration:
 - Topic relevance: Does the answer address the question?
@@ -173,8 +182,20 @@ const EXAM_SCHEMA = {
               additionalProperties: false,
             },
           },
+          fluency_metrics: {
+            type: 'object',
+            properties: {
+              word_count: { type: 'integer' },
+              answer_length_rating: { type: 'string', enum: ['too_short', 'short', 'adequate', 'long'] },
+              filler_count: { type: 'integer' },
+              fluency_score: { type: 'integer', description: '0-100' },
+              fluency_comment: { type: 'string', description: 'Korean' },
+            },
+            required: ['word_count', 'answer_length_rating', 'filler_count', 'fluency_score', 'fluency_comment'],
+            additionalProperties: false,
+          },
         },
-        required: ['response_id', 'score', 'score_function', 'score_accuracy', 'score_content', 'score_text_type', 'level_indicator', 'strengths', 'improvements', 'error_analysis'],
+        required: ['response_id', 'score', 'score_function', 'score_accuracy', 'score_content', 'score_text_type', 'level_indicator', 'strengths', 'improvements', 'error_analysis', 'fluency_metrics'],
         additionalProperties: false,
       },
     },
@@ -319,7 +340,7 @@ serve(async (req) => {
     // 7. 모든 응답 조회
     const { data: responses, error: responsesError } = await supabaseAdmin
       .from('exam_responses')
-      .select('id, question_order, question_id, roleplay_question_id, transcription, is_scored, combo_number, combo_position')
+      .select('id, question_order, question_id, roleplay_question_id, transcription, is_scored, combo_number, combo_position, duration_sec')
       .eq('exam_session_id', examSessionId)
       .order('question_order', { ascending: true });
 
@@ -378,6 +399,9 @@ serve(async (req) => {
       }
       questionsText += `\n**Question:** ${qText}\n`;
       questionsText += `**Student's Answer:** ${resp.transcription || '(No speech / skipped)'}\n`;
+      if (resp.duration_sec) {
+        questionsText += `**Duration:** ${resp.duration_sec}s\n`;
+      }
       questionsText += `**Response ID:** ${resp.id}\n\n`;
     }
 

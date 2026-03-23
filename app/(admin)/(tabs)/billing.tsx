@@ -14,6 +14,7 @@ import {
   adminGetPaymentHistory,
   getSubscriptionPlans,
   adminUpdatePlan,
+  adminRequestRefund,
 } from '@/services/billing';
 import type { SubscriptionStats, SubscriptionPlan, PaymentRecord } from '@/lib/types';
 
@@ -43,6 +44,12 @@ export default function AdminBillingScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // 환불 state
+  const [refundPayment, setRefundPayment] = useState<PaymentRecord | null>(null);
+  const [refundReason, setRefundReason] = useState('');
+  const [forceRefund, setForceRefund] = useState(false);
+  const [isRefunding, setIsRefunding] = useState(false);
 
   // 플랜 편집 모달 state
   const [editPlan, setEditPlan] = useState<SubscriptionPlan | null>(null);
@@ -142,6 +149,44 @@ export default function AdminBillingScreen() {
     setIsUpdating(false);
   }, [editPlan, editForm, fetchData]);
 
+  const handleRefund = useCallback(async () => {
+    if (!refundPayment || !refundReason.trim()) {
+      Alert.alert('오류', '환불 사유를 입력해주세요.');
+      return;
+    }
+
+    Alert.alert(
+      '환불 확인',
+      `₩${refundPayment.amount.toLocaleString()} 환불을 진행하시겠습니까?\n\n사유: ${refundReason}${forceRefund ? '\n⚠️ 강제 환불 (정책 무시)' : ''}`,
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '환불 진행',
+          style: 'destructive',
+          onPress: async () => {
+            setIsRefunding(true);
+            const { data, error: refundError } = await adminRequestRefund({
+              paymentId: refundPayment.id,
+              reason: refundReason.trim(),
+              forceRefund,
+            });
+
+            if (refundError) {
+              Alert.alert('환불 실패', getUserMessage(refundError));
+            } else {
+              Alert.alert('완료', `₩${(data?.refundAmount ?? 0).toLocaleString()} 환불이 완료되었습니다.`);
+              setRefundPayment(null);
+              setRefundReason('');
+              setForceRefund(false);
+              await fetchData();
+            }
+            setIsRefunding(false);
+          },
+        },
+      ]
+    );
+  }, [refundPayment, refundReason, forceRefund, fetchData]);
+
   if (isLoading) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary }}>
@@ -225,6 +270,16 @@ export default function AdminBillingScreen() {
               {payment.failure_reason && (
                 <Text style={[styles.failureText, { color: colors.error }]}>{payment.failure_reason}</Text>
               )}
+              {payment.status === 'paid' && (
+                <Pressable
+                  style={[styles.refundButton, { borderColor: colors.error }]}
+                  onPress={() => { setRefundPayment(payment); setRefundReason(''); setForceRefund(false); }}
+                  hitSlop={4}
+                >
+                  <Ionicons name="return-down-back-outline" size={13} color={colors.error} />
+                  <Text style={[styles.refundButtonText, { color: colors.error }]}>환불</Text>
+                </Pressable>
+              )}
             </View>
           );
         })}
@@ -234,6 +289,82 @@ export default function AdminBillingScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* 환불 모달 */}
+      <Modal
+        visible={!!refundPayment}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRefundPayment(null)}
+      >
+        <KeyboardAvoidingView
+          style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <ScrollView
+            contentContainerStyle={styles.modalScrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>결제 환불</Text>
+              <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+                {refundPayment ? `₩${refundPayment.amount.toLocaleString()} · ${new Date(refundPayment.created_at).toLocaleDateString('ko-KR')}` : ''}
+              </Text>
+
+              <View style={[styles.refundPolicyBox, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
+                <Text style={[styles.refundPolicyTitle, { color: colors.textPrimary }]}>환불 정책</Text>
+                <Text style={[styles.refundPolicyText, { color: colors.textSecondary }]}>• 월간 결제: 환불 불가 (주기 끝까지 이용)</Text>
+                <Text style={[styles.refundPolicyText, { color: colors.textSecondary }]}>• 연간 결제: 14일 이내 전액 환불</Text>
+                <Text style={[styles.refundPolicyText, { color: colors.textSecondary }]}>• 강제 환불: 결제 오류/이중 결제 시 사용</Text>
+              </View>
+
+              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>환불 사유</Text>
+              <TextInput
+                style={[styles.input, styles.refundReasonInput, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, color: colors.textPrimary }]}
+                value={refundReason}
+                onChangeText={setRefundReason}
+                placeholder="환불 사유를 입력하세요"
+                placeholderTextColor={colors.textDisabled}
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+              />
+
+              <View style={styles.switchRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.switchLabel, { color: colors.textPrimary }]}>강제 환불</Text>
+                  <Text style={[{ fontSize: 11, fontFamily: 'Pretendard-Regular', color: colors.textSecondary, marginTop: 2 }]}>결제 오류/이중 결제 시 정책 무시</Text>
+                </View>
+                <Switch
+                  value={forceRefund}
+                  onValueChange={setForceRefund}
+                  trackColor={{ false: colors.gray200, true: colors.error }}
+                />
+              </View>
+
+              <View style={styles.modalActions}>
+                <Pressable
+                  style={[styles.modalCancel, { backgroundColor: colors.gray100 }]}
+                  onPress={() => setRefundPayment(null)}
+                >
+                  <Text style={[styles.modalCancelText, { color: colors.textSecondary }]}>취소</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.modalSubmit, { backgroundColor: colors.error }, (isRefunding || !refundReason.trim()) && styles.modalSubmitDisabled]}
+                  onPress={handleRefund}
+                  disabled={isRefunding || !refundReason.trim()}
+                >
+                  {isRefunding ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.modalSubmitText}>환불 처리</Text>
+                  )}
+                </Pressable>
+              </View>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* 플랜 편집 모달 */}
       <Modal
@@ -434,4 +565,25 @@ const styles = StyleSheet.create({
   modalSubmit: { flex: 1, paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
   modalSubmitDisabled: { opacity: 0.5 },
   modalSubmitText: { fontSize: 15, fontFamily: 'Pretendard-SemiBold', color: '#FFFFFF' },
+  refundButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    gap: 4,
+    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  refundButtonText: { fontSize: 11, fontFamily: 'Pretendard-Medium' },
+  refundPolicyBox: {
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 12,
+    borderWidth: 1,
+  },
+  refundPolicyTitle: { fontSize: 13, fontFamily: 'Pretendard-SemiBold', marginBottom: 6 },
+  refundPolicyText: { fontSize: 11, fontFamily: 'Pretendard-Regular', lineHeight: 18 },
+  refundReasonInput: { minHeight: 80 },
 });

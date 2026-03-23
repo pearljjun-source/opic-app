@@ -390,6 +390,38 @@ export async function adminUpdatePlan(
   return { data: { success: true }, error: null };
 }
 
+/** 관리자 환불 처리 (request-refund Edge Function 호출) */
+export async function adminRequestRefund(params: {
+  paymentId: string;
+  reason: string;
+  forceRefund?: boolean;
+}): Promise<{
+  data: { success: boolean; refundAmount: number } | null;
+  error: Error | null;
+}> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: new AppError('AUTH_REQUIRED') };
+
+  if (!params.paymentId || !params.reason) {
+    return { data: null, error: new AppError('VAL_FAILED') };
+  }
+
+  const { data, error } = await invokeFunction<{
+    success: boolean;
+    refundAmount: number;
+  }>('request-refund', {
+    paymentId: params.paymentId,
+    reason: params.reason,
+    forceRefund: params.forceRefund || false,
+  });
+
+  if (error) {
+    return { data: null, error: classifyError(error, { resource: 'subscription' }) };
+  }
+
+  return { data: data || null, error: null };
+}
+
 /** 전체 결제 이력 조회 (admin) */
 export async function adminGetPaymentHistory(params?: {
   userId?: string;

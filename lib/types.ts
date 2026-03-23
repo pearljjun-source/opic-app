@@ -113,6 +113,21 @@ export interface AIFeedback {
 
   /** 격려 메시지 (한국어) */
   encouragement?: string;
+
+  /** 유창성 메트릭 (v3 — 발화량/유창성 분석) */
+  fluency_metrics?: FluencyMetrics;
+}
+
+/** 유창성 분석 메트릭 */
+export interface FluencyMetrics {
+  word_count: number;
+  estimated_wpm: number;
+  answer_length_rating: 'too_short' | 'short' | 'adequate' | 'long';
+  filler_words: string[];
+  filler_count: number;
+  transition_words: string[];
+  fluency_score: number;
+  fluency_comment: string;
 }
 
 /** 학생 연습 통계 (get_student_practice_stats RPC 반환 타입) */
@@ -211,6 +226,15 @@ export interface ActflDimensionScores {
   score_text_type: number;  // 텍스트 유형 (0-100)
 }
 
+/** 시험 문항별 유창성 메트릭 (간소화 버전) */
+export interface ExamFluencyMetrics {
+  word_count: number;
+  answer_length_rating: 'too_short' | 'short' | 'adequate' | 'long';
+  filler_count: number;
+  fluency_score: number;
+  fluency_comment: string;
+}
+
 /** 시험 문항별 AI 피드백 */
 export interface ExamQuestionFeedback extends ActflDimensionScores {
   score: number;
@@ -223,6 +247,7 @@ export interface ExamQuestionFeedback extends ActflDimensionScores {
     corrected: string;
     explanation: string;
   }>;
+  fluency_metrics?: ExamFluencyMetrics;
 }
 
 /** 전체 시험 평가 리포트 */

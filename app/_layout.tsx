@@ -16,6 +16,14 @@ import { AuthProvider } from '@/hooks/useAuth';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { loadThemePreference } from '@/hooks/useTheme';
 import { Toast } from '@/components/ui/Toast';
+import { OfflineBanner } from '@/components/ui/OfflineBanner';
+import { initSentry } from '@/lib/sentry';
+import { initAnalytics } from '@/lib/analytics';
+import { useScreenTracking } from '@/hooks/useScreenTracking';
+
+// 앱 시작 시 최우선 실행
+initSentry();
+initAnalytics();
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -61,6 +69,11 @@ function NotificationSetup() {
   return null;
 }
 
+function ScreenTracker() {
+  useScreenTracking();
+  return null;
+}
+
 function RootLayoutNav() {
   const { colorScheme, setColorScheme } = useColorScheme();
 
@@ -74,8 +87,10 @@ function RootLayoutNav() {
     <SafeAreaProvider>
       <AuthProvider>
         {Platform.OS !== 'web' && <NotificationSetup />}
+        <ScreenTracker />
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+          <OfflineBanner />
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="test" options={{ title: '컴포넌트 테스트' }} />

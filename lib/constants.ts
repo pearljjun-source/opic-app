@@ -286,6 +286,21 @@ export const ACTFL_DIMENSIONS = {
   TEXT_TYPE: { key: 'score_text_type', label_ko: '텍스트 유형', label_en: 'Text Type' },
 } as const;
 
+/** 문항 유형별 답변 시간 제한 (초) — 실제 OPIc 기준 */
+export const QUESTION_TIME_LIMITS: Record<string, number> = {
+  describe: 60,
+  routine: 60,
+  experience: 90,
+  comparison: 90,
+  roleplay: 60,
+  advanced: 90,
+  // 롤플레이 시나리오 문항
+  ask_questions: 60,
+  problem_solution: 90,
+  related_experience: 90,
+  default: 60,
+} as const;
+
 /** 시험 설정 */
 export const EXAM_CONFIG = {
   /** 모의고사 제한 시간 (40분) */
@@ -298,4 +313,8 @@ export const EXAM_CONFIG = {
   MIN_SURVEY_TOPICS: 4,
   /** 시간당 최대 시험 횟수 */
   MAX_EXAMS_PER_HOUR: 2,
+  /** 문항별 타이머 경고 표시 임계값 (초) */
+  QUESTION_WARNING_THRESHOLD_SEC: 10,
+  /** 문항 간 자동 전환 대기 시간 (밀리초) */
+  QUESTION_TRANSITION_DELAY_MS: 1500,
 } as const;

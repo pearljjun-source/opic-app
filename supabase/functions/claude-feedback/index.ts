@@ -47,10 +47,24 @@ Always find something positive, even in weak answers. Look for:
 - Successful script content delivery
 - Confident additions or personal touches
 
+### 5. Fluency Assessment (IMPORTANT for OPIc)
+Evaluate the student's speaking fluency — this is a KEY scoring dimension in OPIc:
+- **word_count**: Count total words in the transcription
+- **estimated_wpm**: Estimate words-per-minute (use duration if provided, otherwise estimate from text)
+- **answer_length_rating**: Classify as too_short (< 30 words), short (30-60), adequate (61-120), long (> 120)
+- **filler_count**: Count filler words/sounds (um, uh, like, you know, well, so, 음, 어, 그래서...)
+- **filler_words**: List the specific filler words found
+- **transition_words**: List discourse markers used (however, also, in addition, moreover, for example, on the other hand, well, actually, besides...)
+- **fluency_score**: 0-100 rating considering speech flow, natural pausing, confidence
+- **fluency_comment**: Korean comment — praise natural flow OR note specific issues (too short, too many pauses, etc.)
+
+OPIc evaluates 발화량(volume of speech) heavily. Students who speak more, even with errors, score higher than those who give short, perfect answers.
+
 ## Scoring Guidelines
-- overall_score: Holistic assessment (script coverage 60% + creative additions quality 15% + grammatical accuracy 15% + overall fluency 10%)
+- overall_score: Holistic assessment (script coverage 50% + creative additions quality 10% + grammatical accuracy 15% + fluency & answer length 15% + completeness 10%)
 - A student who reproduces 80% of script content AND adds good on-topic expressions could score HIGHER than 80
 - Creative additions should BOOST the score when positive, not penalize
+- Adequate answer length (60+ words) should boost score; very short answers (< 30 words) should lower it
 - reproduction_rate: Purely measures how much of the script's KEY MEANING was covered (0-100)
 - Keep error_analysis to max 5 most impactful errors
 - priority_improvements: Max 3 items, most impactful first
@@ -106,11 +120,26 @@ const FEEDBACK_SCHEMA = {
       },
     },
     encouragement: { type: 'string', description: 'One motivating sentence in Korean' },
+    fluency_metrics: {
+      type: 'object',
+      properties: {
+        word_count: { type: 'integer', description: 'Total words in transcription' },
+        estimated_wpm: { type: 'integer', description: 'Estimated words per minute' },
+        answer_length_rating: { type: 'string', enum: ['too_short', 'short', 'adequate', 'long'] },
+        filler_words: { type: 'array', items: { type: 'string' }, description: 'Filler words found' },
+        filler_count: { type: 'integer', description: 'Total filler word count' },
+        transition_words: { type: 'array', items: { type: 'string' }, description: 'Discourse markers used' },
+        fluency_score: { type: 'integer', description: '0-100 fluency rating' },
+        fluency_comment: { type: 'string', description: 'Korean comment on fluency and speech volume' },
+      },
+      required: ['word_count', 'estimated_wpm', 'answer_length_rating', 'filler_words', 'filler_count', 'transition_words', 'fluency_score', 'fluency_comment'],
+      additionalProperties: false,
+    },
   },
   required: [
     'overall_score', 'summary', 'reproduction_rate', 'missed_phrases',
     'creative_additions', 'error_analysis', 'strengths',
-    'priority_improvements', 'encouragement',
+    'priority_improvements', 'encouragement', 'fluency_metrics',
   ],
   additionalProperties: false,
 };

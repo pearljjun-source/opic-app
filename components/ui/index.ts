@@ -47,6 +47,7 @@ export {
 export { Toast } from './Toast';
 export { FeatureLockBanner } from './FeatureLockBanner';
 export { QuotaIndicator } from './QuotaIndicator';
+export { FluencyMetricsCard } from './FluencyMetricsCard';
 export {
   Badge,
   StatusBadge,

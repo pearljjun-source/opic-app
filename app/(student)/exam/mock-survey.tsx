@@ -64,6 +64,16 @@ export default function MockSurveyScreen() {
           실제 OPIc 시험처럼 관심 있는 토픽을 선택하세요. (최소 {EXAM_CONFIG.MIN_SURVEY_TOPICS}개)
         </Text>
 
+        {/* 전략 가이드 링크 */}
+        <Pressable
+          style={[styles.guideLink, { backgroundColor: colors.primary + '10', borderColor: colors.primary + '30' }]}
+          onPress={() => router.push(routes.surveyGuide as any)}
+        >
+          <Ionicons name="bulb-outline" size={18} color={colors.primary} />
+          <Text style={[styles.guideLinkText, { color: colors.primary }]}>토픽 선택 전략 가이드 보기</Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+        </Pressable>
+
         {topics.map((topic) => {
           const isSelected = selectedIds.has(topic.id);
           return (
@@ -125,7 +135,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Pretendard-Regular',
     lineHeight: 22,
-    marginBottom: 20,
+    marginBottom: 12,
+  },
+  guideLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  guideLinkText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: 'Pretendard-SemiBold',
   },
   topicItem: {
     flexDirection: 'row',

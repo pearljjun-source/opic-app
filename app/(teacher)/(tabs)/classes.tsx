@@ -10,6 +10,7 @@ import type { TeacherClassListItem } from '@/lib/types';
 import { getUserMessage } from '@/lib/errors';
 import { SkeletonList } from '@/components/ui/Loading';
 import { useThemeColors } from '@/hooks/useTheme';
+import { useOfflineGuard } from '@/hooks/useOfflineGuard';
 
 export default function ClassesTab() {
   const colors = useThemeColors();
@@ -32,6 +33,8 @@ export default function ClassesTab() {
 
     setIsLoading(false);
   }, []);
+
+  useOfflineGuard(fetchClasses);
 
   useFocusEffect(
     useCallback(() => {

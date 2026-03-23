@@ -44,7 +44,10 @@
               "pathPrefix": "/join"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -56,6 +59,13 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "speaky",
+          "project": "opic-app"
+        }
+      ],
       [
         "expo-audio",
         {
