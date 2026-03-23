@@ -254,7 +254,7 @@ export async function getPaymentHistory(params?: {
 }
 
 /** 플랜 기능 접근 체크 (check_org_entitlement RPC 사용) */
-export async function checkFeatureAccess(feature: 'ai_feedback' | 'tts'): Promise<{
+export async function checkFeatureAccess(feature: 'ai_feedback' | 'tts' | 'translation'): Promise<{
   allowed: boolean;
   planKey: string | null;
   reason?: string;

@@ -1,6 +1,5 @@
 import { supabase } from '@/lib/supabase';
 import type {
-  StudentWithStats,
   StudentPracticeStats,
   TeacherStudentListItem,
   StudentScriptListItem,
@@ -35,79 +34,6 @@ export async function getConnectedStudents(): Promise<{
   }
 
   return { data: data || [], error: null };
-}
-
-/**
- * 학생 상세 정보 조회 (강사용) - 레거시 버전
- * 학생의 기본 정보와 통계를 함께 조회합니다.
- *
- * @deprecated getStudentDetail(RPC 버전)을 사용하세요
- */
-export async function getStudentDetails(studentId: string): Promise<{
-  data: StudentWithStats | null;
-  error: Error | null;
-}> {
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { data: null, error: new AppError('AUTH_REQUIRED') };
-  }
-
-  // 연결 확인
-  const { data: connection } = await supabase
-    .from('teacher_student')
-    .select('id')
-    .eq('teacher_id', user.id)
-    .eq('student_id', studentId)
-    .is('deleted_at', null)
-    .single();
-
-  if (!connection) {
-    return { data: null, error: new AppError('PERM_NOT_CONNECTED') };
-  }
-
-  // 학생 정보 조회
-  const { data: student, error: studentError } = await supabase
-    .from('users')
-    .select('id, name, email, created_at')
-    .eq('id', studentId)
-    .is('deleted_at', null)
-    .single();
-
-  if (studentError || !student) {
-    return { data: null, error: studentError ? classifyError(studentError, { resource: 'student' }) : new AppError('NF_STUDENT') };
-  }
-
-  // 통계 조회 (RPC 함수 사용 - deleted_at 조건 포함)
-  const { data: stats, error: statsError } = await supabase.rpc('get_student_practice_stats', { p_student_id: studentId });
-  if (statsError && __DEV__) {
-    console.warn('[AppError] stats RPC failed:', statsError.message);
-  }
-
-  // 스크립트 수 (해당 강사가 작성한 것만)
-  const { count: scriptsCount } = await supabase
-    .from('scripts')
-    .select('*', { count: 'exact', head: true })
-    .eq('student_id', studentId)
-    .eq('teacher_id', user.id)
-    .is('deleted_at', null);
-
-  // 연습 수
-  const { count: practicesCount } = await supabase
-    .from('practices')
-    .select('*', { count: 'exact', head: true })
-    .eq('student_id', studentId)
-    .is('deleted_at', null);
-
-  return {
-    data: {
-      ...student,
-      stats: stats as unknown as StudentPracticeStats | undefined,
-      scripts_count: scriptsCount || 0,
-      practices_count: practicesCount || 0,
-    },
-    error: null,
-  };
 }
 
 /**

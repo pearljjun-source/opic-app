@@ -55,8 +55,8 @@ export function useSubscription() {
     setIsLoading(false);
   }, [isAuthenticated, orgId]);
 
-  /** 기능 접근 체크 (ai_feedback, tts) — check_org_entitlement RPC 사용 */
-  const checkAccess = useCallback(async (feature: 'ai_feedback' | 'tts') => {
+  /** 기능 접근 체크 (ai_feedback, tts, translation) — check_org_entitlement RPC 사용 */
+  const checkAccess = useCallback(async (feature: 'ai_feedback' | 'tts' | 'translation') => {
     return checkFeatureAccess(feature);
   }, []);
 

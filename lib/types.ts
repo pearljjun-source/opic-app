@@ -413,13 +413,6 @@ export interface PracticeWithFeedback extends Practice {
   teacher_feedback?: TeacherFeedback;
 }
 
-/** 학생 정보 + 통계 */
-export interface StudentWithStats extends User {
-  stats?: StudentPracticeStats;
-  scripts_count?: number;
-  practices_count?: number;
-}
-
 /** 질문 + 토픽 정보 */
 export interface QuestionWithTopic extends Question {
   topic: Topic;
@@ -719,6 +712,7 @@ export interface SubscriptionPlan {
   max_scripts: number;
   ai_feedback_enabled: boolean;
   tts_enabled: boolean;
+  translation_enabled: boolean;
   features: string[];
   is_active: boolean;
   sort_order: number;

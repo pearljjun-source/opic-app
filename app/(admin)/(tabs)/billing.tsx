@@ -61,6 +61,7 @@ export default function AdminBillingScreen() {
     max_scripts: '',
     ai_feedback_enabled: false,
     tts_enabled: false,
+    translation_enabled: false,
   });
   const [isUpdating, setIsUpdating] = useState(false);
 
@@ -107,6 +108,7 @@ export default function AdminBillingScreen() {
       max_scripts: String(plan.max_scripts),
       ai_feedback_enabled: plan.ai_feedback_enabled,
       tts_enabled: plan.tts_enabled,
+      translation_enabled: plan.translation_enabled,
     });
     setEditPlan(plan);
   }, []);
@@ -131,9 +133,11 @@ export default function AdminBillingScreen() {
     const scripts = parseInt(editForm.max_scripts, 10);
     if (!isNaN(scripts) && scripts !== editPlan.max_scripts) updates.max_scripts = scripts;
 
-    if (Object.keys(updates).length === 0
-      && editForm.ai_feedback_enabled === editPlan.ai_feedback_enabled
-      && editForm.tts_enabled === editPlan.tts_enabled) {
+    if (editForm.ai_feedback_enabled !== editPlan.ai_feedback_enabled) updates.ai_feedback_enabled = editForm.ai_feedback_enabled;
+    if (editForm.tts_enabled !== editPlan.tts_enabled) updates.tts_enabled = editForm.tts_enabled;
+    if (editForm.translation_enabled !== editPlan.translation_enabled) updates.translation_enabled = editForm.translation_enabled;
+
+    if (Object.keys(updates).length === 0) {
       setEditPlan(null);
       setIsUpdating(false);
       return;
@@ -243,6 +247,7 @@ export default function AdminBillingScreen() {
               <Text style={[styles.planDetail, { color: colors.textSecondary, backgroundColor: colors.gray100 }]}>스크립트 {plan.max_scripts >= 9999 ? '무제한' : `${plan.max_scripts}개`}</Text>
               {plan.ai_feedback_enabled && <Text style={[styles.planDetail, { color: colors.textSecondary, backgroundColor: colors.gray100 }]}>AI 피드백</Text>}
               {plan.tts_enabled && <Text style={[styles.planDetail, { color: colors.textSecondary, backgroundColor: colors.gray100 }]}>TTS</Text>}
+              {plan.translation_enabled && <Text style={[styles.planDetail, { color: colors.textSecondary, backgroundColor: colors.gray100 }]}>한→영 번역</Text>}
             </View>
           </View>
         ))}
@@ -451,6 +456,15 @@ export default function AdminBillingScreen() {
                 <Switch
                   value={editForm.tts_enabled}
                   onValueChange={(v) => setEditForm(prev => ({ ...prev, tts_enabled: v }))}
+                  trackColor={{ false: colors.gray200, true: colors.primary }}
+                />
+              </View>
+
+              <View style={styles.switchRow}>
+                <Text style={[styles.switchLabel, { color: colors.textPrimary }]}>한→영 번역</Text>
+                <Switch
+                  value={editForm.translation_enabled}
+                  onValueChange={(v) => setEditForm(prev => ({ ...prev, translation_enabled: v }))}
                   trackColor={{ false: colors.gray200, true: colors.primary }}
                 />
               </View>

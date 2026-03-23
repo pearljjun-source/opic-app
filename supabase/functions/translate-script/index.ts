@@ -48,8 +48,11 @@ serve(async (req) => {
     } = await supabaseClient.auth.getUser();
 
     if (userError || !user) {
+      console.error('[translate-script] Auth failed:', userError?.message);
       throw new Error('Unauthorized');
     }
+
+    console.log('[translate-script] User:', user.id);
 
     // 요청 파싱
     const { scriptId } = await req.json();
@@ -93,7 +96,7 @@ serve(async (req) => {
 
     // 구독 entitlement + rate limit 동시 체크
     const [entitlement, { data: rateLimit }] = await Promise.all([
-      checkOrgEntitlement(supabaseAdmin, user.id, 'ai_feedback'),
+      checkOrgEntitlement(supabaseAdmin, user.id, 'translation'),
       supabaseAdmin.rpc('check_api_rate_limit', {
         p_user_id: user.id,
         p_api_type: 'claude',
@@ -102,7 +105,10 @@ serve(async (req) => {
       }),
     ]);
 
+    console.log('[translate-script] Entitlement:', JSON.stringify(entitlement));
+
     if (!entitlement.allowed) {
+      console.error('[translate-script] Entitlement denied:', entitlement.reason, 'orgId:', entitlement.orgId, 'plan:', entitlement.planKey);
       return new Response(
         JSON.stringify({
           error: entitlement.reason || 'FEATURE_NOT_AVAILABLE',
@@ -208,6 +214,7 @@ Translate the English script naturally into Korean.
       }
     );
   } catch (error) {
+    console.error('[translate-script] Error:', error.message);
     return new Response(
       JSON.stringify({ error: error.message }),
       {

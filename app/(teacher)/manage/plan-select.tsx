@@ -343,6 +343,7 @@ export default function PlanSelectScreen() {
               />
               <FeatureItem label="AI 피드백" enabled={plan.ai_feedback_enabled} colors={colors} />
               <FeatureItem label="TTS 음성" enabled={plan.tts_enabled} colors={colors} />
+              <FeatureItem label="한→영 번역" enabled={plan.translation_enabled} colors={colors} />
             </View>
 
             {/* CTA 버튼 */}

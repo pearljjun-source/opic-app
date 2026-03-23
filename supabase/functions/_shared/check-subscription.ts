@@ -15,6 +15,7 @@ interface EntitlementResult {
 const FREE_DEFAULTS: Record<string, boolean> = {
   ai_feedback: false,
   tts: false,
+  translation: false,
 };
 
 /**
@@ -89,6 +90,15 @@ export async function checkOrgEntitlement(
       planKey: plan.plan_key,
       orgId,
       reason: plan.tts_enabled ? undefined : 'FEATURE_NOT_AVAILABLE',
+    };
+  }
+
+  if (feature === 'translation') {
+    return {
+      allowed: plan.translation_enabled === true,
+      planKey: plan.plan_key,
+      orgId,
+      reason: plan.translation_enabled ? undefined : 'FEATURE_NOT_AVAILABLE',
     };
   }
 

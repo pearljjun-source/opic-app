@@ -260,6 +260,14 @@ export default function SubscriptionScreen() {
             color={plan?.tts_enabled ? colors.success : colors.textDisabled}
           />
         </View>
+        <View style={styles.featureRow}>
+          <Text style={[styles.featureLabel, { color: colors.textSecondary }]}>한→영 번역</Text>
+          <Ionicons
+            name={plan?.translation_enabled ? 'checkmark-circle' : 'close-circle'}
+            size={20}
+            color={plan?.translation_enabled ? colors.success : colors.textDisabled}
+          />
+        </View>
       </View>
 
       {/* 사용량 */}

@@ -91,7 +91,7 @@ export default function OnboardingWizard({
               </Text>
             </View>
             <Pressable onPress={onSkip} hitSlop={12}>
-              <Text style={[styles.skipText, { color: colors.textTertiary }]}>건너뛰기</Text>
+              <Text style={[styles.skipText, { color: colors.textDisabled }]}>건너뛰기</Text>
             </Pressable>
           </View>
 
@@ -135,19 +135,19 @@ export default function OnboardingWizard({
                   {step.completed ? (
                     <Ionicons name="checkmark" size={18} color="#FFFFFF" />
                   ) : (
-                    <Ionicons name={step.icon} size={18} color={colors.textTertiary} />
+                    <Ionicons name={step.icon} size={18} color={colors.textDisabled} />
                   )}
                 </View>
 
                 <View style={styles.stepContent}>
                   <Text style={[
                     styles.stepTitle,
-                    { color: step.completed ? colors.textTertiary : colors.textPrimary },
+                    { color: step.completed ? colors.textDisabled : colors.textPrimary },
                     step.completed && styles.stepTitleDone,
                   ]}>
                     {step.title}
                   </Text>
-                  <Text style={[styles.stepDescription, { color: colors.textTertiary }]}>
+                  <Text style={[styles.stepDescription, { color: colors.textDisabled }]}>
                     {step.description}
                   </Text>
                 </View>
@@ -170,8 +170,8 @@ export default function OnboardingWizard({
             </Pressable>
           ) : (
             <View style={styles.hintContainer}>
-              <Ionicons name="information-circle-outline" size={16} color={colors.textTertiary} />
-              <Text style={[styles.hintText, { color: colors.textTertiary }]}>
+              <Ionicons name="information-circle-outline" size={16} color={colors.textDisabled} />
+              <Text style={[styles.hintText, { color: colors.textDisabled }]}>
                 각 단계를 눌러 진행하세요. 나중에 해도 됩니다.
               </Text>
             </View>
