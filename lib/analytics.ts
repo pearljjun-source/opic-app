@@ -26,7 +26,7 @@ export function initAnalytics(): void {
   if (!MIXPANEL_TOKEN || isSSR) return;
 
   try {
-    mixpanel = new Mixpanel(MIXPANEL_TOKEN, true); // true = trackAutomaticEvents
+    mixpanel = new Mixpanel(MIXPANEL_TOKEN, false);
     mixpanel.init();
   } catch {
     if (__DEV__) console.warn('[Analytics] init failed');

@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import NetInfo, { NetInfoState, NetInfoSubscription } from '@react-native-community/netinfo';
+import { useState, useEffect, useCallback, useSyncExternalStore } from 'react';
+import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
 
 // ============================================================================
 // Types
@@ -14,51 +14,78 @@ export interface NetworkStatus {
 }
 
 // ============================================================================
-// Hook
+// Singleton store — 단일 NetInfo 구독을 모든 훅에서 공유
+// ============================================================================
+
+const DEFAULT_STATUS: NetworkStatus = {
+  isConnected: true,
+  isInternetReachable: true,
+  type: null,
+  isWifi: false,
+  isCellular: false,
+};
+
+let currentStatus: NetworkStatus = DEFAULT_STATUS;
+let listeners = new Set<() => void>();
+let subscribed = false;
+
+function notifyListeners() {
+  listeners.forEach((l) => l());
+}
+
+function updateFromNetInfo(state: NetInfoState) {
+  const next: NetworkStatus = {
+    isConnected: state.isConnected ?? false,
+    isInternetReachable: state.isInternetReachable,
+    type: state.type,
+    isWifi: state.type === 'wifi',
+    isCellular: state.type === 'cellular',
+  };
+
+  // 변경이 없으면 리렌더링 방지
+  if (
+    next.isConnected === currentStatus.isConnected &&
+    next.isInternetReachable === currentStatus.isInternetReachable &&
+    next.type === currentStatus.type
+  ) {
+    return;
+  }
+
+  currentStatus = next;
+  notifyListeners();
+}
+
+function ensureSubscription() {
+  if (subscribed) return;
+  subscribed = true;
+  NetInfo.fetch().then(updateFromNetInfo);
+  NetInfo.addEventListener(updateFromNetInfo);
+}
+
+function subscribe(listener: () => void) {
+  ensureSubscription();
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+}
+
+function getSnapshot(): NetworkStatus {
+  return currentStatus;
+}
+
+// ============================================================================
+// Hook — useSyncExternalStore로 단일 구독 공유
 // ============================================================================
 
 export function useNetworkStatus() {
-  const [networkStatus, setNetworkStatus] = useState<NetworkStatus>({
-    isConnected: true,
-    isInternetReachable: true,
-    type: null,
-    isWifi: false,
-    isCellular: false,
-  });
+  const status = useSyncExternalStore(subscribe, getSnapshot, () => DEFAULT_STATUS);
 
-  const updateNetworkStatus = useCallback((state: NetInfoState) => {
-    setNetworkStatus({
-      isConnected: state.isConnected ?? false,
-      isInternetReachable: state.isInternetReachable,
-      type: state.type,
-      isWifi: state.type === 'wifi',
-      isCellular: state.type === 'cellular',
-    });
-  }, []);
-
-  useEffect(() => {
-    // Get initial state
-    NetInfo.fetch().then(updateNetworkStatus);
-
-    // Subscribe to network status changes
-    const unsubscribe = NetInfo.addEventListener(updateNetworkStatus);
-
-    return () => {
-      unsubscribe();
-    };
-  }, [updateNetworkStatus]);
-
-  // Manual refresh
   const refresh = useCallback(async () => {
     const state = await NetInfo.fetch();
-    updateNetworkStatus(state);
+    updateFromNetInfo(state);
     return state.isConnected ?? false;
-  }, [updateNetworkStatus]);
+  }, []);
 
-  return {
-    ...networkStatus,
-    refresh,
-  };
+  return { ...status, refresh };
 }
 
 // ============================================================================
@@ -67,7 +94,6 @@ export function useNetworkStatus() {
 
 export function useIsOnline() {
   const { isConnected, isInternetReachable } = useNetworkStatus();
-  // Consider online if connected and (internet reachable or unknown)
   return isConnected && (isInternetReachable === true || isInternetReachable === null);
 }
 
