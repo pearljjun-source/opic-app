@@ -7,6 +7,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { checkOrgEntitlement } from '../_shared/check-subscription.ts';
 import { getCorsHeaders, handleCorsPreFlight } from '../_shared/cors.ts';
+import { logger } from '../_shared/logger.ts';
 
 const TRANSLATION_SCHEMA = {
   type: 'object',
@@ -48,11 +49,11 @@ serve(async (req) => {
     } = await supabaseClient.auth.getUser();
 
     if (userError || !user) {
-      console.error('[translate-script] Auth failed:', userError?.message);
+      logger.error('Auth failed', userError?.message);
       throw new Error('Unauthorized');
     }
 
-    console.log('[translate-script] User:', user.id);
+    logger.info(`User: ${user.id}`);
 
     // 요청 파싱
     const { scriptId } = await req.json();
@@ -105,10 +106,10 @@ serve(async (req) => {
       }),
     ]);
 
-    console.log('[translate-script] Entitlement:', JSON.stringify(entitlement));
+    logger.info(`Entitlement: ${JSON.stringify(entitlement)}`);
 
     if (!entitlement.allowed) {
-      console.error('[translate-script] Entitlement denied:', entitlement.reason, 'orgId:', entitlement.orgId, 'plan:', entitlement.planKey);
+      logger.error(`Entitlement denied: ${entitlement.reason}, orgId: ${entitlement.orgId}, plan: ${entitlement.planKey}`);
       return new Response(
         JSON.stringify({
           error: entitlement.reason || 'FEATURE_NOT_AVAILABLE',
@@ -192,7 +193,7 @@ Translate the English script naturally into Korean.
     if (updateError) {
       // 캐싱 실패해도 번역 결과는 반환 (다음에 재시도)
       if (Deno.env.get('DENO_ENV') !== 'production') {
-        console.warn('[translate-script] Cache write failed:', updateError.message);
+        logger.warn('Cache write failed', updateError.message);
       }
     }
 
@@ -214,7 +215,7 @@ Translate the English script naturally into Korean.
       }
     );
   } catch (error) {
-    console.error('[translate-script] Error:', error.message);
+    logger.error('Error', error.message);
     return new Response(
       JSON.stringify({ error: error.message }),
       {
