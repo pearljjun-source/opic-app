@@ -99,6 +99,15 @@ export async function issueBillingKey(
   );
 
   if (error) {
+    // 타임아웃/네트워크 에러: 결제는 성공했을 수 있음 (웹훅이 reconciliation 처리)
+    // 사용자에게 "결제 확인 중" 안내 후 구독 상태 재조회 권장
+    const errMsg = error.message || '';
+    if (errMsg.includes('timeout') || errMsg.includes('network') || errMsg.includes('Failed to fetch')) {
+      return {
+        data: null,
+        error: new AppError('NETWORK_TIMEOUT'),
+      };
+    }
     return { data: null, error: classifyError(error, { resource: 'subscription' }) };
   }
 
@@ -164,6 +173,32 @@ export async function cancelSubscription(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { data: null, error: new AppError('AUTH_REQUIRED') };
 
+  // org 기반 구독도 해지되도록: user_id 또는 org owner 여부로 필터
+  // RLS가 접근 제어를 담당하므로 subscriptionId만으로 조회 후 권한 검증
+  const { data: sub } = await supabase
+    .from('subscriptions')
+    .select('id, user_id, organization_id')
+    .eq('id', subscriptionId)
+    .single();
+
+  if (!sub) return { data: null, error: new AppError('NF_SUBSCRIPTION') };
+
+  // 권한 검증: 본인 구독이거나 org owner인 경우만 허용
+  if (sub.user_id !== user.id && sub.organization_id) {
+    const { data: membership } = await supabase
+      .from('organization_members')
+      .select('role')
+      .eq('organization_id', sub.organization_id)
+      .eq('user_id', user.id)
+      .eq('role', 'owner')
+      .is('deleted_at', null)
+      .single();
+
+    if (!membership) return { data: null, error: new AppError('PERM_UNAUTHORIZED') };
+  } else if (sub.user_id !== user.id) {
+    return { data: null, error: new AppError('PERM_UNAUTHORIZED') };
+  }
+
   const { data, error } = await supabase
     .from('subscriptions')
     .update({
@@ -172,7 +207,6 @@ export async function cancelSubscription(
       updated_at: new Date().toISOString(),
     })
     .eq('id', subscriptionId)
-    .eq('user_id', user.id)
     .select()
     .single();
 

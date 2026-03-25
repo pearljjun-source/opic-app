@@ -141,6 +141,92 @@ serve(async (req) => {
             // 결제 확인 이메일 발송
             await sendPaymentConfirmationEmail(supabaseAdmin, existingPayment, data);
           }
+        } else {
+          // RECONCILIATION: 결제 성공했지만 payment_history가 없음
+          // 동기 플로우가 결제 후 DB 저장 전에 실패한 경우
+          const tossOrderId = data?.orderId;
+          if (tossOrderId) {
+            const { data: incompleteSub } = await supabaseAdmin
+              .from('subscriptions')
+              .select('id, user_id, organization_id, plan_id, billing_cycle, subscription_plans!subscriptions_plan_id_fkey(name, price_monthly, price_yearly)')
+              .eq('provider_subscription_id', tossOrderId)
+              .eq('status', 'incomplete')
+              .single();
+
+            if (incompleteSub) {
+              logger.info('Webhook reconciliation: activating incomplete subscription', {
+                subscriptionId: incompleteSub.id, orderId: tossOrderId, paymentKey,
+              });
+
+              const plan = incompleteSub.subscription_plans as any;
+              const cycle = incompleteSub.billing_cycle || 'monthly';
+              const amount = cycle === 'yearly' ? plan?.price_yearly : plan?.price_monthly;
+
+              const now = new Date();
+              const periodEnd = new Date(now);
+              if (cycle === 'yearly') {
+                periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+              } else {
+                periodEnd.setMonth(periodEnd.getMonth() + 1);
+              }
+
+              // 기존 free 구독 삭제
+              if (incompleteSub.organization_id) {
+                const freePlanIds = await supabaseAdmin
+                  .from('subscription_plans')
+                  .select('id')
+                  .eq('plan_key', 'free')
+                  .then(r => (r.data || []).map((p: any) => p.id));
+
+                if (freePlanIds.length > 0) {
+                  await supabaseAdmin
+                    .from('subscriptions')
+                    .delete()
+                    .eq('organization_id', incompleteSub.organization_id)
+                    .eq('status', 'active')
+                    .in('plan_id', freePlanIds);
+                }
+              }
+
+              // incomplete → active (CAS: incomplete인 경우에만)
+              await supabaseAdmin
+                .from('subscriptions')
+                .update({
+                  status: 'active',
+                  current_period_start: now.toISOString(),
+                  current_period_end: periodEnd.toISOString(),
+                })
+                .eq('id', incompleteSub.id)
+                .eq('status', 'incomplete');
+
+              // 결제 이력 생성
+              await supabaseAdmin.from('payment_history').insert({
+                subscription_id: incompleteSub.id,
+                user_id: incompleteSub.user_id,
+                amount: amount || (data?.totalAmount ?? 0),
+                currency: 'KRW',
+                status: 'paid',
+                provider_payment_id: paymentKey,
+                payment_method: data?.method || 'card',
+                card_last4: data?.card?.number?.slice(-4) || null,
+                receipt_url: data?.receipt?.url || null,
+                paid_at: new Date().toISOString(),
+              });
+
+              await sendPaymentConfirmationEmail(supabaseAdmin, {
+                user_id: incompleteSub.user_id,
+                amount: amount || 0,
+                subscription_id: incompleteSub.id,
+              }, data);
+
+              responseMessage = 'Reconciled incomplete subscription';
+            } else {
+              logger.warn('DONE webhook: no payment_history and no incomplete subscription', {
+                paymentKey, orderId: tossOrderId,
+              });
+              responseMessage = 'No matching subscription found';
+            }
+          }
         }
         break;
       }

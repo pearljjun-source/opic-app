@@ -31,6 +31,23 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // ========== Stale incomplete 정리 (1시간 이상 된 incomplete 구독 삭제) ==========
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { data: staleSubs } = await supabaseAdmin
+      .from('subscriptions')
+      .select('id')
+      .eq('status', 'incomplete')
+      .lt('created_at', oneHourAgo);
+
+    if (staleSubs && staleSubs.length > 0) {
+      const staleIds = staleSubs.map((s: { id: string }) => s.id);
+      await supabaseAdmin
+        .from('subscriptions')
+        .delete()
+        .in('id', staleIds);
+      logger.info(`Cleaned up ${staleIds.length} stale incomplete subscriptions`);
+    }
+
     // 갱신 대상: 내일까지 만료 예정이고 취소 예약되지 않은 활성 구독
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -187,7 +204,9 @@ serve(async (req) => {
         }
       }
 
-      const orderId = `renew_${sub.user_id.slice(0, 8)}_${Date.now()}`;
+      // 멱등성 키: 같은 구독의 같은 기간 갱신은 동일 orderId → TOSS가 중복 거부
+      const periodKey = new Date(sub.current_period_end).toISOString().slice(0, 10).replace(/-/g, '');
+      const orderId = `renew_${sub.id.slice(0, 8)}_${periodKey}`;
 
       try {
         // billing_key 복호화 (암호화된 경우)
@@ -210,8 +229,10 @@ serve(async (req) => {
           }),
         });
 
+        const payResBody = await payRes.json();
+
         if (payRes.ok) {
-          const payData = await payRes.json();
+          const payData = payResBody;
 
           // 구독 기간 연장 (billing_cycle에 따라 1개월/12개월)
           const newStart = new Date(sub.current_period_end);
@@ -255,7 +276,15 @@ serve(async (req) => {
 
           results.renewed++;
         } else {
-          const payError = await payRes.json();
+          const payError = payResBody;
+
+          // TOSS 중복 결제 거부 (멱등성 키 중복) → 이미 결제 완료로 처리
+          if (payError.code === 'ALREADY_PROCESSED_PAYMENT') {
+            logger.info(`Already processed payment for ${sub.id}, skipping`, { orderId });
+            results.renewed++;
+            continue;
+          }
+
           logger.error(`Payment failed for ${sub.id}`, payError);
 
           // Dunning: dunning_started_at 기반 마일스톤 알림 + 14일 후 canceled

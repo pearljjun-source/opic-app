@@ -96,20 +96,50 @@ serve(async (req) => {
       );
     }
 
-    // 이미 활성 구독이 있는지 확인
+    // 이미 활성 유료 구독이 있는지 확인 (organization 기반)
     const { data: existingSub } = await supabaseAdmin
       .from('subscriptions')
-      .select('id')
-      .eq('user_id', user.id)
+      .select('id, subscription_plans!subscriptions_plan_id_fkey(plan_key)')
+      .eq('organization_id', orgId)
       .in('status', ['active', 'trialing'])
       .single();
 
     if (existingSub) {
+      const existingPlanKey = (existingSub.subscription_plans as any)?.plan_key;
+      // free 플랜이 아닌 유료 구독이 이미 있으면 차단
+      if (existingPlanKey && existingPlanKey !== 'free') {
+        return new Response(
+          JSON.stringify({ error: 'ALREADY_SUBSCRIBED' }),
+          { status: 409, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // Race Condition 방지: incomplete 상태 구독을 먼저 생성 (UNIQUE 제약으로 동시 요청 차단)
+    const { data: lockSub, error: lockError } = await supabaseAdmin
+      .from('subscriptions')
+      .insert({
+        user_id: user.id,
+        organization_id: orgId,
+        plan_id: plan.id,
+        status: 'incomplete',
+        billing_provider: 'toss',
+        billing_cycle: cycle,
+        current_period_start: new Date().toISOString(),
+        current_period_end: new Date().toISOString(),
+      })
+      .select('id')
+      .single();
+
+    if (lockError) {
+      logger.error('Subscription lock insert failed (likely concurrent request)', lockError);
       return new Response(
         JSON.stringify({ error: 'ALREADY_SUBSCRIBED' }),
         { status: 409, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
+
+    const lockSubId = lockSub.id;
 
     // 토스페이먼츠: authKey → 빌링키 교환
     const authHeader = 'Basic ' + btoa(`${tossSecretKey}:`);
@@ -128,6 +158,8 @@ serve(async (req) => {
     if (!billingRes.ok) {
       const billingError = await billingRes.json();
       logger.error('Toss billing key error', billingError);
+      // 빌링키 발급 실패: incomplete 구독 정리
+      await supabaseAdmin.from('subscriptions').delete().eq('id', lockSubId);
       return new Response(
         JSON.stringify({ error: 'BILLING_KEY_FAILED', detail: billingError.message }),
         { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
@@ -137,9 +169,22 @@ serve(async (req) => {
     const billingData = await billingRes.json();
     const billingKey = billingData.billingKey;
 
+    // 빌링키를 incomplete 구독에 즉시 저장 (웹훅 reconciliation용)
+    await supabaseAdmin
+      .from('subscriptions')
+      .update({ billing_key: await encryptValue(billingKey) })
+      .eq('id', lockSubId);
+
     // 첫 결제 실행 (월간/연간에 따라 금액 결정)
     const amount = cycle === 'yearly' ? plan.price_yearly : plan.price_monthly;
-    const orderId = `order_${user.id.slice(0, 8)}_${Date.now()}`;
+    // 멱등성 키: lockSubId 기반으로 동일 요청에 대해 TOSS가 중복 결제 거부
+    const orderId = `order_${orgId.slice(0, 8)}_${planKey}_${cycle}_${lockSubId.slice(0, 8)}`;
+
+    // orderId를 incomplete 구독에 저장 (웹훅 reconciliation에서 매칭용)
+    await supabaseAdmin
+      .from('subscriptions')
+      .update({ provider_subscription_id: orderId })
+      .eq('id', lockSubId);
 
     const paymentRes = await fetch('https://api.tosspayments.com/v1/billing/' + billingKey, {
       method: 'POST',
@@ -158,6 +203,8 @@ serve(async (req) => {
     if (!paymentRes.ok) {
       const paymentError = await paymentRes.json();
       logger.error('Toss payment error', paymentError);
+      // 결제 실패: incomplete 구독 정리
+      await supabaseAdmin.from('subscriptions').delete().eq('id', lockSubId);
       return new Response(
         JSON.stringify({ error: 'BILLING_PAYMENT_FAILED', detail: paymentError.message }),
         { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
@@ -165,6 +212,16 @@ serve(async (req) => {
     }
 
     const paymentData = await paymentRes.json();
+
+    // 결제 응답 검증
+    if (!paymentData.paymentKey || paymentData.status !== 'DONE') {
+      logger.error('Unexpected payment response', paymentData);
+      await supabaseAdmin.from('subscriptions').delete().eq('id', lockSubId);
+      return new Response(
+        JSON.stringify({ error: 'BILLING_PAYMENT_FAILED', detail: 'Invalid payment response' }),
+        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+      );
+    }
 
     // 구독 생성 (월간: +1개월, 연간: +12개월, 트라이얼: 7일 후 시작)
     const now = new Date();
@@ -191,25 +248,43 @@ serve(async (req) => {
         ),
       ]);
 
+    // incomplete → active 전환 (결제 성공, billing_key + orderId는 이미 저장됨)
     const { data: subscription, error: subError } = await supabaseAdmin
       .from('subscriptions')
-      .insert({
-        user_id: user.id,
-        organization_id: orgId,
-        plan_id: plan.id,
+      .update({
         status: 'active',
-        billing_provider: 'toss',
-        billing_key: await encryptValue(billingKey),
-        billing_cycle: cycle,
-        provider_subscription_id: orderId,
         current_period_start: now.toISOString(),
         current_period_end: periodEnd.toISOString(),
       })
+      .eq('id', lockSubId)
+      .eq('status', 'incomplete')  // CAS: incomplete인 경우에만 전환
       .select('id')
       .single();
 
     if (subError) {
-      logger.error('Subscription insert error', subError);
+      logger.error('Subscription update error — attempting refund', subError);
+      // 결제 성공 후 DB UPDATE 실패: TOSS 결제 취소(환불) 시도
+      try {
+        await fetch(`https://api.tosspayments.com/v1/payments/${paymentData.paymentKey}/cancel`, {
+          method: 'POST',
+          headers: {
+            'Authorization': authHeader,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ cancelReason: 'DB 구독 생성 실패로 인한 자동 환불' }),
+        });
+        logger.info('Auto-refund completed for failed subscription update');
+      } catch (refundErr) {
+        logger.error('Auto-refund also failed — manual intervention needed', {
+          paymentKey: paymentData.paymentKey,
+          orderId,
+          userId: user.id,
+          orgId,
+          amount,
+        });
+      }
+      // incomplete 구독 정리
+      await supabaseAdmin.from('subscriptions').delete().eq('id', lockSubId);
       throw new Error('Failed to create subscription');
     }
 

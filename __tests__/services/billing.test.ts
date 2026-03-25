@@ -171,8 +171,12 @@ describe('cancelSubscription()', () => {
   });
 
   it('cancels subscription successfully', async () => {
-    // cancelSubscription chain: update → eq → eq → select → single
-    // select returns this (chainable), single resolves with data
+    // 1st call: select → single (조회 — user_id 일치)
+    mockChain.single.mockResolvedValueOnce({
+      data: { id: 'sub-1', user_id: 'user-1', organization_id: 'org-1' },
+      error: null,
+    });
+    // 2nd call: update → select → single (해지)
     mockChain.select.mockReturnThis();
     mockChain.single.mockResolvedValueOnce({
       data: { id: 'sub-1', cancel_at_period_end: true },

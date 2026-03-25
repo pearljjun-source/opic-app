@@ -150,7 +150,9 @@ serve(async (req) => {
       if (proratedAmount > 0) {
         // 토스 빌링 결제
         const authHeader = 'Basic ' + btoa(`${tossSecretKey}:`);
-        const orderId = `upgrade_${user.id.slice(0, 8)}_${Date.now()}`;
+        // 멱등성 키: 같은 구독의 같은 플랜 변경은 동일 orderId → TOSS가 중복 거부
+        const dateKey = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        const orderId = `upgrade_${subscription.id.slice(0, 8)}_${newPlan.plan_key}_${dateKey}`;
 
         // billing_key 복호화 (암호화된 경우)
         const rawBillingKey = isEncrypted(subscription.billing_key)
