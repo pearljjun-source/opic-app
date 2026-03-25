@@ -268,20 +268,44 @@ serve(async (req) => {
       .neq('id', lockSubId); // 방금 생성한 incomplete 구독은 제외
 
     // incomplete → active 전환 (결제 성공, billing_key + orderId는 이미 저장됨)
-    const { data: subscription, error: subError } = await supabaseAdmin
-      .from('subscriptions')
-      .update({
-        status: 'active',
-        current_period_start: now.toISOString(),
-        current_period_end: periodEnd.toISOString(),
-      })
-      .eq('id', lockSubId)
-      .eq('status', 'incomplete')  // CAS: incomplete인 경우에만 전환
-      .select('id')
-      .single();
+    // 빌링키 결제는 TOSS 웹훅이 오지 않으므로 여기서 반드시 성공해야 함
+    // DB 일시 장애 대비: 최대 3회 재시도 후 환불
+    let subscription: { id: string } | null = null;
+    let activationError: unknown = null;
 
-    if (subError) {
-      // CAS 실패: webhook이 이미 활성화했을 수 있음 → 확인 후 환불 결정
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const { data: sub, error: err } = await supabaseAdmin
+        .from('subscriptions')
+        .update({
+          status: 'active',
+          current_period_start: now.toISOString(),
+          current_period_end: periodEnd.toISOString(),
+        })
+        .eq('id', lockSubId)
+        .eq('status', 'incomplete')  // CAS: incomplete인 경우에만 전환
+        .select('id')
+        .single();
+
+      if (!err && sub) {
+        subscription = sub;
+        activationError = null;
+        break;
+      }
+
+      activationError = err;
+
+      if (attempt < 3) {
+        logger.warn(`Subscription activation attempt ${attempt} failed, retrying...`, {
+          subscriptionId: lockSubId, error: err?.message,
+        });
+        // 1초, 2초 대기 후 재시도
+        await new Promise(r => setTimeout(r, attempt * 1000));
+      }
+    }
+
+    if (!subscription) {
+      // 3회 재시도 모두 실패 → 환불
+      // 단, 재시도 중 성공했을 가능성 확인 (CAS 특성상 이미 active면 매칭 안 됨)
       const { data: currentSub } = await supabaseAdmin
         .from('subscriptions')
         .select('id, status')
@@ -289,54 +313,36 @@ serve(async (req) => {
         .single();
 
       if (currentSub?.status === 'active') {
-        // webhook이 이미 활성화 완료 → 환불 불필요, 정상 성공 처리
-        logger.info('CAS failed but subscription already active (webhook reconciled)', {
-          subscriptionId: lockSubId, paymentKey: paymentData.paymentKey,
-        });
-        // payment_history는 webhook이 이미 생성했을 수 있으므로 중복 무시 (UNIQUE constraint)
-        await supabaseAdmin.from('payment_history').insert({
-          subscription_id: lockSubId,
-          user_id: user.id,
-          amount,
-          currency: 'KRW',
-          status: 'paid',
-          provider_payment_id: paymentData.paymentKey,
-          payment_method: paymentData.method || 'card',
-          card_last4: paymentData.card?.number?.slice(-4) || null,
-          receipt_url: paymentData.receipt?.url || null,
-          paid_at: new Date().toISOString(),
-        }).then(() => {}).catch(() => {}); // UNIQUE 충돌 시 무시 (webhook이 이미 생성)
-        return new Response(
-          JSON.stringify({ subscriptionId: lockSubId }),
-          { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
-        );
+        // 재시도 중 하나가 실제로는 성공했지만 응답을 못 받은 경우
+        logger.info('Subscription already active after retries', { subscriptionId: lockSubId });
+        subscription = { id: lockSubId };
+      } else {
+        // 진짜 복구 불가 → TOSS 결제 취소(환불)
+        logger.error('Subscription activation failed after 3 retries — attempting refund', activationError);
+        try {
+          await fetch(`https://api.tosspayments.com/v1/payments/${(paymentData as any).paymentKey}/cancel`, {
+            method: 'POST',
+            headers: {
+              'Authorization': authHeader,
+              'Content-Type': 'application/json',
+              'Idempotency-Key': `refund_${orderId}`,
+            },
+            body: JSON.stringify({ cancelReason: 'DB 구독 활성화 3회 실패로 인한 자동 환불' }),
+          });
+          logger.info('Auto-refund completed for failed subscription activation');
+        } catch (refundErr) {
+          logger.error('Auto-refund also failed — manual intervention needed', {
+            paymentKey: (paymentData as any).paymentKey,
+            orderId,
+            userId: user.id,
+            orgId,
+            amount,
+          });
+        }
+        // incomplete 구독 정리
+        await supabaseAdmin.from('subscriptions').delete().eq('id', lockSubId);
+        throw new Error('Failed to activate subscription');
       }
-
-      // 진짜 DB 오류: TOSS 결제 취소(환불)
-      logger.error('Subscription update error — attempting refund', subError);
-      try {
-        await fetch(`https://api.tosspayments.com/v1/payments/${paymentData.paymentKey}/cancel`, {
-          method: 'POST',
-          headers: {
-            'Authorization': authHeader,
-            'Content-Type': 'application/json',
-            'Idempotency-Key': `refund_${orderId}`,
-          },
-          body: JSON.stringify({ cancelReason: 'DB 구독 생성 실패로 인한 자동 환불' }),
-        });
-        logger.info('Auto-refund completed for failed subscription update');
-      } catch (refundErr) {
-        logger.error('Auto-refund also failed — manual intervention needed', {
-          paymentKey: paymentData.paymentKey,
-          orderId,
-          userId: user.id,
-          orgId,
-          amount,
-        });
-      }
-      // incomplete 구독 정리
-      await supabaseAdmin.from('subscriptions').delete().eq('id', lockSubId);
-      throw new Error('Failed to create subscription');
     }
 
     // 결제 이력 생성 (UNIQUE 충돌 = webhook이 이미 생성 → 무시)

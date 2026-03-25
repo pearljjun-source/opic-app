@@ -43,21 +43,140 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // ========== Stale incomplete 정리 (1시간 이상 된 incomplete 구독 삭제) ==========
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    const { data: staleSubs } = await supabaseAdmin
+    // ========== Incomplete 구독 reconciliation (TOSS 결제 조회 기반) ==========
+    // 빌링키 결제는 TOSS 웹훅이 오지 않으므로, DB 장애로 활성화 실패한 구독을
+    // TOSS API에 직접 조회하여 결제 성공 여부를 확인하고 복구함
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    // 10분~24시간 사이의 incomplete 구독 (10분 미만은 billing-key가 아직 처리 중일 수 있음)
+    const { data: incompleteSubs } = await supabaseAdmin
+      .from('subscriptions')
+      .select('id, user_id, organization_id, plan_id, billing_cycle, provider_subscription_id, subscription_plans!subscriptions_plan_id_fkey(name, price_monthly, price_yearly)')
+      .eq('status', 'incomplete')
+      .lt('created_at', tenMinutesAgo)
+      .gt('created_at', oneDayAgo);
+
+    if (incompleteSubs && incompleteSubs.length > 0) {
+      for (const incSub of incompleteSubs) {
+        const incOrderId = incSub.provider_subscription_id;
+        if (!incOrderId) {
+          // orderId 없음 = 결제 시도 전 실패 → 삭제
+          await supabaseAdmin.from('subscriptions').delete().eq('id', incSub.id);
+          logger.info(`Deleted incomplete subscription without orderId: ${incSub.id}`);
+          continue;
+        }
+
+        // TOSS 결제 조회 API로 실제 결제 상태 확인
+        try {
+          const tossRes = await fetch(
+            `https://api.tosspayments.com/v1/payments/orders/${incOrderId}`,
+            {
+              method: 'GET',
+              headers: { 'Authorization': authHeader },
+            }
+          );
+
+          if (tossRes.ok) {
+            const tossData = await tossRes.json();
+
+            if (tossData.status === 'DONE') {
+              // 결제 성공 확인 → 구독 활성화 복구
+              logger.info('Reconciling incomplete subscription via TOSS API', {
+                subscriptionId: incSub.id, orderId: incOrderId, paymentKey: tossData.paymentKey,
+              });
+
+              const plan = incSub.subscription_plans as any;
+              const cycle = incSub.billing_cycle || 'monthly';
+              const now = new Date();
+              const periodEnd = new Date(now);
+              if (cycle === 'yearly') {
+                periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+              } else {
+                periodEnd.setMonth(periodEnd.getMonth() + 1);
+              }
+
+              // 기존 free/trialing 구독 삭제
+              if (incSub.organization_id) {
+                const freePlanIds = await supabaseAdmin
+                  .from('subscription_plans')
+                  .select('id')
+                  .eq('plan_key', 'free')
+                  .then(r => (r.data || []).map((p: any) => p.id));
+
+                if (freePlanIds.length > 0) {
+                  await supabaseAdmin.from('subscriptions').delete()
+                    .eq('organization_id', incSub.organization_id)
+                    .eq('status', 'active')
+                    .in('plan_id', freePlanIds);
+                }
+                await supabaseAdmin.from('subscriptions').delete()
+                  .eq('organization_id', incSub.organization_id)
+                  .eq('status', 'trialing')
+                  .neq('id', incSub.id);
+              }
+
+              // incomplete → active (CAS)
+              const { error: activateErr } = await supabaseAdmin
+                .from('subscriptions')
+                .update({
+                  status: 'active',
+                  current_period_start: now.toISOString(),
+                  current_period_end: periodEnd.toISOString(),
+                })
+                .eq('id', incSub.id)
+                .eq('status', 'incomplete');
+
+              if (!activateErr) {
+                // 결제 이력 (UNIQUE 충돌 무시)
+                const amount = cycle === 'yearly' ? plan?.price_yearly : plan?.price_monthly;
+                const { error: phErr } = await supabaseAdmin.from('payment_history').insert({
+                  subscription_id: incSub.id,
+                  user_id: incSub.user_id,
+                  amount: amount || tossData.totalAmount || 0,
+                  currency: 'KRW',
+                  status: 'paid',
+                  provider_payment_id: tossData.paymentKey,
+                  payment_method: tossData.method || 'card',
+                  card_last4: tossData.card?.number?.slice(-4) || null,
+                  receipt_url: tossData.receipt?.url || null,
+                  paid_at: new Date().toISOString(),
+                });
+                if (phErr && phErr.code !== '23505') {
+                  logger.error('Reconciliation payment_history insert failed', phErr);
+                }
+                logger.info(`Reconciled subscription ${incSub.id} via TOSS API query`);
+              }
+            } else if (tossData.status === 'CANCELED' || tossData.status === 'ABORTED' || tossData.status === 'EXPIRED') {
+              // 결제 실패/취소 확인 → incomplete 삭제
+              await supabaseAdmin.from('subscriptions').delete().eq('id', incSub.id);
+              logger.info(`Deleted incomplete subscription (TOSS status: ${tossData.status}): ${incSub.id}`);
+            }
+            // WAITING_FOR_DEPOSIT, IN_PROGRESS 등은 아직 진행 중이므로 건드리지 않음
+          } else if (tossRes.status === 404) {
+            // TOSS에 결제 기록 없음 → 결제 시도 자체가 실패한 케이스 → 삭제
+            await supabaseAdmin.from('subscriptions').delete().eq('id', incSub.id);
+            logger.info(`Deleted incomplete subscription (no TOSS record): ${incSub.id}`);
+          } else {
+            logger.warn(`TOSS API query failed for ${incSub.id}`, { status: tossRes.status });
+          }
+        } catch (tossErr) {
+          logger.error(`TOSS API query error for ${incSub.id}`, tossErr);
+        }
+      }
+    }
+
+    // 24시간 이상 된 incomplete 구독은 무조건 삭제 (TOSS 조회도 의미 없음)
+    const { data: ancientSubs } = await supabaseAdmin
       .from('subscriptions')
       .select('id')
       .eq('status', 'incomplete')
-      .lt('created_at', oneHourAgo);
+      .lt('created_at', oneDayAgo);
 
-    if (staleSubs && staleSubs.length > 0) {
-      const staleIds = staleSubs.map((s: { id: string }) => s.id);
-      await supabaseAdmin
-        .from('subscriptions')
-        .delete()
-        .in('id', staleIds);
-      logger.info(`Cleaned up ${staleIds.length} stale incomplete subscriptions`);
+    if (ancientSubs && ancientSubs.length > 0) {
+      const ancientIds = ancientSubs.map((s: { id: string }) => s.id);
+      await supabaseAdmin.from('subscriptions').delete().in('id', ancientIds);
+      logger.info(`Cleaned up ${ancientIds.length} ancient incomplete subscriptions (>24h)`);
     }
 
     // 갱신 대상: 내일까지 만료 예정이고 취소 예약되지 않은 활성 구독
