@@ -182,16 +182,21 @@ serve(async (req) => {
           }
         );
 
+        const paymentResBody = await paymentRes.json();
+
         if (!paymentRes.ok) {
-          const paymentError = await paymentRes.json();
-          logger.error('Toss payment error', paymentError);
-          return new Response(
-            JSON.stringify({ error: 'BILLING_PAYMENT_FAILED', detail: paymentError.message }),
-            { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
-          );
+          // Idempotency-Key 중복: 이미 결제 완료 → 성공으로 처리
+          if (paymentResBody.code !== 'ALREADY_PROCESSED_PAYMENT') {
+            logger.error('Toss payment error', paymentResBody);
+            return new Response(
+              JSON.stringify({ error: 'BILLING_PAYMENT_FAILED', detail: paymentResBody.message }),
+              { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+            );
+          }
+          logger.info('Already processed upgrade payment', { orderId });
         }
 
-        paymentData = await paymentRes.json();
+        paymentData = paymentResBody;
 
         // 결제 이력 생성
         await supabaseAdmin.from('payment_history').insert({

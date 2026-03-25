@@ -203,18 +203,25 @@ serve(async (req) => {
       }),
     });
 
+    const paymentResBody = await paymentRes.json();
+
     if (!paymentRes.ok) {
-      const paymentError = await paymentRes.json();
-      logger.error('Toss payment error', paymentError);
-      // 결제 실패: incomplete 구독 정리
-      await supabaseAdmin.from('subscriptions').delete().eq('id', lockSubId);
-      return new Response(
-        JSON.stringify({ error: 'BILLING_PAYMENT_FAILED', detail: paymentError.message }),
-        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
-      );
+      // Idempotency-Key 중복: 이미 결제 완료된 요청 → 성공으로 처리
+      if (paymentResBody.code === 'ALREADY_PROCESSED_PAYMENT') {
+        logger.info('Already processed payment, treating as success', { orderId });
+        // incomplete 구독은 webhook이 처리했거나 아래에서 활성화
+      } else {
+        logger.error('Toss payment error', paymentResBody);
+        // 결제 실패: incomplete 구독 정리
+        await supabaseAdmin.from('subscriptions').delete().eq('id', lockSubId);
+        return new Response(
+          JSON.stringify({ error: 'BILLING_PAYMENT_FAILED', detail: paymentResBody.message }),
+          { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
-    const paymentData = await paymentRes.json();
+    const paymentData = paymentResBody;
 
     // 결제 응답 검증
     if (!paymentData.paymentKey || paymentData.status !== 'DONE') {

@@ -1,13 +1,15 @@
 // Edge Function: toss-webhook
 // 용도: 토스페이먼츠 웹훅 수신 및 처리
-// 보안: HMAC-SHA256 서명 검증
+// 보안:
+//   - 결제 웹훅 (PAYMENT_STATUS_CHANGED): TOSS는 서명 미포함 → IP 기반 또는 payload 검증
+//   - 정산 웹훅 (payout.changed 등): HMAC-SHA256 서명 검증
 // 멱등성: provider_payment_id로 중복 웹훅 무시
 // 로깅: webhook_logs 테이블에 모든 이벤트 기록
 //
-// 이벤트 타입:
-//   - DONE: 결제 완료 → payment_history.status='paid'
-//   - CANCELED: 취소/환불 → payment_history.status='refunded'
-//   - FAILED: 결제 실패 → payment_history.status='failed'
+// TOSS 웹훅 이벤트:
+//   - eventType: "PAYMENT_STATUS_CHANGED" → data.status: "DONE"/"CANCELED"/"FAILED" 등
+//   - eventType: "DEPOSIT_CALLBACK" → 가상계좌 입금 (미사용)
+//   - eventType: "PAYOUT_STATUS_CHANGED" → 정산 (서명 있음, 미사용)
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -102,33 +104,41 @@ serve(async (req) => {
 
   try {
     const tossWebhookSecret = Deno.env.get('TOSS_WEBHOOK_SECRET');
-    if (!tossWebhookSecret) {
-      throw new Error('TOSS_WEBHOOK_SECRET is not configured');
-    }
 
-    // 서명 검증 (TOSS 공식: tosspayments-webhook-signature 헤더)
     const bodyText = await req.text();
 
-    const isValid = await verifySignature(bodyText, req, tossWebhookSecret);
-    if (!isValid) {
-      logger.error('Invalid webhook signature');
-      const response = { error: 'Invalid signature' };
-      await logWebhook(supabaseAdmin, {
-        event_type: 'INVALID_SIGNATURE',
-        payload: { body_length: bodyText.length },
-        response,
-        status_code: 401,
-        processing_time_ms: Date.now() - startTime,
-        error_message: 'HMAC signature verification failed',
-      });
-      return new Response(
-        JSON.stringify(response),
-        { status: 401, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
-      );
+    // 서명 검증: TOSS 결제 웹훅(PAYMENT_STATUS_CHANGED)에는 서명 헤더가 없음
+    // 서명은 정산 웹훅(payout.changed, seller.changed)에만 포함됨
+    // 서명 헤더가 있는 경우에만 검증 (정산 웹훅 등)
+    const hasSignature = !!req.headers.get('tosspayments-webhook-signature');
+    if (hasSignature && tossWebhookSecret) {
+      const isValid = await verifySignature(bodyText, req, tossWebhookSecret);
+      if (!isValid) {
+        logger.error('Invalid webhook signature');
+        const response = { error: 'Invalid signature' };
+        await logWebhook(supabaseAdmin, {
+          event_type: 'INVALID_SIGNATURE',
+          payload: { body_length: bodyText.length },
+          response,
+          status_code: 401,
+          processing_time_ms: Date.now() - startTime,
+          error_message: 'HMAC signature verification failed',
+        });
+        return new Response(
+          JSON.stringify(response),
+          { status: 401, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     const payload = JSON.parse(bodyText);
     const { eventType, data } = payload;
+
+    // TOSS 결제 웹훅: eventType="PAYMENT_STATUS_CHANGED", 실제 상태는 data.status
+    // 레거시 호환: eventType이 직접 DONE/CANCELED/FAILED인 경우도 처리
+    const paymentStatus = (eventType === 'PAYMENT_STATUS_CHANGED')
+      ? data?.status   // TOSS v2: data.status = "DONE" | "CANCELED" | "ABORTED" | ...
+      : eventType;     // 레거시 또는 직접 eventType
 
     const paymentKey = data?.paymentKey;
     if (!paymentKey) {
@@ -155,7 +165,7 @@ serve(async (req) => {
 
     let responseMessage = 'OK';
 
-    switch (eventType) {
+    switch (paymentStatus) {
       case 'DONE': {
         if (existingPayment) {
           if (existingPayment.status === 'paid') {
@@ -285,8 +295,20 @@ serve(async (req) => {
         break;
       }
 
+      case 'ABORTED': {
+        // TOSS: 결제 중단 (사용자 취소 등) — FAILED와 동일 처리
+        if (existingPayment) {
+          await supabaseAdmin.from('payment_history').update({
+            status: 'failed',
+            failed_at: new Date().toISOString(),
+            failure_reason: data.failure?.message || 'Payment aborted',
+          }).eq('id', existingPayment.id);
+        }
+        break;
+      }
+
       default:
-        logger.warn('Unhandled event type', eventType);
+        logger.warn('Unhandled payment status', { eventType, paymentStatus });
     }
 
     const response = { message: responseMessage };
