@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import type { Database } from '@/lib/database.types';
 import { AppError, classifyError, classifyRpcError } from '@/lib/errors';
 import { captureError } from '@/lib/sentry';
+import { generateScriptAudio } from '@/services/practices';
 
 // ============================================================================
 // 번역 헬퍼: 1회 재시도 + Sentry 로깅
@@ -25,6 +26,33 @@ async function translateWithRetry(scriptId: string): Promise<void> {
       if (__DEV__) console.warn('[AppError] translate retry failed:', retryError);
       captureError(retryError instanceof Error ? retryError : new Error(String(retryError)), {
         context: 'translateWithRetry',
+        scriptId,
+      });
+    }
+  }
+}
+
+// ============================================================================
+// TTS 사전 생성 헬퍼: 1회 재시도 + Sentry 로깅
+// ============================================================================
+
+async function preGenerateTTSWithRetry(scriptId: string): Promise<void> {
+  const attempt = async () => {
+    const { error } = await generateScriptAudio(scriptId);
+    if (error) throw error;
+  };
+
+  try {
+    await attempt();
+  } catch (firstError) {
+    if (__DEV__) console.warn('[AppError] TTS pre-generate first attempt failed:', firstError);
+    try {
+      await new Promise<void>((r) => { const t = setTimeout(r, 2000); if (typeof t === 'object' && 'unref' in t) (t as NodeJS.Timeout).unref(); });
+      await attempt();
+    } catch (retryError) {
+      if (__DEV__) console.warn('[AppError] TTS pre-generate retry failed:', retryError);
+      captureError(retryError instanceof Error ? retryError : new Error(String(retryError)), {
+        context: 'preGenerateTTSWithRetry',
         scriptId,
       });
     }
@@ -191,9 +219,10 @@ export async function createScript(params: {
     return { data: null, error: classifyError(error, { resource: 'script' }) };
   }
 
-  // 번역 생성 (비동기: 1회 재시도 + Sentry 로깅, 최종 실패 시 학생 진입 시 재시도)
+  // 번역 + TTS 사전 생성 (비동기: 1회 재시도 + Sentry 로깅, 최종 실패 시 학생 진입 시 재시도)
   if (data?.id) {
     translateWithRetry(data.id);
+    preGenerateTTSWithRetry(data.id);
   }
 
   return { data: { id: data.id }, error: null };
@@ -296,8 +325,9 @@ export async function updateScript(params: {
     return { error: classifyError(error, { resource: 'script' }) };
   }
 
-  // content 변경 시 DB 트리거가 content_ko를 NULL로 리셋 → 재번역 (1회 재시도 + Sentry)
+  // content 변경 시 재번역 + TTS 재생성 (1회 재시도 + Sentry)
   translateWithRetry(params.scriptId);
+  preGenerateTTSWithRetry(params.scriptId);
 
   return { error: null };
 }
@@ -479,8 +509,9 @@ export async function updateScriptAsStudent(params: {
     return { error: classifyError(error, { resource: 'script' }) };
   }
 
-  // content 변경 시 DB 트리거가 content_ko를 NULL로 리셋 → 재번역 (1회 재시도 + Sentry)
+  // content 변경 시 재번역 + TTS 재생성 (1회 재시도 + Sentry)
   translateWithRetry(params.scriptId);
+  preGenerateTTSWithRetry(params.scriptId);
 
   return { error: null };
 }
