@@ -119,6 +119,7 @@ serve(async (req) => {
       );
     }
 
+    // 플랜 등급 비교: price_monthly 기준 (billing_cycle과 무관하게 플랜 등급 결정)
     const isUpgrade = newPlan.price_monthly > currentPlan.price_monthly;
 
     if (isUpgrade) {
@@ -144,16 +145,19 @@ serve(async (req) => {
         Math.ceil((periodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
       );
 
-      const priceDiff = newPlan.price_monthly - currentPlan.price_monthly;
+      // 연간/월간에 따라 올바른 가격 기준 사용
+      const isYearly = subscription.billing_cycle === 'yearly';
+      const currentPrice = isYearly ? currentPlan.price_yearly : currentPlan.price_monthly;
+      const newPrice = isYearly ? newPlan.price_yearly : newPlan.price_monthly;
+      const priceDiff = newPrice - currentPrice;
       const proratedAmount = Math.round(priceDiff * (daysRemaining / totalDays));
 
-      if (proratedAmount > 0) {
-        // 토스 빌링 결제
-        const authHeader = 'Basic ' + btoa(`${tossSecretKey}:`);
-        // 멱등성 키: 같은 구독의 같은 플랜 변경은 동일 orderId → TOSS가 중복 거부
-        const dateKey = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-        const orderId = `upgrade_${subscription.id.slice(0, 8)}_${newPlan.plan_key}_${dateKey}`;
+      const authHeader = 'Basic ' + btoa(`${tossSecretKey}:`);
+      const dateKey = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const orderId = `upgrade_${subscription.id.slice(0, 8)}_${newPlan.plan_key}_${dateKey}`;
+      let paymentData: Record<string, unknown> | null = null;
 
+      if (proratedAmount > 0) {
         // billing_key 복호화 (암호화된 경우)
         const rawBillingKey = isEncrypted(subscription.billing_key)
           ? await decryptValue(subscription.billing_key)
@@ -166,12 +170,14 @@ serve(async (req) => {
             headers: {
               'Authorization': authHeader,
               'Content-Type': 'application/json',
+              'Idempotency-Key': orderId,
             },
             body: JSON.stringify({
               customerKey: subscription.user_id,
               amount: proratedAmount,
               orderId,
               orderName: `Speaky ${currentPlan.name} → ${newPlan.name} 업그레이드 (일할)`,
+              taxFreeAmount: 0,
             }),
           }
         );
@@ -185,7 +191,7 @@ serve(async (req) => {
           );
         }
 
-        const paymentData = await paymentRes.json();
+        paymentData = await paymentRes.json();
 
         // 결제 이력 생성
         await supabaseAdmin.from('payment_history').insert({
@@ -194,10 +200,10 @@ serve(async (req) => {
           amount: proratedAmount,
           currency: 'KRW',
           status: 'paid',
-          provider_payment_id: paymentData.paymentKey,
-          payment_method: paymentData.method || 'card',
-          card_last4: paymentData.card?.number?.slice(-4) || null,
-          receipt_url: paymentData.receipt?.url || null,
+          provider_payment_id: (paymentData as any).paymentKey,
+          payment_method: (paymentData as any).method || 'card',
+          card_last4: (paymentData as any).card?.number?.slice(-4) || null,
+          receipt_url: (paymentData as any).receipt?.url || null,
           paid_at: new Date().toISOString(),
         });
       }
@@ -213,7 +219,29 @@ serve(async (req) => {
         .eq('id', subscription.id);
 
       if (updateError) {
-        logger.error('Subscription update error', updateError);
+        logger.error('Subscription update error — attempting refund', updateError);
+        // 결제 성공 후 DB 실패: 자동 환불
+        if (proratedAmount > 0 && paymentData && (paymentData as any).paymentKey) {
+          try {
+            await fetch(`https://api.tosspayments.com/v1/payments/${(paymentData as any).paymentKey}/cancel`, {
+              method: 'POST',
+              headers: {
+                'Authorization': authHeader,
+                'Content-Type': 'application/json',
+                'Idempotency-Key': `refund_${orderId}`,
+              },
+              body: JSON.stringify({ cancelReason: '플랜 변경 DB 업데이트 실패로 인한 자동 환불' }),
+            });
+            logger.info('Upgrade auto-refund completed');
+          } catch (refundErr) {
+            logger.error('Upgrade auto-refund failed — manual intervention needed', {
+              paymentKey: (paymentData as any).paymentKey,
+              orderId,
+              subscriptionId: subscription.id,
+              amount: proratedAmount,
+            });
+          }
+        }
         throw new Error('Failed to update subscription');
       }
 
@@ -302,7 +330,7 @@ serve(async (req) => {
   } catch (error) {
     logger.error('change-plan error', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
+      JSON.stringify({ error: 'Internal server error' }),
       { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }

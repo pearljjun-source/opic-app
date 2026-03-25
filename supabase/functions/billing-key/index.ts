@@ -99,15 +99,16 @@ serve(async (req) => {
     // 이미 활성 유료 구독이 있는지 확인 (organization 기반)
     const { data: existingSub } = await supabaseAdmin
       .from('subscriptions')
-      .select('id, subscription_plans!subscriptions_plan_id_fkey(plan_key)')
+      .select('id, status, subscription_plans!subscriptions_plan_id_fkey(plan_key)')
       .eq('organization_id', orgId)
       .in('status', ['active', 'trialing'])
       .single();
 
     if (existingSub) {
       const existingPlanKey = (existingSub.subscription_plans as any)?.plan_key;
-      // free 플랜이 아닌 유료 구독이 이미 있으면 차단
-      if (existingPlanKey && existingPlanKey !== 'free') {
+      const existingStatus = existingSub.status;
+      // free 또는 trialing 구독은 유료 전환 허용, 이미 유료 active면 차단
+      if (existingPlanKey && existingPlanKey !== 'free' && existingStatus !== 'trialing') {
         return new Response(
           JSON.stringify({ error: 'ALREADY_SUBSCRIBED' }),
           { status: 409, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
@@ -191,12 +192,14 @@ serve(async (req) => {
       headers: {
         'Authorization': authHeader,
         'Content-Type': 'application/json',
+        'Idempotency-Key': orderId,
       },
       body: JSON.stringify({
         customerKey: user.id,
         amount,
         orderId,
         orderName: `Speaky ${plan.name} 구독`,
+        taxFreeAmount: 0,
       }),
     });
 
@@ -232,21 +235,30 @@ serve(async (req) => {
       periodEnd.setMonth(periodEnd.getMonth() + 1);
     }
 
-    // 기존 free 구독이 있으면 삭제 (유료 전환)
+    // 기존 free/trialing 구독 삭제 (유료 전환)
+    // free active 구독 삭제
+    const freePlanIds = await supabaseAdmin
+      .from('subscription_plans')
+      .select('id')
+      .eq('plan_key', 'free')
+      .then(r => (r.data || []).map((p: any) => p.id));
+
+    if (freePlanIds.length > 0) {
+      await supabaseAdmin
+        .from('subscriptions')
+        .delete()
+        .eq('organization_id', orgId)
+        .eq('status', 'active')
+        .in('plan_id', freePlanIds);
+    }
+
+    // trialing 구독 삭제 (트라이얼 → 유료 전환)
     await supabaseAdmin
       .from('subscriptions')
       .delete()
       .eq('organization_id', orgId)
-      .eq('status', 'active')
-      .in('plan_id', [
-        // free 플랜만 삭제 (유료→유료 전환은 admin_update_subscription 사용)
-        ...(await supabaseAdmin
-          .from('subscription_plans')
-          .select('id')
-          .eq('plan_key', 'free')
-          .then(r => (r.data || []).map((p: any) => p.id))
-        ),
-      ]);
+      .eq('status', 'trialing')
+      .neq('id', lockSubId); // 방금 생성한 incomplete 구독은 제외
 
     // incomplete → active 전환 (결제 성공, billing_key + orderId는 이미 저장됨)
     const { data: subscription, error: subError } = await supabaseAdmin
@@ -262,14 +274,46 @@ serve(async (req) => {
       .single();
 
     if (subError) {
+      // CAS 실패: webhook이 이미 활성화했을 수 있음 → 확인 후 환불 결정
+      const { data: currentSub } = await supabaseAdmin
+        .from('subscriptions')
+        .select('id, status')
+        .eq('id', lockSubId)
+        .single();
+
+      if (currentSub?.status === 'active') {
+        // webhook이 이미 활성화 완료 → 환불 불필요, 정상 성공 처리
+        logger.info('CAS failed but subscription already active (webhook reconciled)', {
+          subscriptionId: lockSubId, paymentKey: paymentData.paymentKey,
+        });
+        // payment_history는 webhook이 이미 생성했을 수 있으므로 중복 무시 (UNIQUE constraint)
+        await supabaseAdmin.from('payment_history').insert({
+          subscription_id: lockSubId,
+          user_id: user.id,
+          amount,
+          currency: 'KRW',
+          status: 'paid',
+          provider_payment_id: paymentData.paymentKey,
+          payment_method: paymentData.method || 'card',
+          card_last4: paymentData.card?.number?.slice(-4) || null,
+          receipt_url: paymentData.receipt?.url || null,
+          paid_at: new Date().toISOString(),
+        }).then(() => {}).catch(() => {}); // UNIQUE 충돌 시 무시 (webhook이 이미 생성)
+        return new Response(
+          JSON.stringify({ subscriptionId: lockSubId }),
+          { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // 진짜 DB 오류: TOSS 결제 취소(환불)
       logger.error('Subscription update error — attempting refund', subError);
-      // 결제 성공 후 DB UPDATE 실패: TOSS 결제 취소(환불) 시도
       try {
         await fetch(`https://api.tosspayments.com/v1/payments/${paymentData.paymentKey}/cancel`, {
           method: 'POST',
           headers: {
             'Authorization': authHeader,
             'Content-Type': 'application/json',
+            'Idempotency-Key': `refund_${orderId}`,
           },
           body: JSON.stringify({ cancelReason: 'DB 구독 생성 실패로 인한 자동 환불' }),
         });
@@ -288,8 +332,8 @@ serve(async (req) => {
       throw new Error('Failed to create subscription');
     }
 
-    // 결제 이력 생성
-    await supabaseAdmin.from('payment_history').insert({
+    // 결제 이력 생성 (UNIQUE 충돌 = webhook이 이미 생성 → 무시)
+    const { error: payHistError } = await supabaseAdmin.from('payment_history').insert({
       subscription_id: subscription.id,
       user_id: user.id,
       amount,
@@ -302,6 +346,17 @@ serve(async (req) => {
       paid_at: new Date().toISOString(),
     });
 
+    if (payHistError) {
+      // UNIQUE 충돌(23505)은 webhook이 이미 생성한 경우 → 정상
+      if (payHistError.code !== '23505') {
+        logger.error('payment_history insert failed', {
+          paymentKey: paymentData.paymentKey,
+          subscriptionId: subscription.id,
+          error: payHistError.message,
+        });
+      }
+    }
+
     return new Response(
       JSON.stringify({ subscriptionId: subscription.id }),
       { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
@@ -309,7 +364,7 @@ serve(async (req) => {
   } catch (error) {
     logger.error('billing-key error', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
+      JSON.stringify({ error: 'Internal server error' }),
       { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }

@@ -15,8 +15,16 @@ import { getCorsHeaders, handleCorsPreFlight } from '../_shared/cors.ts';
 import { logger } from '../_shared/logger.ts';
 import { sendEmail, emailTemplates } from '../_shared/email.ts';
 
-// HMAC-SHA256 서명 검증
-async function verifySignature(body: string, signature: string, secretKey: string): Promise<boolean> {
+// HMAC-SHA256 서명 검증 (TOSS 공식 스펙 준수)
+// 헤더: tosspayments-webhook-signature (v1:base64sig 형식)
+// 페이로드: body + ":" + tosspayments-webhook-transmission-time
+// 비교: timing-safe (바이트 단위 XOR 누적)
+async function verifySignature(body: string, req: Request, secretKey: string): Promise<boolean> {
+  const signature = req.headers.get('tosspayments-webhook-signature') || '';
+  const transmissionTime = req.headers.get('tosspayments-webhook-transmission-time') || '';
+
+  if (!signature) return false;
+
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
     'raw',
@@ -25,9 +33,33 @@ async function verifySignature(body: string, signature: string, secretKey: strin
     false,
     ['sign']
   );
-  const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(body));
-  const computed = btoa(String.fromCharCode(...new Uint8Array(sig)));
-  return computed === signature;
+
+  // TOSS 스펙: body + ":" + transmissionTime
+  const payload = transmissionTime ? `${body}:${transmissionTime}` : body;
+  const computed = new Uint8Array(await crypto.subtle.sign('HMAC', key, encoder.encode(payload)));
+
+  // "v1:base64sig1,v1:base64sig2" 형식 파싱
+  const signatures = signature.split(',').map(s => s.trim().replace(/^v1:/, ''));
+
+  for (const sig of signatures) {
+    try {
+      const decoded = Uint8Array.from(atob(sig), c => c.charCodeAt(0));
+      if (timingSafeEqual(computed, decoded)) return true;
+    } catch {
+      // base64 디코딩 실패 → 다음 서명 시도
+    }
+  }
+  return false;
+}
+
+// Timing-safe 바이트 비교 (타이밍 공격 방지)
+function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a[i] ^ b[i];
+  }
+  return result === 0;
 }
 
 // 웹훅 로그 기록 헬퍼
@@ -74,11 +106,10 @@ serve(async (req) => {
       throw new Error('TOSS_WEBHOOK_SECRET is not configured');
     }
 
-    // 서명 검증
+    // 서명 검증 (TOSS 공식: tosspayments-webhook-signature 헤더)
     const bodyText = await req.text();
-    const signature = req.headers.get('toss-signature') || '';
 
-    const isValid = await verifySignature(bodyText, signature, tossWebhookSecret);
+    const isValid = await verifySignature(bodyText, req, tossWebhookSecret);
     if (!isValid) {
       logger.error('Invalid webhook signature');
       const response = { error: 'Invalid signature' };
@@ -199,8 +230,8 @@ serve(async (req) => {
                 .eq('id', incompleteSub.id)
                 .eq('status', 'incomplete');
 
-              // 결제 이력 생성
-              await supabaseAdmin.from('payment_history').insert({
+              // 결제 이력 생성 (UNIQUE 충돌 = sync flow가 이미 생성 → 무시)
+              const { error: phError } = await supabaseAdmin.from('payment_history').insert({
                 subscription_id: incompleteSub.id,
                 user_id: incompleteSub.user_id,
                 amount: amount || (data?.totalAmount ?? 0),
@@ -212,6 +243,9 @@ serve(async (req) => {
                 receipt_url: data?.receipt?.url || null,
                 paid_at: new Date().toISOString(),
               });
+              if (phError && phError.code !== '23505') {
+                logger.error('Reconciliation payment_history insert failed', phError);
+              }
 
               await sendPaymentConfirmationEmail(supabaseAdmin, {
                 user_id: incompleteSub.user_id,
@@ -270,7 +304,7 @@ serve(async (req) => {
     );
   } catch (error) {
     logger.error('toss-webhook error', error);
-    const response = { error: error.message || 'Internal server error' };
+    const response = { error: 'Internal server error' };
     await logWebhook(supabaseAdmin, {
       event_type: 'ERROR',
       payload: { error: error.message },

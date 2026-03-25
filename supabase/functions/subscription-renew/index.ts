@@ -25,7 +25,19 @@ serve(async (req) => {
       throw new Error('TOSS_SECRET_KEY is not configured');
     }
 
-    // Service Role (서버 간 호출이므로 사용자 인증 불필요)
+    // Cron 시크릿 검증 (서버 간 호출만 허용)
+    const cronSecret = Deno.env.get('CRON_SECRET');
+    if (cronSecret) {
+      const reqSecret = req.headers.get('x-cron-secret') || '';
+      if (reqSecret !== cronSecret) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // Service Role
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -220,12 +232,14 @@ serve(async (req) => {
           headers: {
             'Authorization': authHeader,
             'Content-Type': 'application/json',
+            'Idempotency-Key': orderId,
           },
           body: JSON.stringify({
             customerKey: sub.user_id,
             amount: sub.billing_cycle === 'yearly' ? renewPlan.price_yearly : renewPlan.price_monthly,
             orderId,
             orderName: `Speaky ${renewPlan.name} 구독 갱신`,
+            taxFreeAmount: 0,
           }),
         });
 
@@ -257,7 +271,15 @@ serve(async (req) => {
             results.downgraded++;
           }
 
-          await supabaseAdmin.from('subscriptions').update(updateData).eq('id', sub.id);
+          const { error: renewUpdateError } = await supabaseAdmin.from('subscriptions').update(updateData).eq('id', sub.id);
+          if (renewUpdateError) {
+            logger.error(`Subscription period update failed after payment for ${sub.id}`, {
+              error: renewUpdateError.message,
+              paymentKey: payData.paymentKey,
+              orderId,
+            });
+            // 결제는 성공했지만 구독 갱신 실패 — 다음 cron에서 ALREADY_PROCESSED로 처리됨
+          }
 
           // 결제 이력
           const renewAmount = sub.billing_cycle === 'yearly' ? renewPlan.price_yearly : renewPlan.price_monthly;
@@ -482,7 +504,7 @@ serve(async (req) => {
   } catch (error) {
     logger.error('subscription-renew error', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
+      JSON.stringify({ error: 'Internal server error' }),
       { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }
