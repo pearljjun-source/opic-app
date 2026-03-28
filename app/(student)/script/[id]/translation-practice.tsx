@@ -57,6 +57,7 @@ export default function TranslationPracticeScreen() {
   const [processingStep, setProcessingStep] = useState<ProcessingStep>('upload');
   const [recordingTime, setRecordingTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [showEnglish, setShowEnglish] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -384,6 +385,37 @@ export default function TranslationPracticeScreen() {
             한국어를 보고 영어로 말해보세요!
           </Text>
         </View>
+
+        {/* 영어 스크립트 엿보기 */}
+        <Pressable
+          style={[styles.peekButton, {
+            backgroundColor: showEnglish ? colors.primary + '15' : colors.surface,
+            borderColor: colors.primary + '30',
+          }]}
+          onPress={() => setShowEnglish(!showEnglish)}
+        >
+          <Ionicons
+            name={showEnglish ? 'eye-off-outline' : 'eye-outline'}
+            size={18}
+            color={colors.primary}
+          />
+          <Text style={[styles.peekButtonText, { color: colors.primary }]}>
+            {showEnglish ? '영어 스크립트 숨기기' : '영어 스크립트 확인하기'}
+          </Text>
+        </Pressable>
+
+        {showEnglish && script?.content && (
+          <View style={[styles.englishCard, {
+            backgroundColor: colors.primary + '08',
+            borderColor: colors.primary + '20',
+          }]}>
+            <View style={styles.koreanHeader}>
+              <Ionicons name="document-text-outline" size={20} color={colors.primary} />
+              <Text style={[styles.koreanLabel, { color: colors.primary }]}>영어 스크립트</Text>
+            </View>
+            <Text style={[styles.koreanText, { color: colors.textPrimary }]}>{script.content}</Text>
+          </View>
+        )}
       </ScrollView>
 
       {/* 녹음 섹션 */}
@@ -617,5 +649,25 @@ const styles = StyleSheet.create({
   },
   cancelText: {
     fontSize: 16,
+  },
+  peekButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  peekButtonText: {
+    fontSize: 14,
+    fontFamily: 'Pretendard-Medium',
+  },
+  englishCard: {
+    marginTop: 12,
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
   },
 });
