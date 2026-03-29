@@ -580,8 +580,8 @@ export default function LandingPage() {
 
           <FadeInView delay={600}>
             <View style={s.heroButtons}>
-              <Pressable style={s.heroBtn} onPress={go('/(auth)/signup')}>
-                <Text style={s.heroBtnText}>무료로 시작하기</Text>
+              <Pressable style={s.heroBtn} onPress={() => Linking.openURL('mailto:hello@onthegostudio.kr')}>
+                <Text style={s.heroBtnText}>문의하기</Text>
                 <ArrowRight size={18} color="#fff" weight="bold" />
               </Pressable>
               <Pressable style={s.heroBtnOutline} onPress={() => Linking.openURL(APK_DOWNLOAD_URL)}>
@@ -932,7 +932,7 @@ export default function LandingPage() {
             <Text style={s.footerDiv}>|</Text>
             <Pressable onPress={() => router.push('/terms')}><Text style={s.footerLink}>이용약관</Text></Pressable>
             <Text style={s.footerDiv}>|</Text>
-            <Pressable onPress={() => Linking.openURL('mailto:speaky@support.com')}><Text style={s.footerLink}>문의하기</Text></Pressable>
+            <Pressable onPress={() => Linking.openURL('mailto:hello@onthegostudio.kr')}><Text style={s.footerLink}>문의하기</Text></Pressable>
           </View>
           <Text style={s.footerCopy}>© 2026 Speaky. All rights reserved.</Text>
         </View>
