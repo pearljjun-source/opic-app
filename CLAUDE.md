@@ -1,7 +1,7 @@
 # Speaky — OPIc 학습 SaaS 플랫폼
 
-> **문서 버전**: v4.0
-> **최종 수정일**: 2026-03-08
+> **문서 버전**: v5.0
+> **최종 수정일**: 2026-03-26
 > **작성자**: Jin + Claude AI
 
 ---
@@ -365,6 +365,275 @@ END IF;
 
 ### 상태
 - `active`, `trialing`, `past_due`, `canceled`, `incomplete`
+
+---
+
+## TOSS Payments 결제 아키텍처 (상용 레퍼런스)
+
+> **이 섹션은 실제 프로덕션에서 검증된 TOSS 빌링키 결제 패턴입니다.**
+> **다음 상용 앱 개발 시 결제 시스템의 레퍼런스로 사용하세요.**
+
+### 1. 핵심 사실: 빌링키 결제는 웹훅이 오지 않는다
+
+```
+⚠️ 가장 중요한 사실:
+TOSS 자동결제(빌링키 결제)는 결제 완료 시 PAYMENT_STATUS_CHANGED 웹훅을 전송하지 않습니다.
+웹훅은 checkout(일반 결제창) 방식에서만 발생합니다.
+
+→ 빌링키 결제의 성공/실패 처리는 반드시 API 응답에서 직접 처리해야 합니다.
+→ 웹훅에 의존한 reconciliation은 절대 작동하지 않습니다.
+```
+
+### 2. 결제 플로우 (billing-key Edge Function)
+
+```
+클라이언트 → billing-key Edge Function
+  ↓
+1. 인증/인가 검증 (JWT + org owner 확인)
+2. 서버에서 플랜 가격 조회 (클라이언트 금액 절대 불신)
+3. Race Condition 방지: incomplete 구독 먼저 INSERT (UNIQUE 제약으로 동시 요청 차단)
+4. authKey → TOSS API → billingKey 교환
+5. billingKey 암호화 저장 (AES-256-GCM)
+6. 첫 결제 실행 (Idempotency-Key + taxFreeAmount: 0)
+7. DB 활성화 (3회 재시도 + CAS)
+8. 3회 실패 시 → TOSS 자동 환불 + incomplete 정리
+```
+
+### 3. TOSS API 필수 헤더/파라미터
+
+```typescript
+// 인증 헤더 (모든 TOSS API 호출)
+const authHeader = 'Basic ' + btoa(`${tossSecretKey}:`);  // 콜론 필수
+
+// 결제 요청 필수 파라미터
+{
+  customerKey: user.id,        // TOSS에 등록된 고객 식별자
+  amount: number,              // 서버에서 조회한 금액 (클라이언트 불신)
+  orderId: string,             // 고유 주문 ID (멱등성 키와 별도)
+  orderName: string,           // 주문명
+  taxFreeAmount: 0,            // SaaS는 면세 아님 → 반드시 0 명시
+}
+
+// 멱등성 헤더 (POST API에 필수)
+headers: {
+  'Idempotency-Key': orderId,  // 동일 요청 중복 결제 방지, 최대 300자, 15일 유효
+}
+```
+
+### 4. TOSS 에러 처리 패턴
+
+```typescript
+// ALREADY_PROCESSED_PAYMENT: 성공으로 처리 (멱등성)
+if (paymentResBody.code === 'ALREADY_PROCESSED_PAYMENT') {
+  logger.info('Already processed, treating as success', { orderId });
+  // 아래 로직 계속 진행 (구독 활성화 등)
+} else {
+  // 진짜 에러 → 롤백
+}
+
+// 결제 응답 검증 (paymentKey + status 확인)
+if (!paymentData.paymentKey || paymentData.status !== 'DONE') {
+  // 비정상 응답 → 롤백
+}
+```
+
+### 5. DB 활성화 3회 재시도 + 자동 환불 패턴
+
+```typescript
+// 결제 성공 후 DB 업데이트 실패 대비: 3회 재시도
+let subscription = null;
+let activationError = null;
+
+for (let attempt = 1; attempt <= 3; attempt++) {
+  const { data: sub, error: err } = await supabaseAdmin
+    .from('subscriptions')
+    .update({ status: 'active', ... })
+    .eq('id', lockSubId)
+    .eq('status', 'incomplete')  // CAS: incomplete인 경우에만 전환
+    .select('id')
+    .single();
+
+  if (!err && sub) { subscription = sub; break; }
+  activationError = err;
+  if (attempt < 3) await new Promise(r => setTimeout(r, attempt * 1000));
+}
+
+if (!subscription) {
+  // 이미 active인지 확인 (재시도 중 성공했지만 응답 못 받은 경우)
+  const { data: currentSub } = await supabaseAdmin
+    .from('subscriptions').select('id, status').eq('id', lockSubId).single();
+
+  if (currentSub?.status === 'active') {
+    subscription = { id: lockSubId };  // 이미 성공
+  } else {
+    // 진짜 복구 불가 → TOSS 결제 취소(환불)
+    await fetch(`https://api.tosspayments.com/v1/payments/${paymentKey}/cancel`, {
+      method: 'POST',
+      headers: { 'Authorization': authHeader, 'Idempotency-Key': `refund_${orderId}` },
+      body: JSON.stringify({ cancelReason: 'DB 활성화 실패 자동 환불' }),
+    });
+    await supabaseAdmin.from('subscriptions').delete().eq('id', lockSubId);
+  }
+}
+```
+
+### 6. TOSS 웹훅 처리 (toss-webhook Edge Function)
+
+```typescript
+// ⚠️ 웹훅은 checkout 결제에서만 수신됨 (빌링키 결제는 미수신)
+
+// TOSS 웹훅 이벤트 구조:
+// { eventType: "PAYMENT_STATUS_CHANGED", data: { status: "DONE", paymentKey: "..." } }
+// eventType이 직접 "DONE"이 아님! data.status에서 실제 상태 확인
+
+const paymentStatus = (eventType === 'PAYMENT_STATUS_CHANGED')
+  ? data?.status   // "DONE" | "CANCELED" | "ABORTED" | "FAILED"
+  : eventType;     // 레거시 호환
+
+// 서명 검증: 결제 웹훅에는 서명 없음, 정산 웹훅에만 있음
+// → 서명 헤더 존재 시에만 검증 (없으면 건너뛰기)
+const hasSignature = !!req.headers.get('tosspayments-webhook-signature');
+if (hasSignature && tossWebhookSecret) {
+  // HMAC-SHA256 검증 (아래 참고)
+}
+```
+
+### 7. TOSS 웹훅 서명 검증 (정산 웹훅용)
+
+```typescript
+// 헤더: tosspayments-webhook-signature (v1:base64sig 형식)
+// 페이로드: body + ":" + tosspayments-webhook-transmission-time
+// 서명 형식: "v1:base64sig1,v1:base64sig2" (쉼표 구분, 복수 가능)
+
+async function verifySignature(body: string, req: Request, secretKey: string): Promise<boolean> {
+  const signature = req.headers.get('tosspayments-webhook-signature') || '';
+  const transmissionTime = req.headers.get('tosspayments-webhook-transmission-time') || '';
+  if (!signature) return false;
+
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw', encoder.encode(secretKey),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+  );
+  const payload = transmissionTime ? `${body}:${transmissionTime}` : body;
+  const computed = new Uint8Array(await crypto.subtle.sign('HMAC', key, encoder.encode(payload)));
+
+  // "v1:base64sig1,v1:base64sig2" 파싱
+  const signatures = signature.split(',').map(s => s.trim().replace(/^v1:/, ''));
+  for (const sig of signatures) {
+    const decoded = Uint8Array.from(atob(sig), c => c.charCodeAt(0));
+    if (timingSafeEqual(computed, decoded)) return true;
+  }
+  return false;
+}
+
+// Timing-safe 비교 (타이밍 공격 방지)
+function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let result = 0;
+  for (let i = 0; i < a.length; i++) { result |= a[i] ^ b[i]; }
+  return result === 0;
+}
+```
+
+### 8. Cron 기반 TOSS API 조회 복구 (subscription-renew)
+
+```typescript
+// 빌링키 결제는 웹훅이 오지 않으므로, cron에서 TOSS API로 직접 조회하여 복구
+// 대상: 10분~24시간 된 incomplete 구독 (10분 미만은 billing-key가 아직 처리 중일 수 있음)
+
+// TOSS 결제 조회 API
+const tossRes = await fetch(
+  `https://api.tosspayments.com/v1/payments/orders/${orderId}`,
+  { method: 'GET', headers: { 'Authorization': authHeader } }
+);
+
+if (tossRes.ok) {
+  const tossData = await tossRes.json();
+  if (tossData.status === 'DONE') {
+    // 결제 확인됨 → 구독 활성화 + payment_history 생성
+  } else if (['CANCELED', 'ABORTED', 'EXPIRED'].includes(tossData.status)) {
+    // 결제 실패/취소 → incomplete 삭제
+  }
+} else if (tossRes.status === 404) {
+  // TOSS에 기록 없음 → incomplete 삭제
+}
+
+// 24시간 초과 incomplete → 무조건 삭제 (결제 시도 자체가 실패한 것)
+```
+
+### 9. 플랜 변경 (change-plan Edge Function)
+
+```typescript
+// 업그레이드: 일할 계산 후 즉시 결제 + 플랜 변경
+const totalDays = Math.ceil((periodEnd - periodStart) / (1000 * 60 * 60 * 24));
+const daysRemaining = Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24));
+const proratedAmount = Math.round(priceDiff * (daysRemaining / totalDays));
+
+// 결제 성공 후 DB 실패 시 → 자동 환불
+// billing_key 복호화: isEncrypted() 체크 후 decryptValue()
+
+// 다운그레이드: pending_plan_id 설정, 다음 갱신 시 적용
+// 다운그레이드 전 사용량 초과 검증 (학생 수, 스크립트 수)
+```
+
+### 10. Race Condition 방지 패턴
+
+```sql
+-- 동시 결제 요청 방지: organization당 incomplete 구독 1개만 허용
+CREATE UNIQUE INDEX idx_subscriptions_org_incomplete_unique
+  ON subscriptions (organization_id) WHERE status = 'incomplete';
+
+-- payment_history 중복 방지
+CREATE UNIQUE INDEX idx_payment_history_provider_payment_id_unique
+  ON payment_history (provider_payment_id) WHERE provider_payment_id IS NOT NULL;
+
+-- orderId 조회 인덱스 (cron 복구용)
+CREATE INDEX idx_subscriptions_provider_subscription_id
+  ON subscriptions (provider_subscription_id) WHERE provider_subscription_id IS NOT NULL;
+```
+
+### 11. 보안 체크리스트
+
+| 항목 | 구현 |
+|------|------|
+| 금액 조작 방지 | 서버에서 plan_key로 가격 조회 (클라이언트 금액 절대 불신) |
+| 빌링키 보호 | AES-256-GCM 암호화 저장 (`encryptValue`/`decryptValue`) |
+| 멱등성 | `Idempotency-Key` 헤더 + `ALREADY_PROCESSED_PAYMENT` 처리 |
+| 중복 결제 | `provider_payment_id` UNIQUE 인덱스 |
+| 동시 요청 | `incomplete` UNIQUE 인덱스 + CAS 패턴 |
+| 에러 메시지 | 고정 `'Internal server error'` 반환 (내부 정보 미노출) |
+| 웹훅 서명 | HMAC-SHA256 + timing-safe 비교 |
+| Cron 인증 | `CRON_SECRET` 헤더 검증 (subscription-renew) |
+| 인가 | org owner 검증 (organization_members 테이블) |
+| 환불 안전망 | 결제 성공 + DB 실패 시 자동 환불 |
+
+### 12. 복구 아키텍처 요약
+
+```
+[1차 방어] billing-key Edge Function
+  → 결제 성공 → DB 활성화 3회 재시도
+  → 3회 실패 → TOSS 자동 환불
+
+[2차 방어] subscription-renew Cron (매시간)
+  → 10분~24시간 된 incomplete 구독 탐지
+  → TOSS API 조회 (GET /v1/payments/orders/{orderId})
+  → DONE → 구독 활성화 / FAILED → incomplete 삭제
+  → 24시간 초과 → 무조건 삭제
+
+[결과] "돈 나갔는데 서비스 못 쓰는" 상황 원천 차단
+```
+
+### 13. Dunning (미수금 관리) 플로우
+
+```
+갱신 실패 → past_due + dunning_started_at 기록
+  Day 0: 즉시 재시도 알림
+  Day 3: 두 번째 알림
+  Day 7: 세 번째 알림 (grace period 종료 경고)
+  Day 14: 구독 취소 (canceled) + 최종 알림
+  active 복구 시 → dunning_started_at 자동 클리어 (트리거)
+```
 
 ---
 

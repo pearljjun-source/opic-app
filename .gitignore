@@ -34,6 +34,8 @@ screenshot*.png
 # local env files
 .env*.local
 .env
+.env.development
+.env.production
 
 # Google Play service account
 google-service-account.json

@@ -291,74 +291,79 @@ function HoverCard({
 // ============================================================================
 
 const STATS = [
-  { value: 336, suffix: '+', label: '자동화 테스트' },
-  { value: 53, suffix: '개', label: 'AI 에러 분류' },
-  { value: 6, suffix: '종', label: 'OPIc 질문 유형' },
-  { value: 40, suffix: '분', label: '모의고사 시간' },
+  { value: 6, suffix: '종', label: 'OPIc 질문 유형 지원' },
+  { value: 4, suffix: '차원', label: 'ACTFL 기반 AI 채점' },
+  { value: 40, suffix: '분', label: '실전 모의고사' },
+  { value: 14, suffix: '일', label: '무료 체험 기간' },
 ];
 
 const PAIN_POINTS = [
-  { Icon: Clock, title: '반복되는 스크립트 작성', desc: '학생마다 토픽별 맞춤 스크립트를 매번 만들고 수정하는 시간' },
-  { Icon: Headphones, title: '실전 연습 환경 부재', desc: '수업 외 시간에 학생이 Ava 음성으로 연습할 도구가 없음' },
-  { Icon: FileText, title: '피드백의 한계', desc: '녹음된 답변을 일일이 듣고 스크립트와 비교하는 건 현실적으로 불가능' },
-  { Icon: EyeSlash, title: '학습 현황 블랙박스', desc: '누가 얼마나 연습했는지, 어디서 막히는지 데이터 기반 파악이 어려움' },
+  { Icon: Clock, title: '반복되는 스크립트 작성', desc: '학생마다 토픽별 맞춤 스크립트를 매번 만들고 수정하느라 시간이 부족합니다' },
+  { Icon: Headphones, title: '실전 연습 환경 부재', desc: '수업 외 시간에 학생 혼자 Ava 음성으로 연습하고 모의고사를 볼 도구가 없습니다' },
+  { Icon: FileText, title: '피드백의 한계', desc: '학생별 녹음을 일일이 듣고 스크립트와 비교해 피드백하는 건 현실적으로 불가능합니다' },
+  { Icon: EyeSlash, title: '학습 현황 블랙박스', desc: '누가 얼마나 연습했는지, ACTFL 어느 영역이 약한지 데이터 기반 파악이 어렵습니다' },
 ];
 
 // 사진 교체 방법: image 필드에 require('@/assets/images/파일명.png') 넣기
 // 예: image: require('@/assets/images/feature-script.png')
 // image가 없으면 그라디언트 + 아이콘으로 표시
 const FEATURES_NOW = [
-  { Icon: PencilLine, image: null as any, title: '맞춤 스크립트', desc: '학생별 토픽 배정 + 스크립트 작성·관리를 한 곳에서' },
-  { Icon: Microphone, image: null as any, title: 'Ava 음성 시뮬레이션', desc: 'OPIc 가상 진행자의 실제 음성으로 시험 환경 재현' },
-  { Icon: Lightning, image: null as any, title: 'AI 자동 피드백', desc: '빠뜨린 표현, 문법 교정, 발음 팁까지 AI가 즉시 분석' },
-  { Icon: TrendUp, image: null as any, title: '학습 기록 대시보드', desc: '학생별 연습 이력·점수·재현율을 한눈에 추적' },
+  { Icon: PencilLine, image: null as any, title: '맞춤 스크립트 + 한→영 연습', desc: '학생별 토픽 배정, 스크립트 작성·관리, 한→영 번역 연습까지 한 곳에서' },
+  { Icon: Trophy, image: null as any, title: '실전 모의고사 + ACTFL 채점', desc: '40분 실전 모의고사, 레벨테스트, 3콤보 롤플레이를 AI가 ACTFL 4차원으로 평가' },
+  { Icon: Lightning, image: null as any, title: 'AI 자동 피드백', desc: '빠뜨린 표현, 문법 교정, 유창성 분석, 발음 팁까지 AI가 즉시 분석' },
+  { Icon: Users, image: null as any, title: '학원 멀티 관리', desc: '강사 여러 명이 반 단위로 학생을 관리하고 QR/링크로 간편 초대' },
 ];
 
 const FEATURES_SOON = [
-  { Icon: Cpu, title: 'AI 스크립트 생성', desc: '토픽만 고르면 AI가 수준별 스크립트를 자동 생성' },
-  { Icon: ChatCircle, title: '3콤보 롤플레이', desc: 'OPIc 핵심 3콤보 상황극을 AI와 실시간 시뮬레이션' },
-  { Icon: Trophy, title: '실전 모의고사', desc: '40분 12~15문항, 실제 시험과 동일한 환경' },
-  { Icon: Users, title: '학원 멀티 관리', desc: '강사 여러 명이 학원 단위로 학생을 함께 관리' },
+  { Icon: Cpu, title: 'AI 스크립트 자동 생성', desc: '토픽만 고르면 AI가 수준별 맞춤 스크립트를 자동 생성' },
+  { Icon: ChatCircle, title: 'AI 실시간 대화 연습', desc: 'AI와 자유 주제로 실시간 영어 대화 시뮬레이션' },
 ];
 
 const STEPS = [
-  { num: '01', Icon: UserPlus, title: '강사 등록', desc: '이메일로 간편 가입' },
-  { num: '02', Icon: LinkIcon, title: '학생 초대', desc: '초대 코드 한 줄로 연결' },
-  { num: '03', Icon: PencilLine, title: '스크립트 배정', desc: '토픽별 맞춤 작성' },
-  { num: '04', Icon: ChartBar, title: '결과 확인', desc: 'AI 피드백 자동 수신' },
+  { num: '01', Icon: UserPlus, title: '학원 등록', desc: '14일 무료 체험 시작' },
+  { num: '02', Icon: LinkIcon, title: '학생 초대', desc: 'QR코드·링크로 간편 연결' },
+  { num: '03', Icon: PencilLine, title: '스크립트 + 토픽 배정', desc: '반별 맞춤 학습 관리' },
+  { num: '04', Icon: ChartBar, title: 'AI 리포트 확인', desc: 'ACTFL 기반 성장 추적' },
 ];
 
 const ROADMAP = [
-  { phase: 'Phase 1', status: 'live' as const, title: '강사-학생 맞춤 학습', items: ['강사-학생 연결 시스템', '맞춤 스크립트 작성', '실전 녹음 + AI 피드백', '학습 기록 관리'] },
-  { phase: 'Phase 2', status: 'next' as const, title: '혼자서도 학습', items: ['AI 스크립트 자동 생성', '학습 통계 대시보드', '독학 모드', '다크모드 지원'] },
-  { phase: 'Phase 3', status: 'planned' as const, title: '실전 시뮬레이션', items: ['3콤보 롤플레이', '실전 모의고사 40분', 'AI 실시간 대화', '성적 분석 리포트'] },
-  { phase: 'Phase 4', status: 'planned' as const, title: '학원·기업 확장', items: ['멀티 강사 대시보드', '학원 조직 관리', '구독 서비스', 'iOS + 다국어'] },
+  { phase: 'Phase 1', status: 'live' as const, title: '강사-학생 맞춤 학습', items: ['강사-학생 연결 시스템', '맞춤 스크립트 작성', '실전 녹음 + AI 피드백', '학습 기록 대시보드'] },
+  { phase: 'Phase 2', status: 'live' as const, title: '학원 멀티 관리', items: ['멀티 강사·반 관리', '조직 단위 구독 결제', 'QR/링크 초대 시스템', '다크모드 지원'] },
+  { phase: 'Phase 3', status: 'live' as const, title: '실전 시뮬레이션', items: ['40분 실전 모의고사', '3콤보 롤플레이', 'ACTFL 4차원 AI 채점', '한→영 번역 연습'] },
+  { phase: 'Phase 4', status: 'next' as const, title: '고도화', items: ['AI 스크립트 자동 생성', 'AI 실시간 대화 연습', 'iOS 앱 출시', '세금계산서 자동 발급'] },
 ];
 
 const PRICING = [
   {
-    name: 'Free', price: '₩0', period: '영구 무료', desc: '개인 강사 시작용',
-    features: ['학생 5명 연결', '스크립트 작성·관리', '녹음 연습 + AI 피드백', '학습 기록 확인'],
+    name: 'Free', price: '₩0', period: '영구 무료', desc: '소규모 시작용',
+    features: ['학생 3명', '스크립트 5개', '녹음 연습 + AI 피드백', '학습 기록 확인'],
     cta: '무료로 시작', highlighted: false,
   },
   {
-    name: 'Pro', price: '₩29,900', period: '/월', desc: '전문 OPIc 강사용',
-    features: ['학생 무제한', 'Free 전체 기능', 'AI 스크립트 자동 생성', '학습 통계 대시보드', '우선 지원'],
+    name: 'Solo', price: '₩29,900', period: '/월', desc: '개인 OPIc 강사용',
+    features: ['학생 10명', '스크립트 50개', 'AI 피드백 + TTS 음성', '모의고사 + ACTFL 채점', '한→영 번역 연습'],
+    cta: '14일 무료 체험', highlighted: false,
+  },
+  {
+    name: 'Pro', price: '₩69,900', period: '/월', desc: '전문 강사·소규모 학원용',
+    features: ['학생 50명', '스크립트 500개', 'Solo 전체 기능', '반 관리 + 멀티 강사', '우선 지원'],
     cta: '프로 시작하기', highlighted: true,
   },
   {
-    name: 'Academy', price: '문의', period: '', desc: '학원·기관 맞춤',
-    features: ['멀티 강사 관리', '학원 대시보드', '맞춤 브랜딩', 'API 연동', '전담 매니저'],
+    name: 'Academy', price: '₩199,000', period: '/월', desc: '대형 학원·기관 맞춤',
+    features: ['학생 무제한', '스크립트 무제한', 'Pro 전체 기능', '전담 매니저', '연간 결제 할인'],
     cta: '도입 문의', highlighted: false,
   },
 ];
 
 const FAQ = [
-  { q: 'Speaky는 어떤 서비스인가요?', a: 'OPIc 강사와 학원을 위한 AI 학습 관리 플랫폼입니다. 강사가 학생별 맞춤 스크립트를 작성하고, 학생은 Ava 음성으로 실전 연습을 하며, AI가 자동 피드백을 제공합니다.' },
-  { q: '학생은 어떻게 가입하나요?', a: '강사가 발급한 초대 코드를 입력하면 자동으로 연결됩니다. 학생은 별도 결제 없이 배정된 스크립트로 바로 연습을 시작할 수 있어요.' },
-  { q: 'AI 피드백은 어떤 방식인가요?', a: '녹음된 답변을 음성 인식(Whisper)으로 텍스트 변환 후, AI(Claude)가 원본 스크립트와 비교하여 빠뜨린 표현, 문법 교정, 발음 팁, 개선 제안 등을 자동 생성합니다.' },
-  { q: '무료 플랜으로 충분한가요?', a: '학생 5명 이하라면 핵심 기능을 모두 무료로 사용할 수 있습니다. 학생 수가 늘거나 AI 스크립트 생성이 필요하면 Pro로 전환하세요.' },
-  { q: '학원 단위로 도입할 수 있나요?', a: 'Academy 플랜으로 여러 강사와 학생을 조직 단위로 관리할 수 있습니다. 도입 문의를 남겨주시면 맞춤 안내를 드립니다.' },
+  { q: 'Speaky는 어떤 서비스인가요?', a: 'OPIc 강사와 학원을 위한 AI 학습 관리 플랫폼입니다. 스크립트 연습, 한→영 번역 연습, 40분 실전 모의고사, 3콤보 롤플레이까지 — 강사가 관리하고 AI가 ACTFL 기준으로 피드백합니다.' },
+  { q: '학생은 어떻게 가입하나요?', a: '강사가 반별로 발급한 초대 코드, QR코드, 또는 링크를 통해 자동으로 연결됩니다. 학생은 별도 결제 없이 바로 연습을 시작할 수 있어요.' },
+  { q: 'AI 피드백은 어떤 방식인가요?', a: '스크립트 연습은 음성 인식(Whisper) 후 AI가 원본과 비교해 문법, 발음, 유창성을 분석합니다. 모의고사는 ACTFL 4차원(정확성·담화관리·이해력·어휘) 기준으로 등급(NL~AL)을 예측합니다.' },
+  { q: '무료 체험은 어떻게 하나요?', a: '가입 시 14일간 Solo 플랜을 무료로 체험할 수 있습니다. 카드 등록 없이 시작하고, 체험 종료 후 무료 플랜(학생 3명, 스크립트 5개)으로 자동 전환됩니다.' },
+  { q: '학원 단위로 도입할 수 있나요?', a: 'Pro 또는 Academy 플랜으로 여러 강사가 반별로 학생을 관리할 수 있습니다. 결제 수단 변경, 플랜 업/다운그레이드, 연간 결제 할인도 지원합니다.' },
+  { q: '모의고사는 어떻게 진행되나요?', a: '실전과 동일한 40분 12~15문항 모의고사, 난이도 적응형 레벨테스트, 3콤보 롤플레이(질문·문제해결·경험) 중 선택할 수 있습니다. 결과는 ACTFL 4차원으로 즉시 분석됩니다.' },
+  { q: '한→영 번역 연습이 뭔가요?', a: '영어 스크립트를 AI가 한국어로 번역하고, 학생이 한국어를 보며 영어로 말하는 연습입니다. 스크립트 암기와 영작 능력을 동시에 키울 수 있습니다.' },
 ];
 
 // ============================================================================
@@ -603,7 +608,7 @@ export default function LandingPage() {
               <User size={26} color="#7C3AED" weight="duotone" />
             </View>
             <Text style={s.aboutName}>강사</Text>
-            <Text style={s.aboutDesc}>학생별 토픽 배정{'\n'}맞춤 스크립트 작성</Text>
+            <Text style={s.aboutDesc}>반별 학생 관리{'\n'}토픽 배정 + 스크립트 작성</Text>
           </FadeInView>
 
           {!mob && <View style={s.aboutConnector}><View style={s.aboutLine} /><ArrowRight size={16} color="#d1d5db" weight="bold" /></View>}
@@ -614,7 +619,7 @@ export default function LandingPage() {
               <Lightning size={26} color={ROSE} weight="duotone" />
             </View>
             <Text style={s.aboutName}>Speaky AI</Text>
-            <Text style={s.aboutDesc}>Ava 음성 · STT 분석{'\n'}자동 피드백 생성</Text>
+            <Text style={s.aboutDesc}>Ava 음성 · ACTFL 채점{'\n'}모의고사 + 자동 피드백</Text>
           </FadeInView>
 
           {!mob && <View style={s.aboutConnector}><View style={s.aboutLine} /><ArrowRight size={16} color="#d1d5db" weight="bold" /></View>}
@@ -625,7 +630,7 @@ export default function LandingPage() {
               <BookOpen size={26} color="#059669" weight="duotone" />
             </View>
             <Text style={s.aboutName}>학생</Text>
-            <Text style={s.aboutDesc}>실전 녹음 연습{'\n'}AI 피드백으로 성장</Text>
+            <Text style={s.aboutDesc}>녹음 연습 · 모의고사{'\n'}한→영 연습으로 성장</Text>
           </FadeInView>
         </View>
 
@@ -706,7 +711,7 @@ export default function LandingPage() {
             지금 바로 사용할 수 있는 기능
           </Text>
           <Text style={s.featSecSub}>
-            현재 총 <Text style={{ color: ROSE, fontFamily: 'Pretendard-Bold' }}>{featuresNowData.length}가지</Text> 핵심 기능을 제공하고 있습니다.
+            스크립트 연습부터 모의고사까지, <Text style={{ color: ROSE, fontFamily: 'Pretendard-Bold' }}>{featuresNowData.length}가지</Text> 핵심 기능을 제공합니다.
           </Text>
         </FadeInView>
 
@@ -790,7 +795,7 @@ export default function LandingPage() {
       <View style={[s.section, { backgroundColor: '#f9fafb' }]}>
         <FadeInView>
           <Text style={s.secLabel}>HOW IT WORKS</Text>
-          <Text style={s.secTitle}>5분이면 시작할 수 있어요</Text>
+          <Text style={s.secTitle}>간편하게 시작하세요</Text>
         </FadeInView>
         <View style={[s.stepsRow, mob && s.stepsRowM]}>
           {stepsData.map((st, i) => (
@@ -812,7 +817,7 @@ export default function LandingPage() {
         <FadeInView>
           <Text style={s.secLabel}>ROADMAP</Text>
           <Text style={s.secTitle}>계속 진화합니다</Text>
-          <Text style={s.secSub}>Speaky는 OPIc 학습의 모든 영역으로 확장됩니다</Text>
+          <Text style={s.secSub}>Phase 1~3 출시 완료, 계속 성장하는 플랫폼</Text>
         </FadeInView>
         <View style={[s.rmGrid, mob && s.rmGridM]}>
           {roadmapData.map((r, i) => (
@@ -847,7 +852,7 @@ export default function LandingPage() {
         <FadeInView>
           <Text style={s.secLabel}>PRICING</Text>
           <Text style={s.secTitle}>합리적인 요금제</Text>
-          <Text style={s.secSub}>부담 없이 시작하고, 성장에 맞춰 확장하세요</Text>
+          <Text style={s.secSub}>14일 무료 체험으로 시작하고, 연간 결제 시 추가 할인</Text>
         </FadeInView>
         <View style={[s.priceGrid, mob && s.priceGridM]}>
           {pricingData.map((p, i) => (
@@ -901,7 +906,7 @@ export default function LandingPage() {
           <Text style={[s.ctaTitle, mob && s.ctaTitleM]}>
             OPIc 수업의 새로운 기준,{'\n'}Speaky와 시작하세요
           </Text>
-          <Text style={s.ctaSub}>카드 등록 없이, 지금 바로 무료로 체험해 보세요</Text>
+          <Text style={s.ctaSub}>카드 등록 없이 14일 무료 체험, 지금 바로 시작하세요</Text>
           <View style={s.ctaButtons}>
             <Pressable style={s.ctaBtn} onPress={go('/(auth)/signup')}>
               <Text style={s.ctaBtnText}>무료로 시작하기</Text>
@@ -1059,9 +1064,9 @@ const s = StyleSheet.create({
   rmItemText: { fontSize: 13, color: '#4b5563', fontFamily: 'Pretendard-Regular' },
 
   // ── Pricing ──
-  priceGrid: { flexDirection: 'row', justifyContent: 'center', gap: 20, marginTop: 48, maxWidth: 1000, alignSelf: 'center', width: '100%', alignItems: 'flex-start' },
+  priceGrid: { flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap: 16, marginTop: 48, maxWidth: 1100, alignSelf: 'center', width: '100%', alignItems: 'flex-start' },
   priceGridM: { flexDirection: 'column', alignItems: 'center' },
-  priceCard: { backgroundColor: '#fff', borderRadius: 20, padding: 28, width: 300, borderWidth: 1, borderColor: '#e5e7eb', position: 'relative' },
+  priceCard: { backgroundColor: '#fff', borderRadius: 20, padding: 28, width: 250, borderWidth: 1, borderColor: '#e5e7eb', position: 'relative' },
   priceCardM: { width: '100%', maxWidth: 360 },
   priceHL: { borderColor: ROSE, borderWidth: 2, shadowColor: ROSE, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 6 },
   pricePopular: { position: 'absolute', top: -12, right: 24, backgroundColor: ROSE, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 4 },
