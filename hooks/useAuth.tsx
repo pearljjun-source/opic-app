@@ -402,12 +402,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const inStudentGroup = segments[0] === '(student)';
     const inAdminGroup = segments[0] === '(admin)';
     const inJoinRoute = segments[0] === 'join';
+    const inPublicRoute = segments[0] === 'privacy' || segments[0] === 'terms';
     const inProtectedGroup = inTeacherGroup || inStudentGroup || inAdminGroup;
     const isRootRoute = !segments[0] || (segments[0] as string) === 'index';
 
     // ① 미인증 → 웹은 랜딩 페이지, 네이티브는 로그인 페이지로
     if (!state.isAuthenticated) {
-      if (inAuthGroup || inJoinRoute) return; // 이미 로그인/회원가입 또는 초대 화면
+      if (inAuthGroup || inJoinRoute || inPublicRoute) return; // 인증 불필요 라우트
       if (Platform.OS === 'web') {
         if (isRootRoute) return; // 이미 랜딩 페이지
         // 전체 페이지 리로드: SPA router.replace('/')는 group index와 URL 충돌 가능.
@@ -435,8 +436,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const correctHome = homeForUser();
 
-    if (inJoinRoute) {
-      // join 화면은 자체적으로 코드 사용 후 리다이렉트 처리
+    if (inJoinRoute || inPublicRoute) {
+      // join, privacy, terms 화면은 인증 상태와 무관하게 접근 허용
       return;
     } else if (inAuthGroup) {
       // 인증 완료 → auth 그룹(로그인/회원가입)에서 나감
