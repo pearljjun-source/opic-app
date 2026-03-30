@@ -18,6 +18,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, handleCorsPreFlight } from '../_shared/cors.ts';
 import { logger } from '../_shared/logger.ts';
+import { TOSS_API_BASE } from '../_shared/constants.ts';
 
 serve(async (req) => {
   const preFlightResponse = handleCorsPreFlight(req);
@@ -144,7 +145,7 @@ serve(async (req) => {
     // TOSS 결제 취소 API 호출
     const authHeader = 'Basic ' + btoa(`${tossSecretKey}:`);
     const cancelRes = await fetch(
-      `https://api.tosspayments.com/v1/payments/${payment.provider_payment_id}/cancel`,
+      `${TOSS_API_BASE}/payments/${payment.provider_payment_id}/cancel`,
       {
         method: 'POST',
         headers: {

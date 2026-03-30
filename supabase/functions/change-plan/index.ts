@@ -15,6 +15,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, handleCorsPreFlight } from '../_shared/cors.ts';
 import { logger } from '../_shared/logger.ts';
 import { decryptValue, isEncrypted } from '../_shared/crypto.ts';
+import { TOSS_API_BASE } from '../_shared/constants.ts';
 
 serve(async (req) => {
   const preFlightResponse = handleCorsPreFlight(req);
@@ -164,7 +165,7 @@ serve(async (req) => {
           : subscription.billing_key;
 
         const paymentRes = await fetch(
-          `https://api.tosspayments.com/v1/billing/${rawBillingKey}`,
+          `${TOSS_API_BASE}/billing/${rawBillingKey}`,
           {
             method: 'POST',
             headers: {
@@ -228,7 +229,7 @@ serve(async (req) => {
         // 결제 성공 후 DB 실패: 자동 환불
         if (proratedAmount > 0 && paymentData && (paymentData as any).paymentKey) {
           try {
-            await fetch(`https://api.tosspayments.com/v1/payments/${(paymentData as any).paymentKey}/cancel`, {
+            await fetch(`${TOSS_API_BASE}/payments/${(paymentData as any).paymentKey}/cancel`, {
               method: 'POST',
               headers: {
                 'Authorization': authHeader,

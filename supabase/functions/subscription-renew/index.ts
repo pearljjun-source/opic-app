@@ -14,6 +14,7 @@ import { getCorsHeaders, handleCorsPreFlight } from '../_shared/cors.ts';
 import { logger } from '../_shared/logger.ts';
 import { decryptValue, isEncrypted } from '../_shared/crypto.ts';
 import { sendEmail, emailTemplates } from '../_shared/email.ts';
+import { TOSS_API_BASE } from '../_shared/constants.ts';
 
 serve(async (req) => {
   const preFlightResponse = handleCorsPreFlight(req);
@@ -70,7 +71,7 @@ serve(async (req) => {
         // TOSS 결제 조회 API로 실제 결제 상태 확인
         try {
           const tossRes = await fetch(
-            `https://api.tosspayments.com/v1/payments/orders/${incOrderId}`,
+            `${TOSS_API_BASE}/payments/orders/${incOrderId}`,
             {
               method: 'GET',
               headers: { 'Authorization': authHeader },
@@ -346,7 +347,7 @@ serve(async (req) => {
           : sub.billing_key;
 
         // 토스 빌링 결제
-        const payRes = await fetch(`https://api.tosspayments.com/v1/billing/${rawBillingKey}`, {
+        const payRes = await fetch(`${TOSS_API_BASE}/billing/${rawBillingKey}`, {
           method: 'POST',
           headers: {
             'Authorization': authHeader,

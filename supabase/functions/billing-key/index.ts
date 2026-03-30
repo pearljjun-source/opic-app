@@ -15,6 +15,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, handleCorsPreFlight } from '../_shared/cors.ts';
 import { logger } from '../_shared/logger.ts';
 import { encryptValue } from '../_shared/crypto.ts';
+import { TOSS_API_BASE } from '../_shared/constants.ts';
 
 serve(async (req) => {
   const preFlightResponse = handleCorsPreFlight(req);
@@ -144,7 +145,7 @@ serve(async (req) => {
 
     // 토스페이먼츠: authKey → 빌링키 교환
     const authHeader = 'Basic ' + btoa(`${tossSecretKey}:`);
-    const billingRes = await fetch('https://api.tosspayments.com/v1/billing/authorizations/issue', {
+    const billingRes = await fetch(`${TOSS_API_BASE}/billing/authorizations/issue`, {
       method: 'POST',
       headers: {
         'Authorization': authHeader,
@@ -187,7 +188,7 @@ serve(async (req) => {
       .update({ provider_subscription_id: orderId })
       .eq('id', lockSubId);
 
-    const paymentRes = await fetch('https://api.tosspayments.com/v1/billing/' + billingKey, {
+    const paymentRes = await fetch(`${TOSS_API_BASE}/billing/${billingKey}`, {
       method: 'POST',
       headers: {
         'Authorization': authHeader,
@@ -320,7 +321,7 @@ serve(async (req) => {
         // 진짜 복구 불가 → TOSS 결제 취소(환불)
         logger.error('Subscription activation failed after 3 retries — attempting refund', activationError);
         try {
-          await fetch(`https://api.tosspayments.com/v1/payments/${(paymentData as any).paymentKey}/cancel`, {
+          await fetch(`${TOSS_API_BASE}/payments/${(paymentData as any).paymentKey}/cancel`, {
             method: 'POST',
             headers: {
               'Authorization': authHeader,

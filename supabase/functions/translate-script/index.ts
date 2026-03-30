@@ -8,6 +8,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { checkOrgEntitlement } from '../_shared/check-subscription.ts';
 import { getCorsHeaders, handleCorsPreFlight } from '../_shared/cors.ts';
 import { logger } from '../_shared/logger.ts';
+import { CLAUDE_API_URL, CLAUDE_API_VERSION } from '../_shared/constants.ts';
 
 const TRANSLATION_SCHEMA = {
   type: 'object',
@@ -137,12 +138,12 @@ serve(async (req) => {
     }
 
     // Claude API 호출: 영→한 번역
-    const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
+    const claudeResponse = await fetch(CLAUDE_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': anthropicApiKey,
-        'anthropic-version': '2023-06-01',
+        'anthropic-version': CLAUDE_API_VERSION,
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',

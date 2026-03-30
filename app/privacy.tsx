@@ -1,6 +1,7 @@
 import { ScrollView, View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { CONTACT } from '@/lib/constants';
 
 /**
  * 개인정보 처리방침 페이지
@@ -91,7 +92,7 @@ export default function PrivacyScreen() {
 ③ 개인정보 처리 정지 요구
 ④ 회원 탈퇴 (서비스 내 설정에서 직접 처리 가능)
 
-권리 행사는 서비스 내 설정 또는 이메일(speaky@support.com)을 통해 할 수 있으며, 회사는 지체 없이 조치합니다.`}
+권리 행사는 서비스 내 설정 또는 이메일(${CONTACT.SUPPORT_EMAIL})을 통해 할 수 있으며, 회사는 지체 없이 조치합니다.`}
       </Section>
 
       <Section title="제7조 (개인정보의 안전성 확보 조치)">
@@ -119,7 +120,7 @@ export default function PrivacyScreen() {
         {`회사는 개인정보 처리에 관한 업무를 총괄하여 책임지고, 관련 불만 처리를 위해 아래와 같이 개인정보 보호책임자를 지정하고 있습니다.
 
   • 담당: Speaky 개인정보보호팀
-  • 이메일: speaky@support.com
+  • 이메일: ${CONTACT.SUPPORT_EMAIL}
 
 이용자는 서비스 이용 중 발생하는 개인정보 관련 문의, 불만, 피해구제 등을 위 연락처로 문의할 수 있습니다.`}
       </Section>
@@ -136,7 +137,7 @@ export default function PrivacyScreen() {
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>© 2026 Speaky. All rights reserved.</Text>
-        <Text style={styles.footerText}>문의: speaky@support.com</Text>
+        <Text style={styles.footerText}>문의: {CONTACT.SUPPORT_EMAIL}</Text>
       </View>
     </ScrollView>
   );

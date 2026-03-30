@@ -7,6 +7,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, handleCorsPreFlight } from '../_shared/cors.ts';
+import { OPENAI_TTS_URL } from '../_shared/constants.ts';
 
 serve(async (req) => {
   const preFlightResponse = handleCorsPreFlight(req);
@@ -84,7 +85,7 @@ serve(async (req) => {
     for (const question of questions) {
       try {
         // OpenAI TTS API 호출
-        const ttsResponse = await fetch('https://api.openai.com/v1/audio/speech', {
+        const ttsResponse = await fetch(OPENAI_TTS_URL, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

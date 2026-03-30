@@ -1,6 +1,7 @@
 import { ScrollView, View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { CONTACT } from '@/lib/constants';
 
 /**
  * 이용약관 페이지
@@ -69,7 +70,7 @@ export default function TermsScreen() {
 ⑥ 환불 정책:
   - 월간 결제: 환불이 불가하며, 해지 시 현재 결제 주기가 끝날 때까지 서비스를 이용할 수 있습니다.
   - 연간 결제: 결제일로부터 14일 이내에 전액 환불이 가능합니다. 14일 이후에는 환불이 불가하며, 남은 기간 동안 서비스를 이용할 수 있습니다.
-  - 결제 오류 또는 이중 결제: 고객 센터(speaky@support.com) 확인 후 전액 환불됩니다.
+  - 결제 오류 또는 이중 결제: 고객 센터(${CONTACT.SUPPORT_EMAIL}) 확인 후 전액 환불됩니다.
 ⑦ 무료 체험 기간(14일) 중 유료 결제가 발생하지 않으며, 체험 종료 시 자동으로 무료 플랜으로 전환됩니다.`}
       </Section>
 
@@ -124,7 +125,7 @@ export default function TermsScreen() {
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>© 2026 Speaky. All rights reserved.</Text>
-        <Text style={styles.footerText}>문의: speaky@support.com</Text>
+        <Text style={styles.footerText}>문의: {CONTACT.SUPPORT_EMAIL}</Text>
       </View>
     </ScrollView>
   );

@@ -12,6 +12,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, handleCorsPreFlight } from '../_shared/cors.ts';
+import { TOSS_API_BASE } from '../_shared/constants.ts';
 import { logger } from '../_shared/logger.ts';
 import { encryptValue } from '../_shared/crypto.ts';
 
@@ -95,7 +96,7 @@ serve(async (req) => {
 
     // 토스페이먼츠: authKey → 새 빌링키 교환
     const authHeader = 'Basic ' + btoa(`${tossSecretKey}:`);
-    const billingRes = await fetch('https://api.tosspayments.com/v1/billing/authorizations/issue', {
+    const billingRes = await fetch(`${TOSS_API_BASE}/billing/authorizations/issue`, {
       method: 'POST',
       headers: {
         'Authorization': authHeader,

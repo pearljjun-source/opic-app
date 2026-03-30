@@ -13,7 +13,7 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { getSubscriptionPlans, changePlan } from '@/services/billing';
 import { getUserMessage } from '@/lib/errors';
 import { requestTossBillingAuth, isTossConfigured, buildPaymentUrls } from '@/lib/toss';
-import { PAYMENT_CALLBACK } from '@/lib/constants';
+import { PAYMENT_CALLBACK, CONTACT } from '@/lib/constants';
 import type { SubscriptionPlan } from '@/lib/types';
 
 const PLAN_ORDER = ['free', 'solo', 'pro', 'academy'];
@@ -63,7 +63,7 @@ export default function PlanSelectScreen() {
     if (plan.plan_key === currentPlanKey) return;
 
     if (plan.plan_key === 'academy') {
-      Alert.alert('도입 문의', 'Academy 플랜은 별도 문의가 필요합니다.\nspeaky@support.com');
+      Alert.alert('도입 문의', `Academy 플랜은 별도 문의가 필요합니다.\n${CONTACT.SUPPORT_EMAIL}`);
       return;
     }
 

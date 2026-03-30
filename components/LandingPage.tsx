@@ -40,6 +40,7 @@ const ROSE = '#D4707F';
 const ROSE_LIGHT = '#FDE8EB';
 const DARK = '#111827';
 const APK_DOWNLOAD_URL = 'https://expo.dev/accounts/pearljjun/projects/opic-app/builds/3ce5748e-3335-4090-b758-c585f9a183c5';
+const CONTACT_URL = 'https://mail.google.com/mail/?view=cm&fs=1&to=hello@onthegostudio.kr';
 
 // ============================================================================
 // Animation helpers
@@ -580,7 +581,7 @@ export default function LandingPage() {
 
           <FadeInView delay={600}>
             <View style={s.heroButtons}>
-              <Pressable style={s.heroBtn} onPress={() => Linking.openURL('mailto:hello@onthegostudio.kr')}>
+              <Pressable style={s.heroBtn} onPress={() => Linking.openURL(CONTACT_URL)}>
                 <Text style={s.heroBtnText}>문의하기</Text>
                 <ArrowRight size={18} color="#fff" weight="bold" />
               </Pressable>
@@ -932,7 +933,7 @@ export default function LandingPage() {
             <Text style={s.footerDiv}>|</Text>
             <Pressable onPress={() => router.push('/terms')}><Text style={s.footerLink}>이용약관</Text></Pressable>
             <Text style={s.footerDiv}>|</Text>
-            <Pressable onPress={() => Linking.openURL('mailto:hello@onthegostudio.kr')}><Text style={s.footerLink}>문의하기</Text></Pressable>
+            <Pressable onPress={() => Linking.openURL(CONTACT_URL)}><Text style={s.footerLink}>문의하기</Text></Pressable>
           </View>
           <Text style={s.footerCopy}>© 2026 Speaky. All rights reserved.</Text>
         </View>
