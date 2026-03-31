@@ -4,7 +4,6 @@ import {
   StyleSheet,
   Pressable,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { useState, useEffect, useCallback } from 'react';
 import { router } from 'expo-router';
@@ -17,6 +16,7 @@ import { getTopics } from '@/services/scripts';
 import { getTopicGroups, setStudentTopics } from '@/services/topics';
 import { getUserMessage } from '@/lib/errors';
 import { supabase } from '@/lib/supabase';
+import { alert as xAlert } from '@/lib/alert';
 import { showToast } from '@/lib/toast';
 import type { TopicGroup } from '@/lib/types';
 import type { TopicListItem } from '@/services/scripts';
@@ -75,7 +75,7 @@ export default function TopicsScreen() {
     ).length;
 
     if (surveyCount < SURVEY_CONFIG.TOTAL_MIN_SELECTIONS) {
-      Alert.alert(
+      xAlert(
         '토픽 선택',
         `서베이 토픽을 최소 ${SURVEY_CONFIG.TOTAL_MIN_SELECTIONS}개 이상 선택해주세요. (현재 ${surveyCount}개)`,
       );
@@ -91,7 +91,7 @@ export default function TopicsScreen() {
     );
 
     if (saveError) {
-      Alert.alert('오류', getUserMessage(saveError));
+      xAlert('오류', getUserMessage(saveError));
       setIsSaving(false);
       return;
     }
