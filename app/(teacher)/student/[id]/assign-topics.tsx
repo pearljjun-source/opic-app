@@ -8,14 +8,28 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 
+import { SurveyProfileSelector } from '@/components/SurveyProfileSelector';
 import { TopicGroupSelector, useTopicGroupToggle } from '@/components/TopicGroupSelector';
 import { SURVEY_CONFIG, TOPIC_CATEGORIES } from '@/lib/constants';
 import { getTopics, type TopicListItem } from '@/services/scripts';
-import { getTopicGroups, setStudentTopics, getStudentTopicsWithProgress } from '@/services/topics';
+import {
+  getTopicGroups,
+  setStudentTopics,
+  getStudentTopicsWithProgress,
+  getSurveyProfile,
+  saveSurveyProfile,
+} from '@/services/topics';
 import { getUserMessage } from '@/lib/errors';
 import { alert as xAlert } from '@/lib/alert';
-import type { TopicGroup } from '@/lib/types';
+import type { TopicGroup, SurveyProfile } from '@/lib/types';
 import { useThemeColors } from '@/hooks/useTheme';
+
+const DEFAULT_PROFILE: SurveyProfile = {
+  job_type: 'office_worker',
+  is_student: false,
+  student_type: null,
+  residence_type: 'with_family',
+};
 
 export default function AssignTopicsScreen() {
   const colors = useThemeColors();
@@ -25,22 +39,23 @@ export default function AssignTopicsScreen() {
   const [groups, setGroups] = useState<TopicGroup[]>([]);
   const [allTopics, setAllTopics] = useState<TopicListItem[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [profile, setProfile] = useState<SurveyProfile>(DEFAULT_PROFILE);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const { toggle } = useTopicGroupToggle(groups, allTopics);
 
-  // 전체 토픽 + 그룹 + 기존 배정 토픽 로드
   useEffect(() => {
     const load = async () => {
       if (!studentId) return;
       setIsLoading(true);
 
-      const [groupsResult, topicsResult, assignedResult] = await Promise.all([
+      const [groupsResult, topicsResult, assignedResult, profileResult] = await Promise.all([
         getTopicGroups(),
         getTopics(),
         getStudentTopicsWithProgress(studentId),
+        getSurveyProfile(studentId),
       ]);
 
       if (groupsResult.data) setGroups(groupsResult.data);
@@ -48,12 +63,19 @@ export default function AssignTopicsScreen() {
       if (topicsResult.error) {
         setError(getUserMessage(topicsResult.error));
       } else {
-        setAllTopics(topicsResult.data || []);
+        const activeTopics = topicsResult.data || [];
+        setAllTopics(activeTopics);
+
+        if (assignedResult.data) {
+          // active 토픽만 유지
+          const activeIds = new Set(activeTopics.map((t) => t.id));
+          setSelectedIds(
+            new Set(assignedResult.data.map((t) => t.topic_id).filter((id) => activeIds.has(id))),
+          );
+        }
       }
 
-      if (assignedResult.data) {
-        setSelectedIds(new Set(assignedResult.data.map((t) => t.topic_id)));
-      }
+      if (profileResult.data) setProfile(profileResult.data);
 
       setIsLoading(false);
     };
@@ -84,13 +106,20 @@ export default function AssignTopicsScreen() {
     }
 
     setIsSaving(true);
-    const { error: saveError } = await setStudentTopics(
-      studentId,
-      Array.from(selectedIds),
-    );
 
-    if (saveError) {
-      xAlert('오류', getUserMessage(saveError));
+    const [profileResult, topicsResult] = await Promise.all([
+      saveSurveyProfile(studentId, profile),
+      setStudentTopics(studentId, Array.from(selectedIds)),
+    ]);
+
+    if (profileResult.error) {
+      xAlert('오류', getUserMessage(profileResult.error));
+      setIsSaving(false);
+      return;
+    }
+
+    if (topicsResult.error) {
+      xAlert('오류', topicsResult.error.message);
       setIsSaving(false);
       return;
     }
@@ -124,7 +153,7 @@ export default function AssignTopicsScreen() {
 
       <View style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          학생에게 배정할 토픽을 선택하세요
+          학생에게 배정할 서베이 프로필과 토픽을 선택하세요
         </Text>
 
         <TopicGroupSelector
@@ -133,6 +162,9 @@ export default function AssignTopicsScreen() {
           selectedIds={selectedIds}
           onToggle={handleToggle}
           showUnexpected={true}
+          profileSection={
+            <SurveyProfileSelector profile={profile} onChange={setProfile} />
+          }
         />
 
         <Pressable

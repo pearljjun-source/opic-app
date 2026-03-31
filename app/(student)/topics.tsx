@@ -10,47 +10,61 @@ import { router } from 'expo-router';
 
 import { useThemeColors } from '@/hooks/useTheme';
 import { SkeletonList } from '@/components/ui/Loading';
+import { SurveyProfileSelector } from '@/components/SurveyProfileSelector';
 import { TopicGroupSelector, useTopicGroupToggle } from '@/components/TopicGroupSelector';
 import { SURVEY_CONFIG, TOPIC_CATEGORIES } from '@/lib/constants';
 import { getTopics } from '@/services/scripts';
-import { getTopicGroups, setStudentTopics } from '@/services/topics';
+import { getTopicGroups, setStudentTopics, getSurveyProfile, saveSurveyProfile } from '@/services/topics';
 import { getUserMessage } from '@/lib/errors';
-import { supabase } from '@/lib/supabase';
 import { alert as xAlert } from '@/lib/alert';
+import { supabase } from '@/lib/supabase';
 import { showToast } from '@/lib/toast';
-import type { TopicGroup } from '@/lib/types';
+import type { TopicGroup, SurveyProfile } from '@/lib/types';
 import type { TopicListItem } from '@/services/scripts';
+
+const DEFAULT_PROFILE: SurveyProfile = {
+  job_type: 'office_worker',
+  is_student: false,
+  student_type: null,
+  residence_type: 'with_family',
+};
 
 export default function TopicsScreen() {
   const colors = useThemeColors();
   const [groups, setGroups] = useState<TopicGroup[]>([]);
   const [allTopics, setAllTopics] = useState<TopicListItem[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [profile, setProfile] = useState<SurveyProfile>(DEFAULT_PROFILE);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
   const { toggle } = useTopicGroupToggle(groups, allTopics);
 
-  // 토픽 그룹 + 토픽 목록 + 기존 선택 로드
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const [groupsResult, topicsResult, myTopicsResult] = await Promise.all([
+      const [groupsResult, topicsResult, myTopicsResult, profileResult] = await Promise.all([
         getTopicGroups(),
         getTopics(),
         supabase
           .from('student_topics')
           .select('topic_id')
           .eq('student_id', user.id),
+        getSurveyProfile(user.id),
       ]);
 
       if (groupsResult.data) setGroups(groupsResult.data);
       if (topicsResult.data) setAllTopics(topicsResult.data);
       if (myTopicsResult.data) {
-        setSelectedIds(new Set(myTopicsResult.data.map((t) => t.topic_id)));
+        // active 토픽 ID만 유지 (비활성화된 옛 토픽 제거)
+        const activeIds = new Set(topicsResult.data?.map((t) => t.id) || []);
+        setSelectedIds(
+          new Set(myTopicsResult.data.map((t) => t.topic_id).filter((id) => activeIds.has(id))),
+        );
       }
+      if (profileResult.data) setProfile(profileResult.data);
 
       setIsLoading(false);
     };
@@ -84,21 +98,26 @@ export default function TopicsScreen() {
 
     setIsSaving(true);
 
-    // RPC 호출 (서버에서 유효성 검증)
-    const { error: saveError } = await setStudentTopics(
-      user.id,
-      Array.from(selectedIds),
-    );
+    // 프로필 + 토픽 동시 저장
+    const [profileResult, topicsResult] = await Promise.all([
+      saveSurveyProfile(user.id, profile),
+      setStudentTopics(user.id, Array.from(selectedIds)),
+    ]);
 
-    if (saveError) {
-      // DEBUG: 실제 에러 내용 확인용 (추후 제거)
-      xAlert('오류', `${saveError.message}\n\n[DEBUG] ${JSON.stringify(saveError)}`);
+    if (profileResult.error) {
+      xAlert('오류', getUserMessage(profileResult.error));
+      setIsSaving(false);
+      return;
+    }
+
+    if (topicsResult.error) {
+      xAlert('오류', topicsResult.error.message);
       setIsSaving(false);
       return;
     }
 
     setIsSaving(false);
-    showToast('토픽이 저장되었습니다.');
+    showToast('서베이가 저장되었습니다.');
     router.back();
   };
 
@@ -113,7 +132,7 @@ export default function TopicsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}>
       <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-        실제 OPIc Background Survey 기준으로 토픽을 선택하세요.
+        실제 OPIc Background Survey와 동일한 구조입니다.
       </Text>
 
       <TopicGroupSelector
@@ -122,6 +141,9 @@ export default function TopicsScreen() {
         selectedIds={selectedIds}
         onToggle={handleToggle}
         showUnexpected={true}
+        profileSection={
+          <SurveyProfileSelector profile={profile} onChange={setProfile} />
+        }
       />
 
       <Pressable
@@ -142,7 +164,6 @@ export default function TopicsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
     paddingHorizontal: 0,
     paddingTop: 16,
   },

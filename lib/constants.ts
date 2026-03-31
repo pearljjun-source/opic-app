@@ -372,9 +372,38 @@ export const QUESTION_TIME_LIMITS: Record<string, number> = {
 
 /** OPIc 서베이 토픽 선택 설정 */
 export const SURVEY_CONFIG = {
-  /** 총 최소 선택 수 (서베이 토픽 합산) */
+  /** 총 최소 선택 수 (Q4~Q7 활동 서베이 토픽 합산) */
   TOTAL_MIN_SELECTIONS: 12,
 } as const;
+
+// ============================================================================
+// OPIc 서베이 프로필 옵션 (Q1~Q3)
+// ============================================================================
+
+/** Q1: 직업 유형 (실제 OPIc 4개 옵션) */
+export const SURVEY_JOB_OPTIONS = [
+  { key: 'office_worker', label: '사업 / 회사', icon: 'business-outline' },
+  { key: 'work_from_home', label: '재택근무 / 재택사업', icon: 'laptop-outline' },
+  { key: 'educator', label: '교사 / 교육자', icon: 'school-outline' },
+  { key: 'none', label: '일 경험 없음', icon: 'remove-circle-outline' },
+] as const;
+
+/** Q2: 학생 여부 후속 — 수강 유형 */
+export const SURVEY_STUDENT_TYPE_OPTIONS = [
+  { key: 'degree', label: '학위 과정 수업' },
+  { key: 'continuing_ed', label: '전문 기술 향상 평생 학습' },
+  { key: 'language_class', label: '어학 수업' },
+  { key: 'over_5_years', label: '수강한 지 5년 이상' },
+] as const;
+
+/** Q3: 거주 형태 (실제 OPIc 5개 옵션) */
+export const SURVEY_RESIDENCE_OPTIONS = [
+  { key: 'alone', label: '홀로 거주', icon: 'person-outline' },
+  { key: 'with_roommates', label: '친구/룸메이트와 거주', icon: 'people-outline' },
+  { key: 'with_family', label: '가족과 거주', icon: 'home-outline' },
+  { key: 'dormitory', label: '학교 기숙사', icon: 'bed-outline' },
+  { key: 'military', label: '군대 막사', icon: 'shield-outline' },
+] as const;
 
 /** 시험 설정 */
 export const EXAM_CONFIG = {

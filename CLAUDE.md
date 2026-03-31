@@ -766,7 +766,7 @@ CREATE INDEX idx_subscriptions_provider_subscription_id
 
 ### Phase 10 — OPIc 서베이 구조 재설계 + 상수 중앙화 ✅
 - [x] **OPIc 서베이 구조 재설계** (065 마이그레이션)
-  - `topic_groups` 테이블 (7개 OPIc 카테고리: 직업/학생/거주지/여가/취미/운동/휴가)
+  - `topic_groups` 테이블 (7개 → 067에서 Q1~Q3 비활성화, 활성 4개: 여가/취미/운동/휴가)
   - 그룹별 선택 규칙 (`selection_type`: single/multiple, `min_selections`)
   - 기존 24개 토픽 그룹 재배치 + 신규 23개 서베이 토픽 추가
   - 신규 15개 돌발 토픽 추가 (기존 5개 + 15개 = 20개)
@@ -774,13 +774,22 @@ CREATE INDEX idx_subscriptions_provider_subscription_id
   - `set_student_topics` RPC 재작성 (서버 사이드 선택 규칙 검증, 총 12개 이상)
   - `get_student_topics_with_progress` RPC에 그룹 정보 추가
   - 058 마이그레이션 strategy_group NULL 버그 수정
+- [x] **서베이 프로필 분리** (067 마이그레이션)
+  - Q1~Q3(직업/학생/거주지)은 프로필 질문 → `student_survey_profiles` 테이블로 분리
+  - Q4~Q7(여가/취미/운동/휴가)만 토픽 선택 → `topic_groups` 활성 4개
+  - Q1~Q3용 신규 토픽(회사원/자영업 등 11개) 비활성화
+  - 집/거주, 이웃/동네: 그룹 해제 → ungrouped 공통 서베이 토픽
+  - `save_survey_profile` / `get_survey_profile` RPC 추가
+  - `SurveyProfileSelector` 컴포넌트 (Q1~Q3 프로필 선택 UI)
+  - 프로필 옵션 상수 (`SURVEY_JOB_OPTIONS`, `SURVEY_RESIDENCE_OPTIONS` 등)
 - [x] **공유 컴포넌트**
-  - `TopicGroupSelector` 컴포넌트 (그룹별 UI, single/multiple 모드, 선택 수 검증)
+  - `TopicGroupSelector` 컴포넌트 (그룹별 UI, ungrouped 토픽, profileSection prop)
+  - `SurveyProfileSelector` 컴포넌트 (Q1~Q3 라디오/토글 UI)
   - `useTopicGroupToggle` 훅 (single 그룹 자동 해제 로직)
-- [x] **화면 재작성** (3개 화면 — 동일 컴포넌트 사용)
-  - `topics.tsx`: 학생 토픽 선택 (직접 DB 호출 → RPC 전환)
-  - `mock-survey.tsx`: 모의고사 서베이 (flat 리스트 → 그룹 구조)
-  - `assign-topics.tsx`: 강사 토픽 배정 (flat 리스트 → 그룹 구조)
+- [x] **화면 재작성** (3개 화면)
+  - `topics.tsx`: 프로필(Q1~Q3) + 활동 토픽(Q4~Q7) 통합 화면
+  - `mock-survey.tsx`: 모의고사 서베이 (Q4~Q7 활동 그룹만)
+  - `assign-topics.tsx`: 강사 토픽 배정 (프로필 + 활동 토픽)
 - [x] **상수 중앙화** (하드코딩 제거)
   - `PRACTICE_STEP_LABELS`: 연습 처리 단계 (2파일 중복 → 1곳)
   - `EXAM_STAGE_LABELS`: 시험 처리 단계 (로컬 → 상수)
@@ -798,7 +807,7 @@ CREATE INDEX idx_subscriptions_provider_subscription_id
 
 ---
 
-## 마이그레이션 이력 (54개)
+## 마이그레이션 이력 (56개)
 
 | 범위 | 파일 | 내용 |
 |------|------|------|
@@ -830,6 +839,8 @@ CREATE INDEX idx_subscriptions_provider_subscription_id
 | 운영 | 060 | webhook_logs + email_logs 테이블 (결제 디버깅 + 이메일 감사) |
 | 온보딩 | 061 | organizations.onboarding_completed_at + get_onboarding_status/complete_onboarding RPC |
 | 서베이 | 065 | OPIc 서베이 구조 재설계 (topic_groups, 토픽 재배치, 신규 토픽/질문, RPC 재작성) |
+| 서베이 | 066 | set_student_topics 돌발 토픽 허용 수정 |
+| 서베이 | 067 | 서베이 프로필 분리 (Q1~Q3 → student_survey_profiles, Q1~Q3 그룹 비활성화) |
 
 ---
 

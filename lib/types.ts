@@ -508,6 +508,27 @@ export interface TopicGroup {
   sort_order: number;
 }
 
+// ============================================================================
+// OPIc 서베이 프로필 (Q1~Q3)
+// ============================================================================
+
+/** 직업 유형 (Q1) — 실제 OPIc 4개 옵션 */
+export type SurveyJobType = 'office_worker' | 'work_from_home' | 'educator' | 'none';
+
+/** 학생 유형 (Q2 후속) */
+export type SurveyStudentType = 'degree' | 'continuing_ed' | 'language_class' | 'over_5_years';
+
+/** 거주 형태 (Q3) — 실제 OPIc 5개 옵션 */
+export type SurveyResidenceType = 'alone' | 'with_roommates' | 'with_family' | 'dormitory' | 'military';
+
+/** 서베이 프로필 데이터 */
+export interface SurveyProfile {
+  job_type: SurveyJobType;
+  is_student: boolean;
+  student_type: SurveyStudentType | null;
+  residence_type: SurveyResidenceType;
+}
+
 /** 학생의 배정 토픽 + 진행 통계 (get_student_topics_with_progress RPC 반환 타입) */
 export interface StudentTopicWithProgress {
   topic_id: string;

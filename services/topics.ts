@@ -1,13 +1,13 @@
 import { supabase } from '@/lib/supabase';
 import { AppError, classifyError, classifyRpcError } from '@/lib/errors';
-import type { StudentTopicWithProgress, TopicQuestionWithScript, TopicGroup } from '@/lib/types';
+import type { StudentTopicWithProgress, TopicQuestionWithScript, TopicGroup, SurveyProfile } from '@/lib/types';
 
 // ============================================================================
 // 토픽 그룹 조회
 // ============================================================================
 
 /**
- * 토픽 그룹 목록 조회 (OPIc 서베이 카테고리)
+ * 활성 토픽 그룹 목록 조회 (Q4~Q7: 여가/취미/운동/휴가)
  */
 export async function getTopicGroups(): Promise<{
   data: TopicGroup[] | null;
@@ -16,6 +16,7 @@ export async function getTopicGroups(): Promise<{
   const { data, error } = await supabase
     .from('topic_groups')
     .select('id, name_ko, name_en, selection_type, min_selections, sort_order')
+    .eq('is_active', true)
     .order('sort_order', { ascending: true });
 
   if (error) {
@@ -26,7 +27,73 @@ export async function getTopicGroups(): Promise<{
 }
 
 // ============================================================================
-// 강사용: 토픽 배정
+// 서베이 프로필 (Q1~Q3: 직업/학생/거주지)
+// ============================================================================
+
+/**
+ * 서베이 프로필 조회
+ */
+export async function getSurveyProfile(
+  studentId: string,
+): Promise<{ data: SurveyProfile | null; error: Error | null }> {
+  const { data, error } = await (supabase.rpc as CallableFunction)(
+    'get_survey_profile',
+    { p_student_id: studentId },
+  );
+
+  if (error) {
+    return { data: null, error: classifyError(error, { resource: 'survey_profile' }) };
+  }
+
+  const result = data as { success: boolean; profile: SurveyProfile | null; error?: string } | null;
+  if (result && !result.success) {
+    return {
+      data: null,
+      error: result.error
+        ? classifyRpcError(result.error, { resource: 'survey_profile' })
+        : new AppError('SVR_UNKNOWN'),
+    };
+  }
+
+  return { data: result?.profile || null, error: null };
+}
+
+/**
+ * 서베이 프로필 저장
+ */
+export async function saveSurveyProfile(
+  studentId: string,
+  profile: SurveyProfile,
+): Promise<{ error: Error | null }> {
+  const { data, error } = await (supabase.rpc as CallableFunction)(
+    'save_survey_profile',
+    {
+      p_student_id: studentId,
+      p_job_type: profile.job_type,
+      p_is_student: profile.is_student,
+      p_student_type: profile.student_type,
+      p_residence_type: profile.residence_type,
+    },
+  );
+
+  if (error) {
+    return { error: classifyError(error, { resource: 'survey_profile' }) };
+  }
+
+  const result = data as { success: boolean; error?: string } | null;
+  if (result && !result.success) {
+    return {
+      error: result.error
+        ? classifyRpcError(result.error, { resource: 'survey_profile' })
+        : new AppError('SVR_UNKNOWN'),
+    };
+  }
+
+  return { error: null };
+}
+
+// ============================================================================
+// 토픽 배정
 // ============================================================================
 
 /**
@@ -47,7 +114,6 @@ export async function setStudentTopics(
 
   const result = data as { success: boolean; error?: string; detail?: string } | null;
   if (result && !result.success) {
-    // detail이 있으면 서버가 보낸 한국어 메시지를 직접 사용
     if (result.detail) {
       return { error: new Error(result.detail) };
     }
@@ -62,7 +128,7 @@ export async function setStudentTopics(
 }
 
 // ============================================================================
-// 강사용: 학생의 배정 토픽 + 진행 통계 조회
+// 학생의 배정 토픽 + 진행 통계 조회
 // ============================================================================
 
 /**
@@ -85,10 +151,6 @@ export async function getStudentTopicsWithProgress(
 
   return { data: (data as StudentTopicWithProgress[]) || [], error: null };
 }
-
-// ============================================================================
-// 학생용: 내 배정 토픽 + 진행 통계 조회
-// ============================================================================
 
 /**
  * 내 배정 토픽 + 진행 통계 조회 (학생이 호출)
