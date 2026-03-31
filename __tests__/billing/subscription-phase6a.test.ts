@@ -144,7 +144,8 @@ describe('change-plan Edge Function', () => {
   });
 
   test('Toss 결제 API 호출 (업그레이드)', () => {
-    expect(code).toContain('/v1/billing/');
+    expect(code).toContain('TOSS_API_BASE');
+    expect(code).toContain('billing/');
     expect(code).toContain('BILLING_PAYMENT_FAILED');
   });
 });
