@@ -45,8 +45,12 @@ export async function setStudentTopics(
     return { error: classifyError(error, { resource: 'topic' }) };
   }
 
-  const result = data as { success: boolean; error?: string } | null;
+  const result = data as { success: boolean; error?: string; detail?: string } | null;
   if (result && !result.success) {
+    // detail이 있으면 서버가 보낸 한국어 메시지를 직접 사용
+    if (result.detail) {
+      return { error: new Error(result.detail) };
+    }
     return {
       error: result.error
         ? classifyRpcError(result.error, { resource: 'topic' })
