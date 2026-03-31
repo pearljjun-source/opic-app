@@ -91,7 +91,8 @@ export default function TopicsScreen() {
     );
 
     if (saveError) {
-      xAlert('오류', getUserMessage(saveError));
+      // DEBUG: 실제 에러 내용 확인용 (추후 제거)
+      xAlert('오류', `${saveError.message}\n\n[DEBUG] ${JSON.stringify(saveError)}`);
       setIsSaving(false);
       return;
     }
