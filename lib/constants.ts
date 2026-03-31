@@ -405,6 +405,14 @@ export const SURVEY_RESIDENCE_OPTIONS = [
   { key: 'military', label: '군대 막사', icon: 'shield-outline' },
 ] as const;
 
+/** 서베이 프로필 기본값 */
+export const DEFAULT_SURVEY_PROFILE = {
+  job_type: 'office_worker' as const,
+  is_student: false,
+  student_type: null as null,
+  residence_type: 'with_family' as const,
+};
+
 /** 시험 설정 */
 export const EXAM_CONFIG = {
   /** 모의고사 제한 시간 (40분) */

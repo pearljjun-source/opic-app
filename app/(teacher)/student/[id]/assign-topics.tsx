@@ -10,7 +10,7 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 
 import { SurveyProfileSelector } from '@/components/SurveyProfileSelector';
 import { TopicGroupSelector, useTopicGroupToggle } from '@/components/TopicGroupSelector';
-import { SURVEY_CONFIG, TOPIC_CATEGORIES } from '@/lib/constants';
+import { SURVEY_CONFIG, TOPIC_CATEGORIES, DEFAULT_SURVEY_PROFILE } from '@/lib/constants';
 import { getTopics, type TopicListItem } from '@/services/scripts';
 import {
   getTopicGroups,
@@ -24,13 +24,6 @@ import { alert as xAlert } from '@/lib/alert';
 import type { TopicGroup, SurveyProfile } from '@/lib/types';
 import { useThemeColors } from '@/hooks/useTheme';
 
-const DEFAULT_PROFILE: SurveyProfile = {
-  job_type: 'office_worker',
-  is_student: false,
-  student_type: null,
-  residence_type: 'with_family',
-};
-
 export default function AssignTopicsScreen() {
   const colors = useThemeColors();
   const { id: studentId } = useLocalSearchParams<{ id: string }>();
@@ -39,7 +32,7 @@ export default function AssignTopicsScreen() {
   const [groups, setGroups] = useState<TopicGroup[]>([]);
   const [allTopics, setAllTopics] = useState<TopicListItem[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [profile, setProfile] = useState<SurveyProfile>(DEFAULT_PROFILE);
+  const [profile, setProfile] = useState<SurveyProfile>(DEFAULT_SURVEY_PROFILE);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -36,7 +36,7 @@ export async function getTopicGroups(): Promise<{
 export async function getSurveyProfile(
   studentId: string,
 ): Promise<{ data: SurveyProfile | null; error: Error | null }> {
-  const { data, error } = await (supabase.rpc as CallableFunction)(
+  const { data, error } = await supabase.rpc(
     'get_survey_profile',
     { p_student_id: studentId },
   );
@@ -65,7 +65,7 @@ export async function saveSurveyProfile(
   studentId: string,
   profile: SurveyProfile,
 ): Promise<{ error: Error | null }> {
-  const { data, error } = await (supabase.rpc as CallableFunction)(
+  const { data, error } = await supabase.rpc(
     'save_survey_profile',
     {
       p_student_id: studentId,
@@ -103,7 +103,7 @@ export async function setStudentTopics(
   studentId: string,
   topicIds: string[],
 ): Promise<{ error: Error | null }> {
-  const { data, error } = await (supabase.rpc as CallableFunction)(
+  const { data, error } = await supabase.rpc(
     'set_student_topics',
     { p_student_id: studentId, p_topic_ids: topicIds },
   );
@@ -140,7 +140,7 @@ export async function getStudentTopicsWithProgress(
   data: StudentTopicWithProgress[] | null;
   error: Error | null;
 }> {
-  const { data, error } = await (supabase.rpc as CallableFunction)(
+  const { data, error } = await supabase.rpc(
     'get_student_topics_with_progress',
     { p_student_id: studentId },
   );
@@ -167,7 +167,7 @@ export async function getMyTopicsWithProgress(): Promise<{
     return { data: null, error: new AppError('AUTH_REQUIRED') };
   }
 
-  const { data, error } = await (supabase.rpc as CallableFunction)(
+  const { data, error } = await supabase.rpc(
     'get_student_topics_with_progress',
     { p_student_id: user.id },
   );
@@ -193,7 +193,7 @@ export async function getTopicQuestionsWithScripts(
   data: TopicQuestionWithScript[] | null;
   error: Error | null;
 }> {
-  const { data, error } = await (supabase.rpc as CallableFunction)(
+  const { data, error } = await supabase.rpc(
     'get_topic_questions_with_scripts',
     { p_student_id: studentId, p_topic_id: topicId },
   );
@@ -222,7 +222,7 @@ export async function getMyTopicQuestionsWithScripts(
     return { data: null, error: new AppError('AUTH_REQUIRED') };
   }
 
-  const { data, error } = await (supabase.rpc as CallableFunction)(
+  const { data, error } = await supabase.rpc(
     'get_topic_questions_with_scripts',
     { p_student_id: user.id, p_topic_id: topicId },
   );

@@ -1225,6 +1225,47 @@ export type Database = {
           },
         ]
       }
+      student_survey_profiles: {
+        Row: {
+          id: string
+          student_id: string
+          job_type: string
+          is_student: boolean
+          student_type: string | null
+          residence_type: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          student_id: string
+          job_type: string
+          is_student?: boolean
+          student_type?: string | null
+          residence_type: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          student_id?: string
+          job_type?: string
+          is_student?: boolean
+          student_type?: string | null
+          residence_type?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_survey_profiles_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscription_plans: {
         Row: {
           ai_feedback_enabled: boolean
@@ -1464,6 +1505,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      topic_groups: {
+        Row: {
+          id: string
+          name_ko: string
+          name_en: string
+          selection_type: string
+          min_selections: number
+          sort_order: number
+          is_active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name_ko: string
+          name_en: string
+          selection_type?: string
+          min_selections?: number
+          sort_order?: number
+          is_active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name_ko?: string
+          name_en?: string
+          selection_type?: string
+          min_selections?: number
+          sort_order?: number
+          is_active?: boolean
+          created_at?: string
+        }
+        Relationships: []
       }
       topics: {
         Row: {
@@ -1818,6 +1892,20 @@ export type Database = {
           topic_sort_order: number
           total_questions: number
         }[]
+      }
+      get_survey_profile: {
+        Args: { p_student_id: string }
+        Returns: Json
+      }
+      save_survey_profile: {
+        Args: {
+          p_student_id: string
+          p_job_type: string
+          p_is_student: boolean
+          p_student_type: string | null
+          p_residence_type: string
+        }
+        Returns: Json
       }
       get_teacher_classes: {
         Args: { p_org_id?: string }

@@ -12,7 +12,7 @@ import { useThemeColors } from '@/hooks/useTheme';
 import { SkeletonList } from '@/components/ui/Loading';
 import { SurveyProfileSelector } from '@/components/SurveyProfileSelector';
 import { TopicGroupSelector, useTopicGroupToggle } from '@/components/TopicGroupSelector';
-import { SURVEY_CONFIG, TOPIC_CATEGORIES } from '@/lib/constants';
+import { SURVEY_CONFIG, TOPIC_CATEGORIES, DEFAULT_SURVEY_PROFILE } from '@/lib/constants';
 import { getTopics } from '@/services/scripts';
 import { getTopicGroups, setStudentTopics, getSurveyProfile, saveSurveyProfile } from '@/services/topics';
 import { getUserMessage } from '@/lib/errors';
@@ -22,19 +22,12 @@ import { showToast } from '@/lib/toast';
 import type { TopicGroup, SurveyProfile } from '@/lib/types';
 import type { TopicListItem } from '@/services/scripts';
 
-const DEFAULT_PROFILE: SurveyProfile = {
-  job_type: 'office_worker',
-  is_student: false,
-  student_type: null,
-  residence_type: 'with_family',
-};
-
 export default function TopicsScreen() {
   const colors = useThemeColors();
   const [groups, setGroups] = useState<TopicGroup[]>([]);
   const [allTopics, setAllTopics] = useState<TopicListItem[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [profile, setProfile] = useState<SurveyProfile>(DEFAULT_PROFILE);
+  const [profile, setProfile] = useState<SurveyProfile>(DEFAULT_SURVEY_PROFILE);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
