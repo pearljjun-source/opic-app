@@ -22,7 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useThemeColors } from '@/hooks/useTheme';
 import { useVoiceConsent } from '@/hooks/useVoiceConsent';
-import { NOTIFICATION_TYPES } from '@/lib/constants';
+import { NOTIFICATION_TYPES, PRACTICE_STEP_LABELS, type PracticeProcessingStep } from '@/lib/constants';
 import { getStudentScript, StudentScriptDetail } from '@/services/scripts';
 import {
   createPractice,
@@ -37,15 +37,8 @@ import { getUserMessage } from '@/lib/errors';
 import { VoiceConsentModal } from '@/components/ui/VoiceConsentModal';
 
 type PracticeState = 'loading' | 'ready' | 'playing' | 'recording' | 'processing';
-type ProcessingStep = 'upload' | 'save' | 'stt' | 'feedback' | 'done';
 
-const STEP_LABELS: Record<ProcessingStep, string> = {
-  upload: '녹음 파일 업로드 중...',
-  save: '연습 기록 저장 중...',
-  stt: '음성을 텍스트로 변환 중...',
-  feedback: 'AI가 답변을 분석 중...',
-  done: '완료!',
-};
+const STEP_LABELS = PRACTICE_STEP_LABELS;
 
 export default function PracticeScreen() {
   const colors = useThemeColors();
@@ -55,7 +48,7 @@ export default function PracticeScreen() {
   const [consentLoading, setConsentLoading] = useState(false);
   const [script, setScript] = useState<StudentScriptDetail | null>(null);
   const [practiceState, setPracticeState] = useState<PracticeState>('loading');
-  const [processingStep, setProcessingStep] = useState<ProcessingStep>('upload');
+  const [processingStep, setProcessingStep] = useState<PracticeProcessingStep>('upload');
   const [recordingTime, setRecordingTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
 

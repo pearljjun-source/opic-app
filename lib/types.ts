@@ -498,6 +498,16 @@ export interface ClassDetailResult {
 // Topic Navigation Types (주제 기반 네비게이션)
 // ============================================================================
 
+/** 토픽 그룹 (OPIc 서베이 카테고리) */
+export interface TopicGroup {
+  id: string;
+  name_ko: string;
+  name_en: string;
+  selection_type: 'single' | 'multiple';
+  min_selections: number;
+  sort_order: number;
+}
+
 /** 학생의 배정 토픽 + 진행 통계 (get_student_topics_with_progress RPC 반환 타입) */
 export interface StudentTopicWithProgress {
   topic_id: string;
@@ -506,6 +516,9 @@ export interface StudentTopicWithProgress {
   topic_icon: string | null;
   topic_sort_order: number;
   topic_category: string;
+  topic_group_id: string | null;
+  topic_group_name_ko: string | null;
+  topic_group_sort_order: number | null;
   total_questions: number;
   scripts_count: number;
   practices_count: number;

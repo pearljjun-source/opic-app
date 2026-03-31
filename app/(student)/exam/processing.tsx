@@ -8,13 +8,10 @@ import { useExamRoutes } from '@/hooks/useExamRoutes';
 import { processExamResults } from '@/services/exams';
 import { getUserMessage } from '@/lib/errors';
 import { alert as xAlert } from '@/lib/alert';
+import { EXAM_STAGE_LABELS } from '@/lib/constants';
 import type { ExamRecording } from '@/lib/types';
 
-const STAGE_LABELS = {
-  upload: '녹음 업로드 중',
-  stt: '음성 인식 중',
-  evaluate: 'AI 종합 평가 중',
-} as const;
+const STAGE_LABELS = EXAM_STAGE_LABELS;
 
 export default function ProcessingScreen() {
   const colors = useThemeColors();

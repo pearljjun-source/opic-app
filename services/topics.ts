@@ -1,6 +1,29 @@
 import { supabase } from '@/lib/supabase';
 import { AppError, classifyError, classifyRpcError } from '@/lib/errors';
-import type { StudentTopicWithProgress, TopicQuestionWithScript } from '@/lib/types';
+import type { StudentTopicWithProgress, TopicQuestionWithScript, TopicGroup } from '@/lib/types';
+
+// ============================================================================
+// 토픽 그룹 조회
+// ============================================================================
+
+/**
+ * 토픽 그룹 목록 조회 (OPIc 서베이 카테고리)
+ */
+export async function getTopicGroups(): Promise<{
+  data: TopicGroup[] | null;
+  error: Error | null;
+}> {
+  const { data, error } = await supabase
+    .from('topic_groups')
+    .select('id, name_ko, name_en, selection_type, min_selections, sort_order')
+    .order('sort_order', { ascending: true });
+
+  if (error) {
+    return { data: null, error: classifyError(error, { resource: 'topic_group' }) };
+  }
+
+  return { data: (data as TopicGroup[]) || [], error: null };
+}
 
 // ============================================================================
 // 강사용: 토픽 배정

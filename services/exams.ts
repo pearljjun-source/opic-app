@@ -2,6 +2,7 @@ import { supabase, invokeFunction } from '@/lib/supabase';
 import { AppError, classifyError, classifyRpcError } from '@/lib/errors';
 import { uploadRecording, transcribeAudio } from '@/services/practices';
 import { getUserMessage } from '@/lib/errors';
+import { TOPIC_CATEGORIES } from '@/lib/constants';
 import type {
   ExamType,
   ExamSession,
@@ -567,13 +568,13 @@ export async function checkExamAvailability(
  * 서베이 토픽 목록 조회 (모의고사 토픽 선택 화면용)
  */
 export async function getSurveyTopics(): Promise<{
-  data: Topic[];
+  data: (Topic & { topic_groups: { id: string; name_ko: string; selection_type: string; min_selections: number; sort_order: number } | null })[];
   error: Error | null;
 }> {
   const { data, error } = await supabase
     .from('topics')
-    .select('*')
-    .eq('category', 'survey')
+    .select('*, topic_groups(id, name_ko, selection_type, min_selections, sort_order)')
+    .eq('category', TOPIC_CATEGORIES.SURVEY)
     .eq('is_active', true)
     .order('sort_order', { ascending: true });
 
@@ -581,7 +582,7 @@ export async function getSurveyTopics(): Promise<{
     return { data: [], error: classifyError(error, { resource: 'topic' }) };
   }
 
-  return { data: (data || []) as Topic[], error: null };
+  return { data: (data || []) as any, error: null };
 }
 
 /**
@@ -594,7 +595,7 @@ export async function getTopicsWithStrategy(): Promise<{
   const { data, error } = await supabase
     .from('topics')
     .select('*, strategy_group, difficulty_hint, strategy_tip_ko')
-    .eq('category', 'survey')
+    .eq('category', TOPIC_CATEGORIES.SURVEY)
     .eq('is_active', true)
     .order('strategy_group', { ascending: true })
     .order('sort_order', { ascending: true });

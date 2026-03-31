@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState, useEffect, useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 
-import { TOPIC_CATEGORY_LABELS } from '@/lib/constants';
+import { TOPIC_CATEGORY_LABELS, TOPIC_CATEGORIES } from '@/lib/constants';
 import { getTopics, TopicListItem } from '@/services/scripts';
 import { getStudentTopicsWithProgress } from '@/services/topics';
 import { getUserMessage } from '@/lib/errors';
@@ -60,7 +60,7 @@ export default function SelectTopicScreen() {
   // 카테고리별 그룹핑
   const groupedTopics = useMemo(() => {
     const groups: { category: TopicCategory; label: string; topics: TopicListItem[] }[] = [];
-    const categoryOrder: TopicCategory[] = ['survey', 'unexpected'];
+    const categoryOrder: TopicCategory[] = [TOPIC_CATEGORIES.SURVEY, TOPIC_CATEGORIES.UNEXPECTED];
 
     for (const cat of categoryOrder) {
       const filtered = topics.filter((t) => t.category === cat);

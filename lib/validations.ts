@@ -1,4 +1,5 @@
 import * as v from 'valibot';
+import { PAID_PLAN_KEYS, ALL_PLAN_KEYS } from './constants';
 
 // ============================================================================
 // Admin Dashboard — Valibot 검증 스키마
@@ -67,7 +68,7 @@ export type RoleChangeInput = v.InferOutput<typeof RoleChangeSchema>;
 
 /** 빌링키 발급 요청 */
 export const BillingKeySchema = v.object({
-  planKey: v.picklist(['solo', 'pro', 'academy'], '유효하지 않은 플랜입니다'),
+  planKey: v.picklist([...PAID_PLAN_KEYS], '유효하지 않은 플랜입니다'),
   authKey: v.pipe(v.string(), v.minLength(1, '인증 키가 필요합니다')),
 });
 
@@ -171,7 +172,7 @@ export type OrgDeleteInput = v.InferOutput<typeof OrgDeleteSchema>;
 /** 학원 구독 플랜 변경 */
 export const AdminSubUpdateSchema = v.object({
   orgId: v.pipe(v.string(), v.uuid('유효하지 않은 학원 ID입니다')),
-  planKey: v.picklist(['free', 'solo', 'pro', 'academy'], '유효하지 않은 플랜입니다'),
+  planKey: v.picklist([...ALL_PLAN_KEYS], '유효하지 않은 플랜입니다'),
 });
 
 export type AdminSubUpdateInput = v.InferOutput<typeof AdminSubUpdateSchema>;

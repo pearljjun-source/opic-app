@@ -6,6 +6,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, handleCorsPreFlight } from '../_shared/cors.ts';
+import { RATE_LIMITS } from '../_shared/constants.ts';
 
 serve(async (req) => {
   // CORS preflight
@@ -61,8 +62,8 @@ serve(async (req) => {
       supabaseAdmin.rpc('check_api_rate_limit', {
         p_user_id: user.id,
         p_api_type: 'whisper',
-        p_max_requests: 30,
-        p_window_minutes: 60,
+        p_max_requests: RATE_LIMITS.WHISPER.maxRequests,
+        p_window_minutes: RATE_LIMITS.WHISPER.windowMinutes,
       }),
       supabaseAdmin.storage
         .from('practice-recordings')

@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useThemeColors } from '@/hooks/useTheme';
 import { useExamRoutes } from '@/hooks/useExamRoutes';
-import { EXAM_CONFIG } from '@/lib/constants';
+import { EXAM_CONFIG, DIFFICULTY_GRADE_LABELS } from '@/lib/constants';
 import { getRoleplayScenarios, getRoleplayScenarioDetail, checkExamAvailability, createExamSession } from '@/services/exams';
 import { useAuth } from '@/hooks/useAuth';
 import { getUserMessage } from '@/lib/errors';
@@ -13,13 +13,7 @@ import { alert as xAlert } from '@/lib/alert';
 import type { RoleplayScenario } from '@/lib/types';
 import type { GeneratedQuestion } from '@/services/exams';
 
-const DIFFICULTY_LABELS: Record<number, string> = {
-  2: 'IM1',
-  3: 'IM2',
-  4: 'IM3',
-  5: 'IH',
-  6: 'AL',
-};
+const DIFFICULTY_LABELS = DIFFICULTY_GRADE_LABELS;
 
 export default function ComboListScreen() {
   const colors = useThemeColors();

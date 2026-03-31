@@ -7,18 +7,8 @@ import { useThemeColors } from '@/hooks/useTheme';
 import { useExamRoutes } from '@/hooks/useExamRoutes';
 import { getUserMessage } from '@/lib/errors';
 import { alert as xAlert } from '@/lib/alert';
+import { STRATEGY_GROUP_INFO } from '@/lib/constants';
 import { getTopicsWithStrategy } from '@/services/exams';
-
-// 전략 그룹 라벨 + 아이콘
-const STRATEGY_GROUP_INFO: Record<string, { label: string; icon: string; description: string }> = {
-  personal: { label: '자기소개', icon: 'person-outline', description: '필수 토픽 (항상 출제)' },
-  living: { label: '생활/주거', icon: 'home-outline', description: '집, 동네 관련 — 묘사 표현 공유' },
-  entertainment: { label: '엔터테인먼트', icon: 'film-outline', description: '음악, 영화, TV, 공연 — 취미 표현 공유' },
-  daily_life: { label: '일상생활', icon: 'cart-outline', description: '쇼핑, 음식 — 일상 루틴 표현 공유' },
-  outdoor_activity: { label: '야외 활동', icon: 'sunny-outline', description: '운동, 여행, 공원, 해변 — 활동 표현 공유' },
-  technology: { label: '기술/통신', icon: 'phone-portrait-outline', description: '전화, 인터넷 — 기기/온라인 표현 공유' },
-  indoor_hobby: { label: '실내 취미', icon: 'book-outline', description: '독서 등 — 어휘 수준 약간 높음' },
-};
 
 // 난이도 색상
 const DIFFICULTY_COLORS = ['#10B981', '#34D399', '#FBBF24', '#F59E0B', '#EF4444'];

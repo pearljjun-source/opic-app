@@ -115,6 +115,71 @@ export const OPIC_GRADES = [
   'AL',
 ] as const;
 
+/** 난이도 → OPIc 등급 라벨 매핑 (콤보 롤플레이 등 표시용) */
+export const DIFFICULTY_GRADE_LABELS: Record<number, string> = {
+  2: 'IM1',
+  3: 'IM2',
+  4: 'IM3',
+  5: 'IH',
+  6: 'AL',
+} as const;
+
+// ============================================================================
+// 구독 플랜
+// ============================================================================
+
+/** 구독 플랜 키 (DB subscription_plans.plan_key와 동기화 필수) */
+export const PLAN_KEYS = {
+  FREE: 'free',
+  SOLO: 'solo',
+  PRO: 'pro',
+  ACADEMY: 'academy',
+} as const;
+
+/** 유료 플랜 키 목록 (결제 가능) */
+export const PAID_PLAN_KEYS = ['solo', 'pro', 'academy'] as const;
+
+/** 전체 플랜 키 목록 (정렬 순서) */
+export const ALL_PLAN_KEYS = ['free', 'solo', 'pro', 'academy'] as const;
+
+// ============================================================================
+// 처리 단계 라벨 (연습/시험 공통)
+// ============================================================================
+
+/** 스크립트 연습 처리 단계 */
+export type PracticeProcessingStep = 'upload' | 'save' | 'stt' | 'feedback' | 'done';
+
+export const PRACTICE_STEP_LABELS: Record<PracticeProcessingStep, string> = {
+  upload: '녹음 파일 업로드 중...',
+  save: '연습 기록 저장 중...',
+  stt: '음성을 텍스트로 변환 중...',
+  feedback: 'AI가 답변을 분석 중...',
+  done: '완료!',
+} as const;
+
+/** 시험 결과 처리 단계 */
+export type ExamProcessingStage = 'upload' | 'stt' | 'evaluate';
+
+export const EXAM_STAGE_LABELS: Record<ExamProcessingStage, string> = {
+  upload: '녹음 업로드 중',
+  stt: '음성 인식 중',
+  evaluate: 'AI 종합 평가 중',
+} as const;
+
+// ============================================================================
+// 전략 그룹 (서베이 전략 가이드용 — DB strategy_group 컬럼과 동기화)
+// ============================================================================
+
+export const STRATEGY_GROUP_INFO: Record<string, { label: string; icon: string; description: string }> = {
+  personal: { label: '자기소개', icon: 'person-outline', description: '필수 토픽 (항상 출제)' },
+  living: { label: '생활/주거', icon: 'home-outline', description: '집, 동네 관련 — 묘사 표현 공유' },
+  entertainment: { label: '엔터테인먼트', icon: 'film-outline', description: '음악, 영화, TV, 공연 — 취미 표현 공유' },
+  daily_life: { label: '일상생활', icon: 'cart-outline', description: '쇼핑, 음식 — 일상 루틴 표현 공유' },
+  outdoor_activity: { label: '야외 활동', icon: 'sunny-outline', description: '운동, 여행, 공원, 해변 — 활동 표현 공유' },
+  technology: { label: '기술/통신', icon: 'phone-portrait-outline', description: '전화, 인터넷 — 기기/온라인 표현 공유' },
+  indoor_hobby: { label: '실내 취미', icon: 'book-outline', description: '독서 등 — 어휘 수준 약간 높음' },
+} as const;
+
 // ============================================================================
 // 대시보드 설정
 // ============================================================================
@@ -225,11 +290,11 @@ export const APP_CONFIG = {
   AUDIO_SAMPLE_RATE: 44100,
   AUDIO_BIT_RATE: 128000,
 
-  // API Rate Limiting
+  // API Rate Limiting (표시용 — 실제 적용은 supabase/functions/_shared/constants.ts의 RATE_LIMITS)
   API_RATE_LIMIT: {
     WHISPER: { maxRequests: 30, windowMinutes: 60 },
-    CLAUDE: { maxRequests: 50, windowMinutes: 60 },
-    TTS: { maxRequests: 20, windowMinutes: 60 },
+    CLAUDE: { maxRequests: 30, windowMinutes: 60 },
+    TTS: { maxRequests: 50, windowMinutes: 60 },
   },
 
   // 점수
@@ -268,7 +333,11 @@ export const EXAM_TYPE_LABELS: Record<ExamType, string> = {
   level_test: '레벨 테스트',
 } as const;
 
-/** 자기평가 레벨 (모의고사 시작 시 선택) */
+/** 자기평가 레벨 (모의고사 시작 시 선택)
+ * ⚠️ questionCount 값은 DB RPC generate_mock_exam_questions에도 하드코딩됨
+ *    (045_exam_rpc_include_audio_url.sql: CASE WHEN p_self_assessment <= 2 THEN 12 ELSE 15 END)
+ *    변경 시 마이그레이션도 함께 수정 필요
+ */
 export const SELF_ASSESSMENT_LEVELS = [
   { level: 1, label: '레벨 1', description: '10단어 이하로 말할 수 있습니다', questionCount: 12 },
   { level: 2, label: '레벨 2', description: '간단한 문장을 만들 수 있습니다', questionCount: 12 },
@@ -301,6 +370,12 @@ export const QUESTION_TIME_LIMITS: Record<string, number> = {
   default: 60,
 } as const;
 
+/** OPIc 서베이 토픽 선택 설정 */
+export const SURVEY_CONFIG = {
+  /** 총 최소 선택 수 (서베이 토픽 합산) */
+  TOTAL_MIN_SELECTIONS: 12,
+} as const;
+
 /** 시험 설정 */
 export const EXAM_CONFIG = {
   /** 모의고사 제한 시간 (40분) */
@@ -309,8 +384,8 @@ export const EXAM_CONFIG = {
   LEVEL_TEST_QUESTION_COUNT: 6,
   /** 콤보 롤플레이 문항 수 */
   COMBO_QUESTION_COUNT: 3,
-  /** 모의고사 서베이 최소 토픽 수 */
-  MIN_SURVEY_TOPICS: 4,
+  /** @deprecated SURVEY_CONFIG.TOTAL_MIN_SELECTIONS 사용 */
+  MIN_SURVEY_TOPICS: 12,
   /** 시간당 최대 시험 횟수 */
   MAX_EXAMS_PER_HOUR: 2,
   /** 문항별 타이머 경고 표시 임계값 (초) */

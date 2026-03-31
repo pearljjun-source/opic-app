@@ -2,49 +2,54 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   Pressable,
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 
 import { useThemeColors } from '@/hooks/useTheme';
 import { SkeletonList } from '@/components/ui/Loading';
-import { TOPIC_CATEGORY_LABELS } from '@/lib/constants';
+import { TopicGroupSelector, useTopicGroupToggle } from '@/components/TopicGroupSelector';
+import { SURVEY_CONFIG, TOPIC_CATEGORIES } from '@/lib/constants';
+import { getTopics } from '@/services/scripts';
+import { getTopicGroups, setStudentTopics } from '@/services/topics';
+import { getUserMessage } from '@/lib/errors';
 import { supabase } from '@/lib/supabase';
-import { getTopics, TopicListItem } from '@/services/scripts';
-import type { TopicCategory } from '@/lib/types';
 import { showToast } from '@/lib/toast';
+import type { TopicGroup } from '@/lib/types';
+import type { TopicListItem } from '@/services/scripts';
 
 export default function TopicsScreen() {
   const colors = useThemeColors();
+  const [groups, setGroups] = useState<TopicGroup[]>([]);
   const [allTopics, setAllTopics] = useState<TopicListItem[]>([]);
-  const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  // 토픽 목록 + 기존 선택 로드
+  const { toggle } = useTopicGroupToggle(groups, allTopics);
+
+  // 토픽 그룹 + 토픽 목록 + 기존 선택 로드
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // 토픽 목록
-      const { data: topics } = await getTopics();
-      if (topics) setAllTopics(topics);
+      const [groupsResult, topicsResult, myTopicsResult] = await Promise.all([
+        getTopicGroups(),
+        getTopics(),
+        supabase
+          .from('student_topics')
+          .select('topic_id')
+          .eq('student_id', user.id),
+      ]);
 
-      // 기존 선택된 토픽
-      const { data: myTopics } = await supabase
-        .from('student_topics')
-        .select('topic_id')
-        .eq('student_id', user.id)
-        .is('deleted_at', null);
-
-      if (myTopics) {
-        setSelectedTopics(myTopics.map((t) => t.topic_id));
+      if (groupsResult.data) setGroups(groupsResult.data);
+      if (topicsResult.data) setAllTopics(topicsResult.data);
+      if (myTopicsResult.data) {
+        setSelectedIds(new Set(myTopicsResult.data.map((t) => t.topic_id)));
       }
 
       setIsLoading(false);
@@ -53,66 +58,42 @@ export default function TopicsScreen() {
     load();
   }, []);
 
-  // 카테고리별 그룹핑
-  const groupedTopics = useMemo(() => {
-    const groups: { category: TopicCategory; label: string; topics: TopicListItem[] }[] = [];
-    const categoryOrder: TopicCategory[] = ['survey', 'unexpected'];
-
-    for (const cat of categoryOrder) {
-      const filtered = allTopics.filter((t) => t.category === cat);
-      if (filtered.length > 0) {
-        groups.push({
-          category: cat,
-          label: TOPIC_CATEGORY_LABELS[cat],
-          topics: filtered,
-        });
-      }
-    }
-
-    return groups;
-  }, [allTopics]);
-
-  const toggleTopic = (topicId: string) => {
-    setSelectedTopics((prev) =>
-      prev.includes(topicId)
-        ? prev.filter((id) => id !== topicId)
-        : [...prev, topicId]
-    );
-  };
+  const handleToggle = useCallback(
+    (topicId: string, groupId: string | null) => {
+      setSelectedIds((prev) => toggle(topicId, groupId, prev));
+    },
+    [toggle],
+  );
 
   const handleSave = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    setIsSaving(true);
+    // 서베이 토픽 최소 선택 검증
+    const surveyCount = allTopics.filter(
+      (t) => t.category === TOPIC_CATEGORIES.SURVEY && selectedIds.has(t.id),
+    ).length;
 
-    // 기존 선택 soft delete
-    const { error: deleteError } = await supabase
-      .from('student_topics')
-      .update({ deleted_at: new Date().toISOString() })
-      .eq('student_id', user.id)
-      .is('deleted_at', null);
-
-    if (deleteError) {
-      Alert.alert('오류', '토픽 저장에 실패했습니다.');
-      setIsSaving(false);
+    if (surveyCount < SURVEY_CONFIG.TOTAL_MIN_SELECTIONS) {
+      Alert.alert(
+        '토픽 선택',
+        `서베이 토픽을 최소 ${SURVEY_CONFIG.TOTAL_MIN_SELECTIONS}개 이상 선택해주세요. (현재 ${surveyCount}개)`,
+      );
       return;
     }
 
-    // 새 선택 insert
-    if (selectedTopics.length > 0) {
-      const inserts = selectedTopics.map((topicId) => ({
-        student_id: user.id,
-        topic_id: topicId,
-      }));
+    setIsSaving(true);
 
-      const { error } = await supabase.from('student_topics').insert(inserts);
+    // RPC 호출 (서버에서 유효성 검증)
+    const { error: saveError } = await setStudentTopics(
+      user.id,
+      Array.from(selectedIds),
+    );
 
-      if (error) {
-        Alert.alert('오류', '토픽 저장에 실패했습니다.');
-        setIsSaving(false);
-        return;
-      }
+    if (saveError) {
+      Alert.alert('오류', getUserMessage(saveError));
+      setIsSaving(false);
+      return;
     }
 
     setIsSaving(false);
@@ -131,61 +112,16 @@ export default function TopicsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}>
       <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-        Background Survey에서 선택한 토픽을 설정하세요.
-      </Text>
-      <Text style={[styles.selectedCount, { color: colors.primary }]}>
-        {selectedTopics.length}개 선택됨
+        실제 OPIc Background Survey 기준으로 토픽을 선택하세요.
       </Text>
 
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {groupedTopics.map((group) => (
-          <View key={group.category} style={styles.categorySection}>
-            <Text style={[styles.categoryTitle, { color: colors.textPrimary }]}>{group.label} ({group.topics.length})</Text>
-            <View style={styles.topicGrid}>
-              {group.topics.map((item) => {
-                const isSelected = selectedTopics.includes(item.id);
-                return (
-                  <Pressable
-                    key={item.id}
-                    style={[
-                      styles.topicCard,
-                      { backgroundColor: colors.surface },
-                      isSelected && { backgroundColor: colors.primary + '10', borderColor: colors.primary },
-                    ]}
-                    onPress={() => toggleTopic(item.id)}
-                  >
-                    {isSelected && (
-                      <View style={[styles.checkBadge, { backgroundColor: colors.primary }]}>
-                        <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-                      </View>
-                    )}
-                    <View style={[styles.iconContainer, { backgroundColor: colors.borderLight }]}>
-                      <Ionicons
-                        name={
-                          (item.icon as keyof typeof Ionicons.glyphMap) ||
-                          'document-text-outline'
-                        }
-                        size={24}
-                        color={isSelected ? colors.primary : colors.textSecondary}
-                      />
-                    </View>
-                    <Text style={[styles.topicName, { color: colors.textPrimary }, isSelected && { color: colors.primary }]}>
-                      {item.name_ko}
-                    </Text>
-                    {item.name_en && (
-                      <Text style={[styles.topicNameEn, { color: colors.textDisabled }]}>{item.name_en}</Text>
-                    )}
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-        ))}
-      </ScrollView>
+      <TopicGroupSelector
+        groups={groups}
+        topics={allTopics}
+        selectedIds={selectedIds}
+        onToggle={handleToggle}
+        showUnexpected={true}
+      />
 
       <Pressable
         style={[styles.saveButton, { backgroundColor: colors.primary }, isSaving && styles.saveButtonDisabled]}
@@ -206,78 +142,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    paddingHorizontal: 0,
+    paddingTop: 16,
   },
   subtitle: {
     fontSize: 14,
-    marginTop: 4,
-    marginBottom: 4,
-  },
-  selectedCount: {
-    fontSize: 13,
-    fontFamily: 'Pretendard-SemiBold',
-    marginBottom: 16,
-  },
-  listContent: {
-    paddingBottom: 16,
-  },
-  categorySection: {
-    marginBottom: 16,
-  },
-  categoryTitle: {
-    fontSize: 15,
-    fontFamily: 'Pretendard-SemiBold',
-    marginBottom: 10,
-  },
-  topicGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  topicCard: {
-    width: '48%',
-    padding: 16,
-    borderRadius: 16,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  checkBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  iconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  topicName: {
-    fontSize: 14,
-    fontFamily: 'Pretendard-SemiBold',
-    textAlign: 'center',
-  },
-  topicNameEn: {
-    fontSize: 11,
-    marginTop: 2,
-    textAlign: 'center',
+    marginBottom: 12,
+    paddingHorizontal: 16,
   },
   saveButton: {
+    marginHorizontal: 16,
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
+    marginBottom: 8,
   },
   saveButtonDisabled: {
     opacity: 0.6,

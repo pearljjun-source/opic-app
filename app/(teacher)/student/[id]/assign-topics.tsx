@@ -1,22 +1,20 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   Pressable,
-  TouchableOpacity,
   ActivityIndicator,
   Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 
-import { TOPIC_CATEGORY_LABELS } from '@/lib/constants';
+import { TopicGroupSelector, useTopicGroupToggle } from '@/components/TopicGroupSelector';
+import { SURVEY_CONFIG, TOPIC_CATEGORIES } from '@/lib/constants';
 import { getTopics, type TopicListItem } from '@/services/scripts';
-import { setStudentTopics, getStudentTopicsWithProgress } from '@/services/topics';
+import { getTopicGroups, setStudentTopics, getStudentTopicsWithProgress } from '@/services/topics';
 import { getUserMessage } from '@/lib/errors';
-import type { TopicCategory } from '@/lib/types';
+import type { TopicGroup } from '@/lib/types';
 import { useThemeColors } from '@/hooks/useTheme';
 
 export default function AssignTopicsScreen() {
@@ -24,22 +22,28 @@ export default function AssignTopicsScreen() {
   const { id: studentId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 
+  const [groups, setGroups] = useState<TopicGroup[]>([]);
   const [allTopics, setAllTopics] = useState<TopicListItem[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 전체 토픽 + 기존 배정 토픽 로드
+  const { toggle } = useTopicGroupToggle(groups, allTopics);
+
+  // 전체 토픽 + 그룹 + 기존 배정 토픽 로드
   useEffect(() => {
     const load = async () => {
       if (!studentId) return;
       setIsLoading(true);
 
-      const [topicsResult, assignedResult] = await Promise.all([
+      const [groupsResult, topicsResult, assignedResult] = await Promise.all([
+        getTopicGroups(),
         getTopics(),
         getStudentTopicsWithProgress(studentId),
       ]);
+
+      if (groupsResult.data) setGroups(groupsResult.data);
 
       if (topicsResult.error) {
         setError(getUserMessage(topicsResult.error));
@@ -57,42 +61,25 @@ export default function AssignTopicsScreen() {
     load();
   }, [studentId]);
 
-  // 카테고리별 그룹핑
-  const groupedTopics = useMemo(() => {
-    const groups: { category: TopicCategory; label: string; topics: TopicListItem[] }[] = [];
-    const categoryOrder: TopicCategory[] = ['survey', 'unexpected'];
-
-    for (const cat of categoryOrder) {
-      const filtered = allTopics.filter((t) => t.category === cat);
-      if (filtered.length > 0) {
-        groups.push({
-          category: cat,
-          label: TOPIC_CATEGORY_LABELS[cat],
-          topics: filtered,
-        });
-      }
-    }
-
-    return groups;
-  }, [allTopics]);
-
-  const toggleTopic = useCallback((topicId: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(topicId)) {
-        next.delete(topicId);
-      } else {
-        next.add(topicId);
-      }
-      return next;
-    });
-  }, []);
+  const handleToggle = useCallback(
+    (topicId: string, groupId: string | null) => {
+      setSelectedIds((prev) => toggle(topicId, groupId, prev));
+    },
+    [toggle],
+  );
 
   const handleSave = async () => {
     if (!studentId) return;
 
-    if (selectedIds.size === 0) {
-      Alert.alert('알림', '최소 1개 이상의 토픽을 선택해주세요.');
+    const surveyCount = allTopics.filter(
+      (t) => t.category === TOPIC_CATEGORIES.SURVEY && selectedIds.has(t.id),
+    ).length;
+
+    if (surveyCount < SURVEY_CONFIG.TOTAL_MIN_SELECTIONS) {
+      Alert.alert(
+        '토픽 선택',
+        `서베이 토픽을 최소 ${SURVEY_CONFIG.TOTAL_MIN_SELECTIONS}개 이상 선택해주세요. (현재 ${surveyCount}개)`,
+      );
       return;
     }
 
@@ -137,81 +124,28 @@ export default function AssignTopicsScreen() {
 
       <View style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          학생에게 배정할 토픽을 선택하세요 ({selectedIds.size}개 선택)
+          학생에게 배정할 토픽을 선택하세요
         </Text>
 
-        <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {groupedTopics.map((group) => (
-            <View key={group.category} style={styles.categorySection}>
-              <Text style={[styles.categoryTitle, { color: colors.textPrimary }]}>{group.label} ({group.topics.length})</Text>
-              <View style={styles.topicGrid}>
-                {group.topics.map((item) => {
-                  const isSelected = selectedIds.has(item.id);
-                  return (
-                    <Pressable
-                      key={item.id}
-                      style={[
-                        styles.topicCard,
-                        { backgroundColor: colors.surface, shadowColor: '#000000' },
-                        isSelected && { borderColor: colors.primary, backgroundColor: colors.primaryLight },
-                      ]}
-                      onPress={() => toggleTopic(item.id)}
-                    >
-                      <View
-                        style={[
-                          styles.iconContainer,
-                          { backgroundColor: colors.primaryLight },
-                          isSelected && { backgroundColor: colors.primary },
-                        ]}
-                      >
-                        <Ionicons
-                          name={
-                            (item.icon as keyof typeof Ionicons.glyphMap) ||
-                            'document-text-outline'
-                          }
-                          size={20}
-                          color={isSelected ? '#FFFFFF' : colors.primary}
-                        />
-                      </View>
-                      <Text
-                        style={[
-                          styles.topicName,
-                          { color: colors.textPrimary },
-                          isSelected && { color: colors.primaryDark, fontFamily: 'Pretendard-SemiBold' },
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {item.name_ko}
-                      </Text>
-                      {isSelected && (
-                        <View style={[styles.checkBadge, { backgroundColor: colors.primary }]}>
-                          <Ionicons name="checkmark" size={12} color="#FFFFFF" />
-                        </View>
-                      )}
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-          ))}
-        </ScrollView>
+        <TopicGroupSelector
+          groups={groups}
+          topics={allTopics}
+          selectedIds={selectedIds}
+          onToggle={handleToggle}
+          showUnexpected={true}
+        />
 
-        <TouchableOpacity
-          style={[styles.saveButton, { backgroundColor: colors.primary, shadowColor: '#000000' }, isSaving && styles.saveButtonDisabled]}
+        <Pressable
+          style={[styles.saveButton, { backgroundColor: colors.primary }, isSaving && styles.saveButtonDisabled]}
           onPress={handleSave}
           disabled={isSaving}
-          activeOpacity={0.8}
         >
           {isSaving ? (
             <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
             <Text style={styles.saveButtonText}>저장하기</Text>
           )}
-        </TouchableOpacity>
+        </Pressable>
       </View>
     </>
   );
@@ -220,7 +154,7 @@ export default function AssignTopicsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
+    paddingTop: 16,
   },
   centerContainer: {
     flex: 1,
@@ -231,7 +165,8 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     fontFamily: 'Pretendard-Regular',
-    marginBottom: 16,
+    marginBottom: 12,
+    paddingHorizontal: 16,
   },
   loadingText: {
     marginTop: 12,
@@ -252,66 +187,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Pretendard-SemiBold',
     color: '#FFFFFF',
   },
-  listContent: {
-    paddingBottom: 16,
-  },
-  categorySection: {
-    marginBottom: 16,
-  },
-  categoryTitle: {
-    fontSize: 15,
-    fontFamily: 'Pretendard-SemiBold',
-    marginBottom: 10,
-  },
-  topicGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  topicCard: {
-    width: '31%',
-    borderRadius: 12,
-    padding: 10,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  iconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  topicName: {
-    fontSize: 13,
-    fontFamily: 'Pretendard-Medium',
-    textAlign: 'center',
-  },
-  checkBadge: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   saveButton: {
+    marginHorizontal: 16,
     borderRadius: 12,
     paddingVertical: 16,
-    marginTop: 12,
+    marginBottom: 8,
     alignItems: 'center',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
   },
   saveButtonDisabled: {
     opacity: 0.5,

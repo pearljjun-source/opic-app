@@ -87,8 +87,16 @@ TOPIC_CATEGORIES  // survey, unexpected
 API_TYPES         // whisper, claude, tts
 NOTIFICATION_TYPES // practice_completed, teacher_feedback, new_script, student_connected
 
+// 서베이/시험
+SURVEY_CONFIG.TOTAL_MIN_SELECTIONS  // 12 (서베이 토픽 최소 선택 수)
+PLAN_KEYS / PAID_PLAN_KEYS / ALL_PLAN_KEYS  // 구독 플랜 키 (중앙 관리)
+PRACTICE_STEP_LABELS  // 연습 처리 단계 라벨 (upload, save, stt, feedback, done)
+EXAM_STAGE_LABELS     // 시험 처리 단계 라벨 (upload, stt, evaluate)
+DIFFICULTY_GRADE_LABELS  // 난이도→OPIc 등급 매핑
+STRATEGY_GROUP_INFO   // 전략 그룹 라벨/아이콘 (survey-guide.tsx용)
+
 // 설정
-APP_CONFIG.API_RATE_LIMIT  // whisper: 30/h, claude: 50/h, tts: 20/h
+APP_CONFIG.API_RATE_LIMIT  // whisper: 30/h, claude: 30/h, tts: 50/h (표시용, 실제: _shared/constants.ts RATE_LIMITS)
 APP_CONFIG.INVITE_CODE_LENGTH   // 6
 APP_CONFIG.MAX_RECORDING_DURATION_SEC // 120 (2분)
 STORAGE_BUCKETS  // practice-recordings, question-audio, landing-assets
@@ -219,8 +227,8 @@ supabase.auth.verifyOtp({ email, token, type: 'email' }) → 세션 생성
 | Edge Function | API | 제한 | 비고 |
 |--------------|-----|------|------|
 | `whisper-stt` | OpenAI Whisper | 30/시간 | |
-| `tts-generate` | OpenAI TTS | 20/시간 | 캐시 히트 후 체크 (캐시 시 미소비) |
-| `claude-feedback` | Claude API | 50/시간 | |
+| `tts-generate` | OpenAI TTS | 50/시간 | 캐시 히트 후 체크 (캐시 시 미소비) |
+| `claude-feedback` | Claude API | 30/시간 | |
 
 429 반환 시 `{ error, remaining, reset_at }` 포함.
 
@@ -756,6 +764,33 @@ CREATE INDEX idx_subscriptions_provider_subscription_id
 - [x] Analytics (Mixpanel, `lib/analytics.ts`, 자동 Screen Tracking)
 - [x] 번역 재시도 로직 (`translateWithRetry`, 1회 재시도 + Sentry 로깅)
 
+### Phase 10 — OPIc 서베이 구조 재설계 + 상수 중앙화 ✅
+- [x] **OPIc 서베이 구조 재설계** (065 마이그레이션)
+  - `topic_groups` 테이블 (7개 OPIc 카테고리: 직업/학생/거주지/여가/취미/운동/휴가)
+  - 그룹별 선택 규칙 (`selection_type`: single/multiple, `min_selections`)
+  - 기존 24개 토픽 그룹 재배치 + 신규 23개 서베이 토픽 추가
+  - 신규 15개 돌발 토픽 추가 (기존 5개 + 15개 = 20개)
+  - 토픽별 질문 4개씩 시드 (describe/routine/experience/comparison)
+  - `set_student_topics` RPC 재작성 (서버 사이드 선택 규칙 검증, 총 12개 이상)
+  - `get_student_topics_with_progress` RPC에 그룹 정보 추가
+  - 058 마이그레이션 strategy_group NULL 버그 수정
+- [x] **공유 컴포넌트**
+  - `TopicGroupSelector` 컴포넌트 (그룹별 UI, single/multiple 모드, 선택 수 검증)
+  - `useTopicGroupToggle` 훅 (single 그룹 자동 해제 로직)
+- [x] **화면 재작성** (3개 화면 — 동일 컴포넌트 사용)
+  - `topics.tsx`: 학생 토픽 선택 (직접 DB 호출 → RPC 전환)
+  - `mock-survey.tsx`: 모의고사 서베이 (flat 리스트 → 그룹 구조)
+  - `assign-topics.tsx`: 강사 토픽 배정 (flat 리스트 → 그룹 구조)
+- [x] **상수 중앙화** (하드코딩 제거)
+  - `PRACTICE_STEP_LABELS`: 연습 처리 단계 (2파일 중복 → 1곳)
+  - `EXAM_STAGE_LABELS`: 시험 처리 단계 (로컬 → 상수)
+  - `DIFFICULTY_GRADE_LABELS`: 난이도→등급 매핑 (로컬 → 상수)
+  - `STRATEGY_GROUP_INFO`: 전략 그룹 라벨 (로컬 → 상수)
+  - `PLAN_KEYS`/`PAID_PLAN_KEYS`/`ALL_PLAN_KEYS`: 플랜 키 (3곳 → 1곳)
+  - `RATE_LIMITS` (Edge Functions `_shared/constants.ts`): API rate limit (5개 함수 → 1곳)
+  - `TOPIC_CATEGORIES.*`: 카테고리 문자열 상수화 (13개 파일)
+  - Rate limit 값 불일치 수정 (claude: 50→30, tts: 20→50)
+
 ### 예정 📋
 - [ ] Universal Links / App Links (Phase E — 별도 EAS 빌드 필요)
 - [ ] 세금계산서 자동 발급 (팝빌/바로빌 API 연동)
@@ -763,7 +798,7 @@ CREATE INDEX idx_subscriptions_provider_subscription_id
 
 ---
 
-## 마이그레이션 이력 (53개)
+## 마이그레이션 이력 (54개)
 
 | 범위 | 파일 | 내용 |
 |------|------|------|
@@ -794,6 +829,7 @@ CREATE INDEX idx_subscriptions_provider_subscription_id
 | 구독 | 059 | 트라이얼 온보딩 (조직 생성 시 자동 Solo 14일 체험) |
 | 운영 | 060 | webhook_logs + email_logs 테이블 (결제 디버깅 + 이메일 감사) |
 | 온보딩 | 061 | organizations.onboarding_completed_at + get_onboarding_status/complete_onboarding RPC |
+| 서베이 | 065 | OPIc 서베이 구조 재설계 (topic_groups, 토픽 재배치, 신규 토픽/질문, RPC 재작성) |
 
 ---
 

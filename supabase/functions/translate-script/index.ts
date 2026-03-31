@@ -8,7 +8,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { checkOrgEntitlement } from '../_shared/check-subscription.ts';
 import { getCorsHeaders, handleCorsPreFlight } from '../_shared/cors.ts';
 import { logger } from '../_shared/logger.ts';
-import { CLAUDE_API_URL, CLAUDE_API_VERSION } from '../_shared/constants.ts';
+import { CLAUDE_API_URL, CLAUDE_API_VERSION, RATE_LIMITS } from '../_shared/constants.ts';
 
 const TRANSLATION_SCHEMA = {
   type: 'object',
@@ -102,8 +102,8 @@ serve(async (req) => {
       supabaseAdmin.rpc('check_api_rate_limit', {
         p_user_id: user.id,
         p_api_type: 'claude',
-        p_max_requests: 30,
-        p_window_minutes: 60,
+        p_max_requests: RATE_LIMITS.CLAUDE.maxRequests,
+        p_window_minutes: RATE_LIMITS.CLAUDE.windowMinutes,
       }),
     ]);
 

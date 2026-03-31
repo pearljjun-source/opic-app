@@ -13,10 +13,10 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { getSubscriptionPlans, changePlan } from '@/services/billing';
 import { getUserMessage } from '@/lib/errors';
 import { requestTossBillingAuth, isTossConfigured, buildPaymentUrls } from '@/lib/toss';
-import { PAYMENT_CALLBACK, CONTACT } from '@/lib/constants';
+import { PAYMENT_CALLBACK, CONTACT, ALL_PLAN_KEYS } from '@/lib/constants';
 import type { SubscriptionPlan } from '@/lib/types';
 
-const PLAN_ORDER = ['free', 'solo', 'pro', 'academy'];
+const PLAN_ORDER = ALL_PLAN_KEYS;
 
 export default function PlanSelectScreen() {
   const colors = useThemeColors();
