@@ -51,10 +51,12 @@ export default function TopicsScreen() {
       if (groupsResult.data) setGroups(groupsResult.data);
       if (topicsResult.data) setAllTopics(topicsResult.data);
       if (myTopicsResult.data) {
-        // active 토픽 ID만 유지 (비활성화된 옛 토픽 제거)
-        const activeIds = new Set(topicsResult.data?.map((t) => t.id) || []);
+        // active 토픽 ID만 유지 + 자동 배정 토픽 제외 (서버가 자동 추가)
+        const activeTopics = topicsResult.data || [];
+        const activeIds = new Set(activeTopics.map((t) => t.id));
+        const autoIds = new Set(activeTopics.filter((t) => t.is_auto_assigned).map((t) => t.id));
         setSelectedIds(
-          new Set(myTopicsResult.data.map((t) => t.topic_id).filter((id) => activeIds.has(id))),
+          new Set(myTopicsResult.data.map((t) => t.topic_id).filter((id) => activeIds.has(id) && !autoIds.has(id))),
         );
       }
       if (profileResult.data) setProfile(profileResult.data);
@@ -76,9 +78,9 @@ export default function TopicsScreen() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // 서베이 토픽 최소 선택 검증
+    // 서베이 토픽 최소 선택 검증 (자동 배정 제외)
     const surveyCount = allTopics.filter(
-      (t) => t.category === TOPIC_CATEGORIES.SURVEY && selectedIds.has(t.id),
+      (t) => t.category === TOPIC_CATEGORIES.SURVEY && !t.is_auto_assigned && selectedIds.has(t.id),
     ).length;
 
     if (surveyCount < SURVEY_CONFIG.TOTAL_MIN_SELECTIONS) {

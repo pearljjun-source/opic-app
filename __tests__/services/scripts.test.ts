@@ -66,7 +66,7 @@ describe('getTopics', () => {
     expect(result.error).toBeNull();
     expect(mockSupabase.from).toHaveBeenCalledWith('topics');
     expect(mockSupabase._mockChain.select).toHaveBeenCalledWith(
-      'id, name_ko, name_en, icon, description, category, group_id'
+      'id, name_ko, name_en, icon, description, category, group_id, is_auto_assigned'
     );
     expect(mockSupabase._mockChain.eq).toHaveBeenCalledWith('is_active', true);
     expect(mockSupabase._mockChain.order).toHaveBeenCalledWith('sort_order', { ascending: true });

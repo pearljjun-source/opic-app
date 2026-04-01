@@ -58,13 +58,10 @@ export function TopicGroupSelector({
     return map;
   }, [groups, topics]);
 
-  // 그룹 미배정 서베이 토픽 (집/거주, 이웃/동네 등 — 프로필 기반 자동 출제 주제)
-  const ungroupedSurveyTopics = useMemo(() => {
-    const groupIds = new Set(groups.map((g) => g.id));
-    return topics.filter(
-      (t) => t.category === TOPIC_CATEGORIES.SURVEY && (!t.group_id || !groupIds.has(t.group_id)),
-    );
-  }, [groups, topics]);
+  // 자동 배정 토픽 (자기소개, 집/거주, 이웃/동네 — 서버가 자동 추가)
+  const autoAssignedTopics = useMemo(() => {
+    return topics.filter((t) => t.is_auto_assigned);
+  }, [topics]);
 
   // 돌발 토픽 (category='unexpected')
   const unexpectedTopics = useMemo(
@@ -82,8 +79,11 @@ export function TopicGroupSelector({
   );
 
   // 서베이 토픽 총 선택 수
+  // 서베이 토픽 총 선택 수 (자동 배정 제외 — 사용자가 직접 고른 것만)
   const totalSurveySelected = useMemo(() => {
-    return topics.filter((t) => t.category === TOPIC_CATEGORIES.SURVEY && selectedIds.has(t.id)).length;
+    return topics.filter(
+      (t) => t.category === TOPIC_CATEGORIES.SURVEY && !t.is_auto_assigned && selectedIds.has(t.id),
+    ).length;
   }, [topics, selectedIds]);
 
   return (
@@ -205,68 +205,13 @@ export function TopicGroupSelector({
         );
       })}
 
-      {/* 그룹 미배정 서베이 토픽 (집/거주, 이웃/동네 등) */}
-      {ungroupedSurveyTopics.length > 0 && (
-        <View style={styles.groupSection}>
-          <View style={styles.groupHeader}>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.groupTitle, { color: colors.textPrimary }]}>공통 주제</Text>
-              <Text style={[styles.groupRule, { color: colors.textSecondary }]}>
-                거주지 관련 자동 출제 · {ungroupedSurveyTopics.filter((t) => selectedIds.has(t.id)).length}개 선택됨
-              </Text>
-            </View>
-          </View>
-          <View style={styles.topicGrid}>
-            {ungroupedSurveyTopics.map((topic) => {
-              const isSelected = selectedIds.has(topic.id);
-              return (
-                <Pressable
-                  key={topic.id}
-                  style={[
-                    styles.topicCard,
-                    { backgroundColor: colors.surface },
-                    isSelected && {
-                      backgroundColor: colors.primaryLight,
-                      borderColor: colors.primary,
-                    },
-                  ]}
-                  onPress={() => onToggle(topic.id, null)}
-                >
-                  {isSelected && (
-                    <View style={[styles.checkBadge, { backgroundColor: colors.primary }]}>
-                      <Ionicons name="checkmark" size={12} color="#FFFFFF" />
-                    </View>
-                  )}
-                  <View
-                    style={[
-                      styles.iconContainer,
-                      { backgroundColor: colors.borderLight },
-                      isSelected && { backgroundColor: colors.primary },
-                    ]}
-                  >
-                    <Ionicons
-                      name={
-                        (topic.icon as keyof typeof Ionicons.glyphMap) ||
-                        'document-text-outline'
-                      }
-                      size={20}
-                      color={isSelected ? '#FFFFFF' : colors.textSecondary}
-                    />
-                  </View>
-                  <Text
-                    style={[
-                      styles.topicName,
-                      { color: colors.textPrimary },
-                      isSelected && { color: colors.primary, fontFamily: 'Pretendard-SemiBold' },
-                    ]}
-                    numberOfLines={2}
-                  >
-                    {topic.name_ko}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+      {/* 자동 배정 토픽 안내 (자기소개 + 집/거주 + 이웃/동네) */}
+      {autoAssignedTopics.length > 0 && (
+        <View style={[styles.autoAssignBanner, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
+          <Ionicons name="information-circle-outline" size={18} color={colors.textSecondary} />
+          <Text style={[styles.autoAssignText, { color: colors.textSecondary }]}>
+            자동 배정: {autoAssignedTopics.map((t) => t.name_ko).join(', ')}
+          </Text>
         </View>
       )}
 
@@ -487,5 +432,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: 'Pretendard-Medium',
     textAlign: 'center',
+  },
+  autoAssignBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  autoAssignText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: 'Pretendard-Regular',
   },
 });

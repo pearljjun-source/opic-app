@@ -778,12 +778,12 @@ CREATE INDEX idx_subscriptions_provider_subscription_id
   - Q1~Q3(직업/학생/거주지)은 프로필 질문 → `student_survey_profiles` 테이블로 분리
   - Q4~Q7(여가/취미/운동/휴가)만 토픽 선택 → `topic_groups` 활성 4개
   - Q1~Q3용 신규 토픽(회사원/자영업 등 11개) 비활성화
-  - 집/거주, 이웃/동네: 그룹 해제 → ungrouped 공통 서베이 토픽
+  - 집/거주, 이웃/동네, 자기소개: 자동 배정 토픽 (`is_auto_assigned = true`)
   - `save_survey_profile` / `get_survey_profile` RPC 추가
   - `SurveyProfileSelector` 컴포넌트 (Q1~Q3 프로필 선택 UI)
   - 프로필 옵션 상수 (`SURVEY_JOB_OPTIONS`, `SURVEY_RESIDENCE_OPTIONS` 등)
 - [x] **공유 컴포넌트**
-  - `TopicGroupSelector` 컴포넌트 (그룹별 UI, ungrouped 토픽, profileSection prop)
+  - `TopicGroupSelector` 컴포넌트 (그룹별 UI, 자동 배정 안내, profileSection prop)
   - `SurveyProfileSelector` 컴포넌트 (Q1~Q3 라디오/토글 UI)
   - `useTopicGroupToggle` 훅 (single 그룹 자동 해제 로직)
 - [x] **화면 재작성** (3개 화면)
@@ -807,7 +807,7 @@ CREATE INDEX idx_subscriptions_provider_subscription_id
 
 ---
 
-## 마이그레이션 이력 (56개)
+## 마이그레이션 이력 (57개)
 
 | 범위 | 파일 | 내용 |
 |------|------|------|
@@ -841,6 +841,7 @@ CREATE INDEX idx_subscriptions_provider_subscription_id
 | 서베이 | 065 | OPIc 서베이 구조 재설계 (topic_groups, 토픽 재배치, 신규 토픽/질문, RPC 재작성) |
 | 서베이 | 066 | set_student_topics 돌발 토픽 허용 수정 |
 | 서베이 | 067 | 서베이 프로필 분리 (Q1~Q3 → student_survey_profiles, Q1~Q3 그룹 비활성화) |
+| 서베이 | 068 | 공통 토픽 자동 배정 (자기소개+집/거주+이웃/동네 is_auto_assigned, set_student_topics 자동 포함) |
 
 ---
 

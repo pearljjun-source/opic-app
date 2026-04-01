@@ -41,8 +41,10 @@ export default function MockSurveyScreen() {
       if (topicsResult.error) {
         xAlert('오류', getUserMessage(topicsResult.error));
       } else if (topicsResult.data) {
-        // 서베이 토픽만 필터링
-        setTopics(topicsResult.data.filter((t) => t.category === TOPIC_CATEGORIES.SURVEY));
+        // 서베이 토픽만 필터링 (자동 배정 토픽 제외 — UI에서 선택 불필요)
+        setTopics(topicsResult.data.filter(
+          (t) => t.category === TOPIC_CATEGORIES.SURVEY && !t.is_auto_assigned,
+        ));
       }
 
       setIsLoading(false);

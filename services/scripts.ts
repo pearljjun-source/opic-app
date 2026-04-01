@@ -75,6 +75,7 @@ export interface TopicListItem {
   description: string | null;
   category: string;
   group_id: string | null;
+  is_auto_assigned: boolean;
 }
 
 export interface QuestionListItem {
@@ -136,7 +137,7 @@ export async function getTopics(): Promise<{
 }> {
   const { data, error } = await supabase
     .from('topics')
-    .select('id, name_ko, name_en, icon, description, category, group_id')
+    .select('id, name_ko, name_en, icon, description, category, group_id, is_auto_assigned')
     .eq('is_active', true)
     .order('sort_order', { ascending: true });
 

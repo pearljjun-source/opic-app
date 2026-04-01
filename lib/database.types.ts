@@ -1544,9 +1544,11 @@ export type Database = {
           category: string
           created_at: string | null
           description: string | null
+          group_id: string | null
           icon: string | null
           id: string
           is_active: boolean | null
+          is_auto_assigned: boolean
           name_en: string
           name_ko: string
           sort_order: number | null
@@ -1555,9 +1557,11 @@ export type Database = {
           category?: string
           created_at?: string | null
           description?: string | null
+          group_id?: string | null
           icon?: string | null
           id?: string
           is_active?: boolean | null
+          is_auto_assigned?: boolean
           name_en: string
           name_ko: string
           sort_order?: number | null
@@ -1566,9 +1570,11 @@ export type Database = {
           category?: string
           created_at?: string | null
           description?: string | null
+          group_id?: string | null
           icon?: string | null
           id?: string
           is_active?: boolean | null
+          is_auto_assigned?: boolean
           name_en?: string
           name_ko?: string
           sort_order?: number | null
