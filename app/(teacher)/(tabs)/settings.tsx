@@ -9,6 +9,8 @@ import { useThemeColors, useThemeControl, loadThemePreference, ThemePreference }
 import { useAuth } from '@/hooks/useAuth';
 import { canManageOrg } from '@/lib/permissions';
 import { confirm as xConfirm } from '@/lib/alert';
+import { on } from '@/lib/events';
+import { getUnreadCount } from '@/services/notifications';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -60,9 +62,20 @@ export default function TeacherSettings() {
   const colors = useThemeColors();
   const { setThemePreference } = useThemeControl();
   const [themePref, setThemePref] = useState<ThemePreference>('system');
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     loadThemePreference().then(setThemePref);
+  }, []);
+
+  // 웹에서 미읽은 알림 수 표시
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    getUnreadCount().then(setUnreadCount);
+    const off = on('notification-changed', () => {
+      getUnreadCount().then(setUnreadCount);
+    });
+    return off;
   }, []);
 
   const handleThemeChange = async (pref: ThemePreference) => {
@@ -113,6 +126,22 @@ export default function TeacherSettings() {
               icon="card-outline"
               label="구독 정보"
               onPress={() => router.push('/(teacher)/manage/subscription')}
+              showChevron
+            />
+          </View>
+        </View>
+      )}
+
+      {/* 알림 (웹만) */}
+      {Platform.OS === 'web' && (
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>알림</Text>
+          <View style={[styles.card, { backgroundColor: colors.surface }]}>
+            <SettingsRow
+              icon="notifications-outline"
+              label="알림"
+              value={unreadCount > 0 ? `${unreadCount}개 읽지 않음` : undefined}
+              onPress={() => router.push('/(teacher)/notifications' as any)}
               showChevron
             />
           </View>

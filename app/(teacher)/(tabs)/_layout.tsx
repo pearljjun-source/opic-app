@@ -1,10 +1,13 @@
+import { useState, useEffect } from 'react';
 import { Tabs, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Image, View, Text, Pressable } from 'react-native';
+import { Image, View, Text, Pressable, Platform } from 'react-native';
 
 import { COLORS } from '@/lib/constants';
 import { useThemeColors } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
+import { on } from '@/lib/events';
+import { getUnreadCount } from '@/services/notifications';
 
 function HeaderLogo() {
   const { currentOrg } = useAuth();
@@ -31,8 +34,28 @@ function HeaderLogo() {
   );
 }
 
+function useNotificationBadge() {
+  const [badge, setBadge] = useState(0);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+
+    // 초기 로드
+    getUnreadCount().then(setBadge);
+
+    // 이벤트 구독
+    const off = on('notification-changed', () => {
+      getUnreadCount().then(setBadge);
+    });
+    return off;
+  }, []);
+
+  return badge;
+}
+
 export default function TeacherTabsLayout() {
   const colors = useThemeColors();
+  const badge = useNotificationBadge();
   return (
     <Tabs
       screenOptions={{
@@ -103,6 +126,8 @@ export default function TeacherTabsLayout() {
         name="settings"
         options={{
           title: '설정',
+          tabBarBadge: badge > 0 ? (badge > 99 ? '99+' : badge) : undefined,
+          tabBarBadgeStyle: badge > 0 ? { backgroundColor: COLORS.PRIMARY, fontSize: 10 } : undefined,
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons name={focused ? 'settings' : 'settings-outline'} size={size} color={color} />
           ),

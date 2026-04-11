@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
 import { AuthProvider } from '@/hooks/useAuth';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { useWebNotifications } from '@/hooks/useWebNotifications';
 import { loadThemePreference } from '@/hooks/useTheme';
 import { Toast } from '@/components/ui/Toast';
 import { OfflineBanner } from '@/components/ui/OfflineBanner';
@@ -69,6 +70,11 @@ function NotificationSetup() {
   return null;
 }
 
+function WebNotificationSetup() {
+  useWebNotifications();
+  return null;
+}
+
 function ScreenTracker() {
   useScreenTracking();
   return null;
@@ -87,6 +93,7 @@ function RootLayoutNav() {
     <SafeAreaProvider>
       <AuthProvider>
         {Platform.OS !== 'web' && <NotificationSetup />}
+        {Platform.OS === 'web' && <WebNotificationSetup />}
         <ScreenTracker />
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
