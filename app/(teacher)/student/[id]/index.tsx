@@ -37,7 +37,7 @@ import { PracticeListItem } from '@/components/teacher/PracticeListItem';
 import { TopicProgressCard } from '@/components/teacher/TopicProgressCard';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { EXAM_TYPE_LABELS } from '@/lib/constants';
-import { getStudentExamSessions } from '@/services/exams';
+import { getStudentExamSessions, deleteExamSessions } from '@/services/exams';
 import { getUserMessage } from '@/lib/errors';
 import { SkeletonDetail } from '@/components/ui/Loading';
 import { useAuth } from '@/hooks/useAuth';
@@ -62,6 +62,9 @@ export default function StudentDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isNotesModalVisible, setIsNotesModalVisible] = useState(false);
   const [isMenuVisible, setIsMenuVisible] = useState(false);
+  const [isExamEditMode, setIsExamEditMode] = useState(false);
+  const [selectedExamIds, setSelectedExamIds] = useState<Set<string>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Data
   const [student, setStudent] = useState<StudentDetailInfo | null>(null);
@@ -209,6 +212,48 @@ export default function StudentDetailScreen() {
 
   const handlePracticePress = (practice: StudentPracticeListItem) => {
     router.push(`/(teacher)/student/${id}/practice/${practice.id}`);
+  };
+
+  // Exam edit mode handlers
+  const toggleExamSelect = (examId: string) => {
+    setSelectedExamIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(examId)) next.delete(examId);
+      else next.add(examId);
+      return next;
+    });
+  };
+
+  const toggleSelectAllExams = () => {
+    if (selectedExamIds.size === exams.length) {
+      setSelectedExamIds(new Set());
+    } else {
+      setSelectedExamIds(new Set(exams.map((e) => e.id)));
+    }
+  };
+
+  const handleDeleteExams = () => {
+    if (selectedExamIds.size === 0) return;
+
+    const count = selectedExamIds.size;
+    xConfirm(
+      '시험 기록 삭제',
+      `선택한 ${count}개의 시험 기록을 삭제하시겠습니까?\n\n삭제된 기록은 복구할 수 없습니다.`,
+      async () => {
+        setIsDeleting(true);
+        const result = await deleteExamSessions(Array.from(selectedExamIds));
+        setIsDeleting(false);
+
+        if (result.success) {
+          setExams((prev) => prev.filter((e) => !selectedExamIds.has(e.id)));
+          setSelectedExamIds(new Set());
+          setIsExamEditMode(false);
+        } else {
+          xAlert('오류', result.error || '삭제에 실패했습니다.');
+        }
+      },
+      { confirmText: '삭제' },
+    );
   };
 
   const handleNewScript = () => {
@@ -381,46 +426,107 @@ export default function StudentDetailScreen() {
     }
 
     return (
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
-        }
-      >
-        {exams.map((exam) => (
-          <View
-            key={exam.id}
-            style={[styles.examItem, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          >
-            <View style={styles.examItemTop}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.examType, { color: colors.textPrimary }]}>
-                  {EXAM_TYPE_LABELS[exam.exam_type]}
-                </Text>
-                <Text style={[styles.examDate, { color: colors.textSecondary }]}>
-                  {new Date(exam.started_at).toLocaleDateString('ko-KR')}
-                </Text>
-              </View>
-              {exam.estimated_grade ? (
-                <View style={[styles.examGradeBadge, { backgroundColor: colors.primaryLight }]}>
-                  <Text style={[styles.examGradeText, { color: colors.primary }]}>{exam.estimated_grade}</Text>
+      <View style={{ flex: 1 }}>
+        {/* 편집 모드 헤더 */}
+        <View style={styles.examEditHeader}>
+          {isExamEditMode ? (
+            <>
+              <Pressable onPress={toggleSelectAllExams} style={styles.examSelectAllRow}>
+                <Ionicons
+                  name={selectedExamIds.size === exams.length ? 'checkbox' : 'square-outline'}
+                  size={22}
+                  color={selectedExamIds.size === exams.length ? colors.primary : colors.textSecondary}
+                />
+                <Text style={[styles.examSelectAllText, { color: colors.textSecondary }]}>전체 선택</Text>
+              </Pressable>
+              <Pressable onPress={() => { setIsExamEditMode(false); setSelectedExamIds(new Set()); }}>
+                <Text style={[styles.examEditButton, { color: colors.textSecondary }]}>취소</Text>
+              </Pressable>
+            </>
+          ) : (
+            <View style={{ flex: 1 }} />
+          )}
+          {!isExamEditMode && (
+            <Pressable onPress={() => setIsExamEditMode(true)}>
+              <Text style={[styles.examEditButton, { color: colors.primary }]}>편집</Text>
+            </Pressable>
+          )}
+        </View>
+
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
+          }
+        >
+          {exams.map((exam) => (
+            <Pressable
+              key={exam.id}
+              style={[styles.examItem, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              onPress={() => {
+                if (isExamEditMode) {
+                  toggleExamSelect(exam.id);
+                } else {
+                  router.push(`/(teacher)/exam/${exam.id}` as any);
+                }
+              }}
+            >
+              <View style={styles.examItemTop}>
+                {isExamEditMode && (
+                  <Ionicons
+                    name={selectedExamIds.has(exam.id) ? 'checkbox' : 'square-outline'}
+                    size={22}
+                    color={selectedExamIds.has(exam.id) ? colors.primary : colors.textDisabled}
+                    style={{ marginRight: 12 }}
+                  />
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.examType, { color: colors.textPrimary }]}>
+                    {EXAM_TYPE_LABELS[exam.exam_type]}
+                  </Text>
+                  <Text style={[styles.examDate, { color: colors.textSecondary }]}>
+                    {new Date(exam.started_at).toLocaleDateString('ko-KR')}
+                  </Text>
                 </View>
-              ) : (
-                <Text style={[styles.examStatusText, { color: colors.textDisabled }]}>
-                  {exam.status === 'completed' ? '채점 중' : exam.status === 'abandoned' ? '포기' : '진행 중'}
+                {exam.estimated_grade ? (
+                  <View style={[styles.examGradeBadge, { backgroundColor: colors.primaryLight }]}>
+                    <Text style={[styles.examGradeText, { color: colors.primary }]}>{exam.estimated_grade}</Text>
+                  </View>
+                ) : (
+                  <Text style={[styles.examStatusText, { color: colors.textDisabled }]}>
+                    {exam.status === 'completed' ? '채점 중' : exam.status === 'abandoned' ? '포기' : '진행 중'}
+                  </Text>
+                )}
+              </View>
+              {exam.overall_score != null && (
+                <Text style={[styles.examScore, { color: colors.textSecondary }]}>
+                  종합 {exam.overall_score}점
                 </Text>
               )}
-            </View>
-            {exam.overall_score != null && (
-              <Text style={[styles.examScore, { color: colors.textSecondary }]}>
-                종합 {exam.overall_score}점
-              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+
+        {/* 삭제 바 */}
+        {isExamEditMode && selectedExamIds.size > 0 && (
+          <Pressable
+            style={[styles.examDeleteBar, { backgroundColor: colors.error }]}
+            onPress={handleDeleteExams}
+            disabled={isDeleting}
+          >
+            {isDeleting ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <Ionicons name="trash-outline" size={20} color="#FFFFFF" />
+                <Text style={styles.examDeleteBarText}>{selectedExamIds.size}개 삭제</Text>
+              </>
             )}
-          </View>
-        ))}
-      </ScrollView>
+          </Pressable>
+        )}
+      </View>
     );
   };
 
@@ -810,5 +916,40 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: 'Pretendard-Regular',
     marginTop: 6,
+  },
+  examEditHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  examEditButton: {
+    fontSize: 14,
+    fontFamily: 'Pretendard-SemiBold',
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+  },
+  examSelectAllRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  examSelectAllText: {
+    fontSize: 14,
+    fontFamily: 'Pretendard-Medium',
+  },
+  examDeleteBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  examDeleteBarText: {
+    fontSize: 15,
+    fontFamily: 'Pretendard-SemiBold',
+    color: '#FFFFFF',
   },
 });

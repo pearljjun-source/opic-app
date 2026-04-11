@@ -1,5 +1,5 @@
-import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, Alert } from 'react-native';
-import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator } from 'react-native';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -20,22 +20,69 @@ export default function ExamResultScreen() {
   const [session, setSession] = useState<(ExamSession & { responses: ExamResponse[] }) | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedQuestion, setExpandedQuestion] = useState<number | null>(null);
+  const [isTimedOut, setIsTimedOut] = useState(false);
+  const pollCountRef = useRef(0);
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const POLL_INTERVAL_MS = 3000;
+  const MAX_POLLS = 20; // 60초
+
+  const fetchSession = useCallback(async () => {
+    if (!sessionId) return null;
+    const { data, error } = await getExamSession(sessionId);
+    if (error) {
+      xAlert('오류', getUserMessage(error));
+      return null;
+    }
+    return data;
+  }, [sessionId]);
+
+  // 초기 로드
   useEffect(() => {
     if (!sessionId) {
-      setIsLoading(false); // sessionId 누락 → 에러 상태로 전환 (무한 스피너 방지)
+      setIsLoading(false);
       return;
     }
     (async () => {
-      const { data, error } = await getExamSession(sessionId);
-      if (error) {
-        xAlert('오류', getUserMessage(error));
-      } else {
-        setSession(data);
-      }
+      const data = await fetchSession();
+      if (data) setSession(data);
       setIsLoading(false);
     })();
-  }, [sessionId]);
+  }, [sessionId, fetchSession]);
+
+  // 처리 중일 때 폴링
+  useEffect(() => {
+    const status = session?.processing_status;
+    if (status !== 'pending' && status !== 'processing') return;
+
+    pollCountRef.current = 0;
+    setIsTimedOut(false);
+
+    pollTimerRef.current = setInterval(async () => {
+      pollCountRef.current += 1;
+      if (pollCountRef.current >= MAX_POLLS) {
+        if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+        setIsTimedOut(true);
+        return;
+      }
+      const data = await fetchSession();
+      if (data) {
+        setSession(data);
+        if (data.processing_status !== 'pending' && data.processing_status !== 'processing') {
+          if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+          pollTimerRef.current = null;
+        }
+      }
+    }, POLL_INTERVAL_MS);
+
+    return () => {
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+    };
+  }, [session?.processing_status, fetchSession]);
 
   if (isLoading) {
     return (
@@ -56,6 +103,15 @@ export default function ExamResultScreen() {
 
   const report = session.evaluation_report;
   const isProcessing = session.processing_status === 'processing' || session.processing_status === 'pending';
+  const isFailed = session.processing_status === 'failed';
+
+  const handleRetry = async () => {
+    setIsTimedOut(false);
+    setIsLoading(true);
+    const data = await fetchSession();
+    if (data) setSession(data);
+    setIsLoading(false);
+  };
 
   return (
     <ScrollView
@@ -68,7 +124,23 @@ export default function ExamResultScreen() {
           {EXAM_TYPE_LABELS[session.exam_type]}
         </Text>
 
-        {isProcessing ? (
+        {isTimedOut ? (
+          <View style={styles.processingState}>
+            <Ionicons name="time-outline" size={24} color={colors.warning} />
+            <Text style={[styles.processingText, { color: colors.textSecondary }]}>평가 시간이 오래 걸리고 있습니다.</Text>
+            <Pressable style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={handleRetry}>
+              <Text style={styles.retryButtonText}>새로고침</Text>
+            </Pressable>
+          </View>
+        ) : isFailed ? (
+          <View style={styles.processingState}>
+            <Ionicons name="alert-circle-outline" size={24} color={colors.error} />
+            <Text style={[styles.processingText, { color: colors.error }]}>AI 평가 처리에 실패했습니다.</Text>
+            <Pressable style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={handleRetry}>
+              <Text style={styles.retryButtonText}>다시 확인</Text>
+            </Pressable>
+          </View>
+        ) : isProcessing ? (
           <View style={styles.processingState}>
             <ActivityIndicator size="small" color={colors.primary} />
             <Text style={[styles.processingText, { color: colors.textSecondary }]}>AI 평가 처리 중...</Text>
@@ -253,8 +325,10 @@ const styles = StyleSheet.create({
   gradeBigText: { fontSize: 28, fontFamily: 'Pretendard-Bold' },
   overallScore: { fontSize: 14, fontFamily: 'Pretendard-Medium' },
   noGrade: { fontSize: 16, fontFamily: 'Pretendard-Medium', marginVertical: 20 },
-  processingState: { flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: 20 },
-  processingText: { fontSize: 14, fontFamily: 'Pretendard-Medium' },
+  processingState: { alignItems: 'center', gap: 8, marginVertical: 20 },
+  processingText: { fontSize: 14, fontFamily: 'Pretendard-Medium', textAlign: 'center' },
+  retryButton: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10, marginTop: 4 },
+  retryButtonText: { fontSize: 14, fontFamily: 'Pretendard-SemiBold', color: '#FFFFFF' },
   section: {
     borderRadius: 16,
     padding: 20,

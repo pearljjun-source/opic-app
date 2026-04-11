@@ -229,6 +229,34 @@ export async function abandonExamSession(sessionId: string): Promise<{ error: Er
   return { error: null };
 }
 
+/**
+ * 시험 세션 소프트 삭제 (강사/원장 전용)
+ * RPC soft_delete_exam_sessions: 연결된 학생 또는 같은 조직 시험만 삭제 가능
+ */
+export async function deleteExamSessions(sessionIds: string[]): Promise<{
+  success: boolean;
+  deletedCount: number;
+  error: string | null;
+}> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, deletedCount: 0, error: '로그인이 필요합니다.' };
+
+  const { data, error } = await (supabase.rpc as CallableFunction)(
+    'soft_delete_exam_sessions',
+    { p_session_ids: sessionIds },
+  );
+
+  if (error) {
+    return { success: false, deletedCount: 0, error: getUserMessage(classifyError(error, { resource: 'exam_session' })) };
+  }
+
+  if (!data?.success) {
+    return { success: false, deletedCount: 0, error: classifyRpcError(data?.error, { resource: 'exam_session' }).userMessage };
+  }
+
+  return { success: true, deletedCount: data.deleted_count ?? 0, error: null };
+}
+
 // ============================================================================
 // 응답 저장
 // ============================================================================
