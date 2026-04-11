@@ -1,10 +1,11 @@
 import {
   View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable,
-  Alert, RefreshControl, Modal, TextInput, Switch, Platform, KeyboardAvoidingView,
+  RefreshControl, Modal, TextInput, Switch, Platform, KeyboardAvoidingView,
 } from 'react-native';
 import { useState, useEffect, useCallback } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 
+import { alert as xAlert, confirm as xConfirm } from '@/lib/alert';
 import { useThemeColors } from '@/hooks/useTheme';
 import { getUserMessage } from '@/lib/errors';
 import {
@@ -136,7 +137,7 @@ export default function AdminLandingScreen() {
     });
 
     if (updateError) {
-      Alert.alert('오류', getUserMessage(updateError));
+      xAlert('오류', getUserMessage(updateError));
     } else {
       setSections(prev =>
         prev.map(s => s.id === section.id ? { ...s, is_active: !s.is_active } : s)
@@ -177,7 +178,7 @@ export default function AdminLandingScreen() {
     const { error: updateError } = await updateLandingSection(selectedSection.section_key, updates);
 
     if (updateError) {
-      Alert.alert('오류', getUserMessage(updateError));
+      xAlert('오류', getUserMessage(updateError));
     } else {
       const updated = {
         ...selectedSection,
@@ -199,21 +200,19 @@ export default function AdminLandingScreen() {
   // ============================================================================
 
   const handleDeleteItem = useCallback(async (itemId: string) => {
-    Alert.alert('삭제 확인', '이 아이템을 삭제하시겠습니까?', [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '삭제',
-        style: 'destructive',
-        onPress: async () => {
-          const { error: deleteError } = await deleteLandingItem(itemId);
-          if (deleteError) {
-            Alert.alert('오류', getUserMessage(deleteError));
-          } else {
-            setItems(prev => prev.filter(i => i.id !== itemId));
-          }
-        },
+    xConfirm(
+      '삭제 확인',
+      '이 아이템을 삭제하시겠습니까?',
+      async () => {
+        const { error: deleteError } = await deleteLandingItem(itemId);
+        if (deleteError) {
+          xAlert('오류', getUserMessage(deleteError));
+        } else {
+          setItems(prev => prev.filter(i => i.id !== itemId));
+        }
       },
-    ]);
+      { confirmText: '삭제' }
+    );
   }, []);
 
   const handleOpenCreateItem = useCallback(() => {
@@ -257,7 +256,7 @@ export default function AdminLandingScreen() {
     if (!selectedSection) return;
     const trimmedTitle = itemForm.title.trim();
     if (!trimmedTitle) {
-      Alert.alert('오류', '제목을 입력해주세요.');
+      xAlert('오류', '제목을 입력해주세요.');
       return;
     }
 
@@ -305,7 +304,7 @@ export default function AdminLandingScreen() {
 
     const { error: saveError } = await upsertLandingItem(payload);
     if (saveError) {
-      Alert.alert('오류', getUserMessage(saveError));
+      xAlert('오류', getUserMessage(saveError));
     } else {
       setItemModalVisible(false);
       await fetchItems(selectedSection.id);
@@ -334,7 +333,7 @@ export default function AdminLandingScreen() {
     const { error: reorderError } = await reorderLandingItems(payload);
 
     if (reorderError) {
-      Alert.alert('오류', getUserMessage(reorderError));
+      xAlert('오류', getUserMessage(reorderError));
     } else {
       setIsReorderMode(false);
     }
@@ -368,7 +367,7 @@ export default function AdminLandingScreen() {
       );
 
       if (uploadError) {
-        Alert.alert('업로드 실패', getUserMessage(uploadError));
+        xAlert('업로드 실패', getUserMessage(uploadError));
       } else if (data) {
         const field = type === 'image' ? 'image_url' : 'video_url';
         setItemForm(prev => ({ ...prev, [field]: data.url }));

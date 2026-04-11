@@ -193,7 +193,7 @@ Translate the English script naturally into Korean.
 
     if (updateError) {
       // 캐싱 실패해도 번역 결과는 반환 (다음에 재시도)
-      if (Deno.env.get('DENO_ENV') !== 'production') {
+      if (Deno.env.get('DENO_ENV') === 'development') {
         logger.warn('Cache write failed', updateError.message);
       }
     }

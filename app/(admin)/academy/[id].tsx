@@ -1,12 +1,12 @@
 import {
   View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, RefreshControl,
-  Alert, Modal, TextInput,
+  Modal, TextInput,
 } from 'react-native';
 import { useState, useEffect, useCallback } from 'react';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-
+import { alert as xAlert, confirm as xConfirm } from '@/lib/alert';
 import { useThemeColors } from '@/hooks/useTheme';
 import { getUserMessage } from '@/lib/errors';
 import {
@@ -136,7 +136,7 @@ export default function AcademyDetailScreen() {
     setIsSaving(false);
 
     if (result.error) {
-      Alert.alert('오류', getUserMessage(result.error));
+      xAlert('오류', getUserMessage(result.error));
     } else {
       setShowEditModal(false);
       await fetchData();
@@ -146,7 +146,7 @@ export default function AcademyDetailScreen() {
   const handleOpenPlanModal = async () => {
     const result = await getSubscriptionPlans();
     if (result.error) {
-      Alert.alert('오류', getUserMessage(result.error));
+      xAlert('오류', getUserMessage(result.error));
       return;
     }
     setPlans(result.data || []);
@@ -161,7 +161,7 @@ export default function AcademyDetailScreen() {
     setIsChangingPlan(false);
 
     if (result.error) {
-      Alert.alert('오류', getUserMessage(result.error));
+      xAlert('오류', getUserMessage(result.error));
     } else {
       setShowPlanModal(false);
       const actionText = result.data?.action === 'subscription_create' ? '구독이 생성되었습니다.' : '플랜이 변경되었습니다.';
@@ -171,37 +171,36 @@ export default function AcademyDetailScreen() {
   };
 
   const handleCancelSubscription = () => {
-    Alert.alert(
+    xConfirm(
       '구독 취소',
-      '어떤 방식으로 취소하시겠습니까?',
-      [
-        { text: '돌아가기', style: 'cancel' },
-        {
-          text: '기간 만료 시',
-          onPress: async () => {
-            const result = await adminCancelSubscription(id!, false);
-            if (result.error) {
-              Alert.alert('오류', getUserMessage(result.error));
-            } else {
-              showToast('기간 만료 시 자동 해지됩니다.');
-              await fetchData();
-            }
-          },
-        },
-        {
-          text: '즉시 취소',
-          style: 'destructive',
-          onPress: async () => {
-            const result = await adminCancelSubscription(id!, true);
-            if (result.error) {
-              Alert.alert('오류', getUserMessage(result.error));
-            } else {
-              showToast('구독이 즉시 취소되었습니다.');
-              await fetchData();
-            }
-          },
-        },
-      ]
+      '기간 만료 시 자동 해지하시겠습니까?\n즉시 취소를 원하시면 "취소"를 누른 후 다시 시도해 주세요.',
+      async () => {
+        const result = await adminCancelSubscription(id!, false);
+        if (result.error) {
+          xAlert('오류', getUserMessage(result.error));
+        } else {
+          showToast('기간 만료 시 자동 해지됩니다.');
+          await fetchData();
+        }
+      },
+      { confirmText: '기간 만료 시 해지' },
+    );
+  };
+
+  const handleImmediateCancelSubscription = () => {
+    xConfirm(
+      '즉시 취소',
+      '구독을 즉시 취소하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
+      async () => {
+        const result = await adminCancelSubscription(id!, true);
+        if (result.error) {
+          xAlert('오류', getUserMessage(result.error));
+        } else {
+          showToast('구독이 즉시 취소되었습니다.');
+          await fetchData();
+        }
+      },
+      { confirmText: '즉시 취소' },
     );
   };
 
@@ -212,7 +211,7 @@ export default function AcademyDetailScreen() {
     setIsDeleting(false);
 
     if (result.error) {
-      Alert.alert('오류', getUserMessage(result.error));
+      xAlert('오류', getUserMessage(result.error));
     } else {
       setShowDeleteModal(false);
       showToast('학원이 삭제되었습니다.');
@@ -318,8 +317,12 @@ export default function AcademyDetailScreen() {
                     <Text style={[styles.subActionText, { color: colors.primary }]}>플랜 변경</Text>
                   </Pressable>
                   <Pressable style={styles.subActionBtn} onPress={handleCancelSubscription} hitSlop={8}>
+                    <Ionicons name="close-circle-outline" size={16} color={colors.warning} />
+                    <Text style={[styles.subActionText, { color: colors.warning }]}>기간 만료 해지</Text>
+                  </Pressable>
+                  <Pressable style={styles.subActionBtn} onPress={handleImmediateCancelSubscription} hitSlop={8}>
                     <Ionicons name="close-circle-outline" size={16} color={colors.error} />
-                    <Text style={[styles.subActionText, { color: colors.error }]}>구독 취소</Text>
+                    <Text style={[styles.subActionText, { color: colors.error }]}>즉시 취소</Text>
                   </Pressable>
                 </View>
               </View>

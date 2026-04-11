@@ -8,7 +8,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { useState, useEffect } from 'react';
@@ -18,6 +17,7 @@ import { getUserMessage } from '@/lib/errors';
 import { getScript, updateScript, deleteScript, ScriptDetail } from '@/services/scripts';
 import { useThemeColors } from '@/hooks/useTheme';
 import { showToast } from '@/lib/toast';
+import { alert as xAlert, confirm as xConfirm } from '@/lib/alert';
 
 export default function EditScriptScreen() {
   const colors = useThemeColors();
@@ -55,12 +55,12 @@ export default function EditScriptScreen() {
 
   const handleUpdate = async () => {
     if (!content.trim()) {
-      Alert.alert('알림', '스크립트 내용을 입력해주세요.');
+      xAlert('알림', '스크립트 내용을 입력해주세요.');
       return;
     }
 
     if (!scriptId) {
-      Alert.alert('오류', '스크립트 정보가 없습니다.');
+      xAlert('오류', '스크립트 정보가 없습니다.');
       return;
     }
 
@@ -75,7 +75,7 @@ export default function EditScriptScreen() {
     setIsSaving(false);
 
     if (updateError) {
-      Alert.alert('오류', getUserMessage(updateError));
+      xAlert('오류', getUserMessage(updateError));
       return;
     }
 
@@ -84,17 +84,11 @@ export default function EditScriptScreen() {
   };
 
   const handleDelete = () => {
-    Alert.alert(
+    xConfirm(
       '스크립트 삭제',
       '정말 이 스크립트를 삭제하시겠습니까?\n삭제된 스크립트는 복구할 수 없습니다.',
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '삭제',
-          style: 'destructive',
-          onPress: confirmDelete,
-        },
-      ]
+      confirmDelete,
+      { confirmText: '삭제' }
     );
   };
 
@@ -108,7 +102,7 @@ export default function EditScriptScreen() {
     setIsDeleting(false);
 
     if (deleteError) {
-      Alert.alert('오류', getUserMessage(deleteError));
+      xAlert('오류', getUserMessage(deleteError));
       return;
     }
 

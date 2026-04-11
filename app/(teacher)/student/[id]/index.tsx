@@ -9,11 +9,11 @@ import {
   RefreshControl,
   ActivityIndicator,
   Modal,
-  Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
+import { alert as xAlert, confirm as xConfirm } from '@/lib/alert';
 import type {
   StudentDetailInfo,
   StudentDetailStats,
@@ -217,48 +217,36 @@ export default function StudentDetailScreen() {
   const handleDisconnect = () => {
     if (!id || !student) return;
 
-    Alert.alert(
+    xConfirm(
       '나와의 연결 해제',
       `${student.name} 학생과의 연결을 해제하시겠습니까?\n\n• 내 반에서 자동 제외됩니다\n• 배정된 토픽이 해제됩니다\n• 다른 강사와의 연결은 유지됩니다`,
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '연결 해제',
-          style: 'destructive',
-          onPress: async () => {
-            const { error: disconnectError } = await disconnectStudent(id);
-            if (disconnectError) {
-              Alert.alert('오류', getUserMessage(disconnectError));
-            } else {
-              router.back();
-            }
-          },
-        },
-      ]
+      async () => {
+        const { error: disconnectError } = await disconnectStudent(id);
+        if (disconnectError) {
+          xAlert('오류', getUserMessage(disconnectError));
+        } else {
+          router.back();
+        }
+      },
+      { confirmText: '연결 해제' },
     );
   };
 
   const handleRemoveFromOrg = () => {
     if (!id || !student || !currentOrg) return;
 
-    Alert.alert(
+    xConfirm(
       '학원에서 제거',
       `${student.name} 학생을 학원에서 완전히 제거하시겠습니까?\n\n• 학원의 모든 강사와 연결이 해제됩니다\n• 모든 반에서 제외됩니다\n• 이 작업은 되돌릴 수 없습니다`,
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '제거',
-          style: 'destructive',
-          onPress: async () => {
-            const result = await removeOrgMember(currentOrg.id, id);
-            if (result.success) {
-              router.back();
-            } else {
-              Alert.alert('오류', result.error || '학생 제거에 실패했습니다.');
-            }
-          },
-        },
-      ]
+      async () => {
+        const result = await removeOrgMember(currentOrg.id, id);
+        if (result.success) {
+          router.back();
+        } else {
+          xAlert('오류', result.error || '학생 제거에 실패했습니다.');
+        }
+      },
+      { confirmText: '제거' },
     );
   };
 

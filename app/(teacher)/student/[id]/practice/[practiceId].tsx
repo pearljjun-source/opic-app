@@ -6,7 +6,6 @@ import {
   Pressable,
   ActivityIndicator,
   TextInput,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -25,6 +24,7 @@ import { NOTIFICATION_TYPES } from '@/lib/constants';
 import { getUserMessage } from '@/lib/errors';
 import { useThemeColors } from '@/hooks/useTheme';
 import { showToast } from '@/lib/toast';
+import { alert as xAlert } from '@/lib/alert';
 
 export default function TeacherPracticeDetailScreen() {
   const colors = useThemeColors();
@@ -88,7 +88,7 @@ export default function TeacherPracticeDetailScreen() {
   // 오디오 재생/정지
   const handleToggleAudio = async () => {
     if (!practice?.audio_url) {
-      Alert.alert('알림', '녹음 파일이 없습니다.');
+      xAlert('알림', '녹음 파일이 없습니다.');
       return;
     }
 
@@ -104,7 +104,7 @@ export default function TeacherPracticeDetailScreen() {
       player.play();
     } catch (err) {
       if (__DEV__) console.warn('[AppError] Error playing audio:', err);
-      Alert.alert('오류', '오디오 재생에 실패했습니다.');
+      xAlert('오류', '오디오 재생에 실패했습니다.');
       setIsPlaying(false);
     }
   };
@@ -112,7 +112,7 @@ export default function TeacherPracticeDetailScreen() {
   // 피드백 저장
   const handleSaveFeedback = async () => {
     if (!practiceId || !feedbackText.trim()) {
-      Alert.alert('알림', '피드백 내용을 입력해주세요.');
+      xAlert('알림', '피드백 내용을 입력해주세요.');
       return;
     }
 
@@ -126,7 +126,7 @@ export default function TeacherPracticeDetailScreen() {
     setIsSaving(false);
 
     if (saveError) {
-      Alert.alert('오류', getUserMessage(saveError));
+      xAlert('오류', getUserMessage(saveError));
       return;
     }
 

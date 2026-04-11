@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Platform, Linking } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
@@ -7,6 +7,7 @@ import Constants from 'expo-constants';
 import { COLORS } from '@/lib/constants';
 import { useThemeColors, useThemeControl, loadThemePreference, ThemePreference } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
+import { confirm as xConfirm } from '@/lib/alert';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -70,19 +71,13 @@ export default function StudentSettings() {
       }
       return;
     }
-    Alert.alert(
+    xConfirm(
       '로그아웃',
       '정말 로그아웃하시겠습니까?',
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '로그아웃',
-          style: 'destructive',
-          onPress: async () => {
-            await signOut();
-          },
-        },
-      ]
+      async () => {
+        await signOut();
+      },
+      { confirmText: '로그아웃' },
     );
   };
 

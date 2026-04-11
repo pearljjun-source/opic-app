@@ -2,11 +2,11 @@ import { View, Text, StyleSheet, Pressable, Modal, Platform } from 'react-native
 import { Component, type ReactNode } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 
-import { useThemeColors } from '@/hooks/useTheme';
+import { useThemeColors, type ThemeColors } from '@/hooks/useTheme';
 import { getInviteLink } from '@/services/invites';
 
 // react-native-qrcode-svg가 웹에서 실패할 수 있으므로 동적 import
-let QRCode: any = null;
+let QRCode: React.ComponentType<{ value: string; size: number; backgroundColor: string; color: string }> | null = null;
 try {
   QRCode = require('react-native-qrcode-svg').default;
 } catch {
@@ -80,7 +80,7 @@ export function InviteQRModal({ visible, code, className, onClose }: InviteQRMod
 }
 
 function renderModalContent(
-  colors: any,
+  colors: ThemeColors,
   code: string,
   className: string | null | undefined,
   inviteLink: string,
@@ -130,7 +130,7 @@ function renderModalContent(
 
 const styles = StyleSheet.create({
   webOverlay: {
-    position: 'absolute' as any,
+    position: 'absolute',
     top: 0,
     left: 0,
     right: 0,

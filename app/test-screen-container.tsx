@@ -1,7 +1,8 @@
-import { View, Text, Alert } from 'react-native';
+import { View, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
+import { alert as xAlert } from '@/lib/alert';
 import { ScreenContainer } from '@/components/layout/SafeAreaView';
 import { Header, HeaderButton } from '@/components/layout/Header';
 import { Card } from '@/components/ui/Card';
@@ -25,7 +26,7 @@ export default function TestScreenContainerScreen() {
         rightComponent={
           <HeaderButton
             icon="information-circle-outline"
-            onPress={() => Alert.alert(
+            onPress={() => xAlert(
               'ScreenContainer',
               'SafeAreaView + 배경색 + 패딩을 포함한 화면 래퍼입니다.\n\n노치, 홈 인디케이터 영역을 자동으로 피합니다.'
             )}

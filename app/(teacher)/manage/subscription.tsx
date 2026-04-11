@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Alert, RefreshControl, Platform, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, RefreshControl, Platform, Linking } from 'react-native';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +11,7 @@ import { getUserMessage } from '@/lib/errors';
 import { requestTossBillingAuth, isTossConfigured, buildPaymentUrls } from '@/lib/toss';
 import type { PaymentRecord, CancellationReason, CancellationAction } from '@/lib/types';
 import { showToast } from '@/lib/toast';
+import { alert as xAlert } from '@/lib/alert';
 import CancellationFlow from '@/components/ui/CancellationFlow';
 
 export default function SubscriptionScreen() {
@@ -77,7 +78,7 @@ export default function SubscriptionScreen() {
     });
 
     if (error) {
-      Alert.alert('오류', getUserMessage(error));
+      xAlert('오류', getUserMessage(error));
       return;
     }
 
@@ -96,13 +97,13 @@ export default function SubscriptionScreen() {
 
     if (Platform.OS === 'web') {
       if (!isTossConfigured()) {
-        Alert.alert('설정 필요', '결제 시스템이 아직 설정되지 않았습니다.');
+        xAlert('설정 필요', '결제 시스템이 아직 설정되지 않았습니다.');
         return;
       }
       try {
         const urls = buildPaymentUrls({ action: 'update-billing' });
         if (!urls) {
-          Alert.alert('오류', '결제 URL을 생성할 수 없습니다.');
+          xAlert('오류', '결제 URL을 생성할 수 없습니다.');
           return;
         }
         await requestTossBillingAuth({
@@ -112,10 +113,10 @@ export default function SubscriptionScreen() {
         });
         // 리다이렉트됨 — 콜백은 payment-callback 라우트에서 처리
       } catch (err) {
-        Alert.alert('오류', getUserMessage(err));
+        xAlert('오류', getUserMessage(err));
       }
     } else {
-      Alert.alert('웹에서 변경', '결제 수단 변경은 웹 브라우저에서 진행해 주세요.');
+      xAlert('웹에서 변경', '결제 수단 변경은 웹 브라우저에서 진행해 주세요.');
     }
   };
 

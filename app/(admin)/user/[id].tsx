@@ -1,9 +1,9 @@
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable } from 'react-native';
 import { useState, useEffect, useCallback } from 'react';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-
+import { alert as xAlert, confirm as xConfirm } from '@/lib/alert';
 import { useThemeColors } from '@/hooks/useTheme';
 import { getUserMessage, classifyRpcError } from '@/lib/errors';
 import { changeUserRole, getAuditLogs } from '@/services/admin';
@@ -86,28 +86,23 @@ export default function AdminUserDetailScreen() {
   const handleRoleChange = useCallback(async (newRole: 'teacher' | 'student') => {
     if (!user) return;
 
-    Alert.alert(
+    xConfirm(
       '역할 변경',
       `${user.name}님을 ${ROLE_LABELS[newRole]}(으)로 변경하시겠습니까?`,
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '변경',
-          onPress: async () => {
-            setIsChangingRole(true);
-            const { error: changeError } = await changeUserRole(user.id, newRole);
+      async () => {
+        setIsChangingRole(true);
+        const { error: changeError } = await changeUserRole(user.id, newRole);
 
-            if (changeError) {
-              Alert.alert('오류', getUserMessage(changeError));
-            } else {
-              showToast('역할이 변경되었습니다.');
-              // RPC로 최신 데이터 다시 가져오기
-              await fetchUser();
-            }
-            setIsChangingRole(false);
-          },
-        },
-      ]
+        if (changeError) {
+          xAlert('오류', getUserMessage(changeError));
+        } else {
+          showToast('역할이 변경되었습니다.');
+          // RPC로 최신 데이터 다시 가져오기
+          await fetchUser();
+        }
+        setIsChangingRole(false);
+      },
+      { confirmText: '변경' },
     );
   }, [user, fetchUser]);
 

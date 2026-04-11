@@ -4,7 +4,6 @@ import {
   StyleSheet,
   Pressable,
   ActivityIndicator,
-  Alert,
   ScrollView,
   Platform,
 } from 'react-native';
@@ -25,6 +24,7 @@ import { useVoiceConsent } from '@/hooks/useVoiceConsent';
 import { getStudentScript, StudentScriptDetail } from '@/services/scripts';
 import { generateScriptAudio } from '@/services/practices';
 import { getUserMessage } from '@/lib/errors';
+import { alert as xAlert } from '@/lib/alert';
 import { VoiceConsentModal } from '@/components/ui/VoiceConsentModal';
 
 type ShadowingState = 'loading' | 'ready' | 'playing_tts' | 'recording' | 'playing_recording';
@@ -168,7 +168,7 @@ export default function ShadowingScreen() {
 
       const { data: ttsData, error: ttsError } = await generateScriptAudio(id!);
       if (ttsError || !ttsData) {
-        Alert.alert('오류', getUserMessage(ttsError) || 'TTS 오디오 생성에 실패했습니다.');
+        xAlert('오류', getUserMessage(ttsError) || 'TTS 오디오 생성에 실패했습니다.');
         setActiveSentence(-1);
         setState('ready');
         return;
@@ -179,7 +179,7 @@ export default function ShadowingScreen() {
       player.play();
     } catch (err) {
       if (__DEV__) console.warn('[AppError] Error playing TTS:', err);
-      Alert.alert('오류', 'TTS 재생에 실패했습니다.');
+      xAlert('오류', 'TTS 재생에 실패했습니다.');
       setActiveSentence(-1);
       setState('ready');
     }
@@ -201,14 +201,14 @@ export default function ShadowingScreen() {
       if (Platform.OS === 'web') {
         // 웹: 직접 MediaRecorder API 사용 (expo-audio 웹 녹음 불안정)
         if (typeof navigator === 'undefined' || !navigator.mediaDevices || typeof MediaRecorder === 'undefined') {
-          Alert.alert('오류', '이 브라우저에서는 녹음을 지원하지 않습니다.');
+          xAlert('오류', '이 브라우저에서는 녹음을 지원하지 않습니다.');
           return;
         }
 
         const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm'
           : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
         if (!mimeType) {
-          Alert.alert('오류', '이 브라우저에서 지원하는 오디오 형식이 없습니다.');
+          xAlert('오류', '이 브라우저에서 지원하는 오디오 형식이 없습니다.');
           return;
         }
 
@@ -227,7 +227,7 @@ export default function ShadowingScreen() {
         // 네이티브: expo-audio
         const { granted } = await requestRecordingPermissionsAsync();
         if (!granted) {
-          Alert.alert('권한 필요', '녹음을 위해 마이크 권한이 필요합니다.', [{ text: '확인' }]);
+          xAlert('권한 필요', '녹음을 위해 마이크 권한이 필요합니다.');
           return;
         }
 
@@ -246,17 +246,18 @@ export default function ShadowingScreen() {
       timerRef.current = setInterval(() => {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (__DEV__) console.warn('[AppError] Error starting recording:', err);
-      const msg = err?.name === 'NotFoundError'
+      const errName = err instanceof Error ? err.name : '';
+      const msg = errName === 'NotFoundError'
         ? '마이크를 찾을 수 없습니다. 마이크가 연결되어 있는지 확인해주세요.'
-        : err?.name === 'NotAllowedError'
+        : errName === 'NotAllowedError'
           ? '마이크 권한이 거부되었습니다. 브라우저 설정에서 마이크 권한을 허용해주세요.'
           : '녹음 시작에 실패했습니다.';
       if (Platform.OS === 'web') {
         window.alert(msg);
       } else {
-        Alert.alert('오류', msg);
+        xAlert('오류', msg);
       }
     }
   };
@@ -306,7 +307,7 @@ export default function ShadowingScreen() {
       setState('ready');
     } catch (err) {
       if (__DEV__) console.warn('[AppError] Error stopping recording:', err);
-      Alert.alert('오류', '녹음 중지에 실패했습니다.');
+      xAlert('오류', '녹음 중지에 실패했습니다.');
       setState('ready');
     }
   };
@@ -322,7 +323,7 @@ export default function ShadowingScreen() {
       player.play();
     } catch (err) {
       if (__DEV__) console.warn('[AppError] Error playing recording:', err);
-      Alert.alert('오류', '녹음 재생에 실패했습니다.');
+      xAlert('오류', '녹음 재생에 실패했습니다.');
       setState('ready');
     }
   };
@@ -608,7 +609,7 @@ export default function ShadowingScreen() {
           const success = await handleAgree();
           setConsentLoading(false);
           if (!success) {
-            Alert.alert('오류', '동의 저장에 실패했습니다. 다시 시도해주세요.');
+            xAlert('오류', '동의 저장에 실패했습니다. 다시 시도해주세요.');
           }
         }}
         onDecline={handleDecline}

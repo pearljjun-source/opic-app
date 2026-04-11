@@ -4,7 +4,6 @@ import {
   StyleSheet,
   Pressable,
   ActivityIndicator,
-  Alert,
   Platform,
   Dimensions,
 } from 'react-native';
@@ -34,6 +33,7 @@ import {
 } from '@/services/practices';
 import { notifyAction, deliverNotification } from '@/services/notifications';
 import { getUserMessage } from '@/lib/errors';
+import { alert as xAlert } from '@/lib/alert';
 import { VoiceConsentModal } from '@/components/ui/VoiceConsentModal';
 
 type PracticeState = 'loading' | 'ready' | 'playing' | 'recording' | 'processing';
@@ -130,7 +130,7 @@ export default function PracticeScreen() {
         );
 
         if (ttsError || !ttsData) {
-          Alert.alert('오류', getUserMessage(ttsError) || '오디오 생성에 실패했습니다.');
+          xAlert('오류', getUserMessage(ttsError) || '오디오 생성에 실패했습니다.');
           setPracticeState('ready');
           return;
         }
@@ -148,7 +148,7 @@ export default function PracticeScreen() {
       player.play();
     } catch (err) {
       if (__DEV__) console.warn('[AppError] Error playing audio:', err);
-      Alert.alert('오류', '오디오 재생에 실패했습니다.');
+      xAlert('오류', '오디오 재생에 실패했습니다.');
       setPracticeState('ready');
     }
   };
@@ -161,14 +161,14 @@ export default function PracticeScreen() {
       if (Platform.OS === 'web') {
         // 웹: 직접 MediaRecorder API 사용 (expo-audio 웹 녹음 불안정)
         if (typeof navigator === 'undefined' || !navigator.mediaDevices || typeof MediaRecorder === 'undefined') {
-          Alert.alert('오류', '이 브라우저에서는 녹음을 지원하지 않습니다.');
+          xAlert('오류', '이 브라우저에서는 녹음을 지원하지 않습니다.');
           return;
         }
 
         const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm'
           : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
         if (!mimeType) {
-          Alert.alert('오류', '이 브라우저에서 지원하는 오디오 형식이 없습니다.');
+          xAlert('오류', '이 브라우저에서 지원하는 오디오 형식이 없습니다.');
           return;
         }
 
@@ -187,11 +187,7 @@ export default function PracticeScreen() {
         // 네이티브: expo-audio
         const { granted } = await requestRecordingPermissionsAsync();
         if (!granted) {
-          Alert.alert(
-            '권한 필요',
-            '녹음을 위해 마이크 권한이 필요합니다.',
-            [{ text: '확인' }]
-          );
+          xAlert('권한 필요', '녹음을 위해 마이크 권한이 필요합니다.');
           return;
         }
 
@@ -210,17 +206,18 @@ export default function PracticeScreen() {
       timerRef.current = setInterval(() => {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (__DEV__) console.warn('[AppError] Error starting recording:', err);
-      const msg = err?.name === 'NotFoundError'
+      const errName = err instanceof Error ? err.name : '';
+      const msg = errName === 'NotFoundError'
         ? '마이크를 찾을 수 없습니다. 마이크가 연결되어 있는지 확인해주세요.'
-        : err?.name === 'NotAllowedError'
+        : errName === 'NotAllowedError'
           ? '마이크 권한이 거부되었습니다. 브라우저 설정에서 마이크 권한을 허용해주세요.'
           : '녹음 시작에 실패했습니다.';
       if (Platform.OS === 'web') {
         window.alert(msg);
       } else {
-        Alert.alert('오류', msg);
+        xAlert('오류', msg);
       }
     }
   };
@@ -269,7 +266,7 @@ export default function PracticeScreen() {
       }
 
       if (!uri) {
-        Alert.alert('오류', '녹음 파일을 찾을 수 없습니다.');
+        xAlert('오류', '녹음 파일을 찾을 수 없습니다.');
         setPracticeState('ready');
         return;
       }
@@ -278,7 +275,7 @@ export default function PracticeScreen() {
       const { data: uploadData, error: uploadError } = await uploadRecording(uri, `practice_${Date.now()}`);
 
       if (uploadError || !uploadData) {
-        Alert.alert('업로드 실패', getUserMessage(uploadError));
+        xAlert('업로드 실패', getUserMessage(uploadError));
         setPracticeState('ready');
         return;
       }
@@ -295,7 +292,7 @@ export default function PracticeScreen() {
       ]);
 
       if (practiceResult.error || !practiceResult.data) {
-        Alert.alert('저장 실패', getUserMessage(practiceResult.error));
+        xAlert('저장 실패', getUserMessage(practiceResult.error));
         setPracticeState('ready');
         return;
       }
@@ -303,7 +300,7 @@ export default function PracticeScreen() {
       if (sttResult.error || !sttResult.data) {
         const msg = getUserMessage(sttResult.error);
         if (__DEV__) console.warn('[AppError] STT failed:', sttResult.error);
-        Alert.alert('음성 인식 실패', msg + (__DEV__ ? `\n\n[DEV] ${sttResult.error?.message || 'unknown'}` : ''));
+        xAlert('음성 인식 실패', msg + (__DEV__ ? `\n\n[DEV] ${sttResult.error?.message || 'unknown'}` : ''));
         setPracticeState('ready');
         return;
       }
@@ -320,7 +317,7 @@ export default function PracticeScreen() {
       );
 
       if (feedbackError || !feedbackData) {
-        Alert.alert('AI 분석 실패', getUserMessage(feedbackError));
+        xAlert('AI 분석 실패', getUserMessage(feedbackError));
         setPracticeState('ready');
         return;
       }
@@ -353,7 +350,7 @@ export default function PracticeScreen() {
       });
     } catch (err) {
       if (__DEV__) console.warn('[AppError] Error processing recording:', err);
-      Alert.alert('오류', getUserMessage(err));
+      xAlert('오류', getUserMessage(err));
       setPracticeState('ready');
     }
   };
@@ -528,7 +525,7 @@ export default function PracticeScreen() {
           const success = await handleAgree();
           setConsentLoading(false);
           if (!success) {
-            Alert.alert('오류', '동의 저장에 실패했습니다. 다시 시도해주세요.');
+            xAlert('오류', '동의 저장에 실패했습니다. 다시 시도해주세요.');
           }
         }}
         onDecline={handleDecline}

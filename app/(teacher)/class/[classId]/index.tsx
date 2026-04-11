@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Pressable,
   Alert,
+  type AlertButton,
   Modal,
   TextInput,
   KeyboardAvoidingView,
@@ -15,6 +16,7 @@ import {
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { alert as xAlert, confirm as xConfirm } from '@/lib/alert';
 
 import { getClassDetail, getTeacherClasses, deleteClass, removeClassMember, updateClass, moveClassMember } from '@/services/classes';
 import { StudentCard } from '@/components/teacher';
@@ -74,24 +76,18 @@ export default function ClassDetailScreen() {
   }, [fetchDetail]);
 
   const handleDeleteClass = () => {
-    Alert.alert(
+    xConfirm(
       '반 삭제',
       '이 반을 삭제하시겠습니까?\n학생들은 삭제되지 않습니다.',
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '삭제',
-          style: 'destructive',
-          onPress: async () => {
-            const result = await deleteClass(classId);
-            if (result.success) {
-              router.back();
-            } else {
-              Alert.alert('오류', result.error || '삭제에 실패했습니다');
-            }
-          },
-        },
-      ]
+      async () => {
+        const result = await deleteClass(classId);
+        if (result.success) {
+          router.back();
+        } else {
+          xAlert('오류', result.error || '삭제에 실패했습니다');
+        }
+      },
+      { confirmText: '삭제' },
     );
   };
 
@@ -104,7 +100,7 @@ export default function ClassDetailScreen() {
   const handleSaveEdit = async () => {
     const trimmedName = editName.trim();
     if (!trimmedName) {
-      Alert.alert('오류', '반 이름을 입력해주세요');
+      xAlert('오류', '반 이름을 입력해주세요');
       return;
     }
 
@@ -117,12 +113,12 @@ export default function ClassDetailScreen() {
       setClassDescription(editDescription.trim() || null);
       setShowEditModal(false);
     } else {
-      Alert.alert('오류', result.error || '수정에 실패했습니다');
+      xAlert('오류', result.error || '수정에 실패했습니다');
     }
   };
 
   const handleMemberLongPress = (studentId: string, studentName: string) => {
-    const buttons: any[] = [];
+    const buttons: AlertButton[] = [];
 
     if (otherClasses.length > 0) {
       buttons.push({
@@ -146,24 +142,18 @@ export default function ClassDetailScreen() {
   };
 
   const handleRemoveMember = (studentId: string, studentName: string) => {
-    Alert.alert(
+    xConfirm(
       '학생 제외',
       `${studentName}님을 반에서 제외하시겠습니까?`,
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '제외',
-          style: 'destructive',
-          onPress: async () => {
-            const result = await removeClassMember(classId, studentId);
-            if (result.success) {
-              fetchDetail();
-            } else {
-              Alert.alert('오류', result.error || '제외에 실패했습니다');
-            }
-          },
-        },
-      ]
+      async () => {
+        const result = await removeClassMember(classId, studentId);
+        if (result.success) {
+          fetchDetail();
+        } else {
+          xAlert('오류', result.error || '제외에 실패했습니다');
+        }
+      },
+      { confirmText: '제외' },
     );
   };
 
@@ -177,10 +167,10 @@ export default function ClassDetailScreen() {
     if (result.success) {
       setShowMoveModal(false);
       setMoveTarget(null);
-      Alert.alert('이동 완료', `${moveTarget.name}님을 "${toClassName}"으로 이동했습니다.`);
+      xAlert('이동 완료', `${moveTarget.name}님을 "${toClassName}"으로 이동했습니다.`);
       fetchDetail();
     } else {
-      Alert.alert('오류', result.error || '이동에 실패했습니다');
+      xAlert('오류', result.error || '이동에 실패했습니다');
     }
   };
 

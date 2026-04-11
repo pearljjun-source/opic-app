@@ -62,7 +62,7 @@ export default function InviteScreen() {
   useEffect(() => {
     getTeacherClasses().then(({ data }) => {
       if (data) {
-        setClasses(data.map((c: any) => ({ id: c.id, name: c.name })));
+        setClasses(data.map((c) => ({ id: c.id, name: c.name })));
       }
     });
   }, []);

@@ -1,7 +1,8 @@
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Alert, RefreshControl, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, RefreshControl, Platform } from 'react-native';
 import { useState, useEffect, useCallback } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 
+import { confirm as xConfirm } from '@/lib/alert';
 import { COLORS } from '@/lib/constants';
 import { useThemeColors, useThemeControl, loadThemePreference, ThemePreference } from '@/hooks/useTheme';
 import { getUserMessage } from '@/lib/errors';
@@ -100,10 +101,7 @@ export default function AdminSettingsScreen() {
       }
       return;
     }
-    Alert.alert('로그아웃', '로그아웃하시겠습니까?', [
-      { text: '취소', style: 'cancel' },
-      { text: '로그아웃', style: 'destructive', onPress: signOut },
-    ]);
+    xConfirm('로그아웃', '로그아웃하시겠습니까?', signOut, { confirmText: '로그아웃' });
   }, [signOut]);
 
   return (

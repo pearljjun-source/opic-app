@@ -5,12 +5,12 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { useState, useEffect, useCallback } from 'react';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
+import { alert as xAlert, confirm as xConfirm } from '@/lib/alert';
 import { ORG_ROLE_LABELS } from '@/lib/constants';
 import { useAuth } from '@/hooks/useAuth';
 import { canManageOrg } from '@/lib/permissions';
@@ -50,25 +50,19 @@ export default function TeacherManagementScreen() {
   const handleRemoveMember = (teacher: OrgTeacherItem) => {
     if (!currentOrg) return;
 
-    Alert.alert(
+    xConfirm(
       '멤버 제거',
       `${teacher.name} 님을 학원에서 제거하시겠습니까?\n해당 강사의 학생 연결은 유지됩니다.`,
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '제거',
-          style: 'destructive',
-          onPress: async () => {
-            const result = await removeOrgMember(currentOrg.id, teacher.id);
-            if (result.success) {
-              await fetchTeachers();
-              refreshUser();
-            } else {
-              Alert.alert('오류', result.error || '멤버 제거에 실패했습니다.');
-            }
-          },
-        },
-      ]
+      async () => {
+        const result = await removeOrgMember(currentOrg.id, teacher.id);
+        if (result.success) {
+          await fetchTeachers();
+          refreshUser();
+        } else {
+          xAlert('오류', result.error || '멤버 제거에 실패했습니다.');
+        }
+      },
+      { confirmText: '제거' }
     );
   };
 
@@ -78,24 +72,19 @@ export default function TeacherManagementScreen() {
     const newRole: OrgRole = teacher.role === 'owner' ? 'teacher' : 'owner';
     const newRoleLabel = ORG_ROLE_LABELS[newRole];
 
-    Alert.alert(
+    xConfirm(
       '역할 변경',
       `${teacher.name} 님의 역할을 "${newRoleLabel}"(으)로 변경하시겠습니까?`,
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '변경',
-          onPress: async () => {
-            const result = await changeMemberRole(currentOrg.id, teacher.id, newRole);
-            if (result.success) {
-              await fetchTeachers();
-              refreshUser();
-            } else {
-              Alert.alert('오류', result.error || '역할 변경에 실패했습니다.');
-            }
-          },
-        },
-      ]
+      async () => {
+        const result = await changeMemberRole(currentOrg.id, teacher.id, newRole);
+        if (result.success) {
+          await fetchTeachers();
+          refreshUser();
+        } else {
+          xAlert('오류', result.error || '역할 변경에 실패했습니다.');
+        }
+      },
+      { confirmText: '변경' }
     );
   };
 

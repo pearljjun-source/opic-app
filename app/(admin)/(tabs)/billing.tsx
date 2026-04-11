@@ -1,6 +1,6 @@
 import {
   View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable,
-  RefreshControl, Modal, TextInput, Switch, Platform, KeyboardAvoidingView, Alert,
+  RefreshControl, Modal, TextInput, Switch, Platform, KeyboardAvoidingView,
 } from 'react-native';
 import { useState, useEffect, useCallback } from 'react';
 import { router } from 'expo-router';
@@ -17,6 +17,7 @@ import {
   adminRequestRefund,
 } from '@/services/billing';
 import type { SubscriptionStats, SubscriptionPlan, PaymentRecord } from '@/lib/types';
+import { alert as xAlert, confirm as xConfirm } from '@/lib/alert';
 
 export default function AdminBillingScreen() {
   const colors = useThemeColors();
@@ -145,7 +146,7 @@ export default function AdminBillingScreen() {
 
     const { error: updateError } = await adminUpdatePlan(editPlan.id, updates);
     if (updateError) {
-      Alert.alert('오류', getUserMessage(updateError));
+      xAlert('오류', getUserMessage(updateError));
     } else {
       setEditPlan(null);
       await fetchData();
@@ -155,39 +156,33 @@ export default function AdminBillingScreen() {
 
   const handleRefund = useCallback(async () => {
     if (!refundPayment || !refundReason.trim()) {
-      Alert.alert('오류', '환불 사유를 입력해주세요.');
+      xAlert('오류', '환불 사유를 입력해주세요.');
       return;
     }
 
-    Alert.alert(
+    xConfirm(
       '환불 확인',
       `₩${refundPayment.amount.toLocaleString()} 환불을 진행하시겠습니까?\n\n사유: ${refundReason}${forceRefund ? '\n⚠️ 강제 환불 (정책 무시)' : ''}`,
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '환불 진행',
-          style: 'destructive',
-          onPress: async () => {
-            setIsRefunding(true);
-            const { data, error: refundError } = await adminRequestRefund({
-              paymentId: refundPayment.id,
-              reason: refundReason.trim(),
-              forceRefund,
-            });
+      async () => {
+        setIsRefunding(true);
+        const { data, error: refundError } = await adminRequestRefund({
+          paymentId: refundPayment.id,
+          reason: refundReason.trim(),
+          forceRefund,
+        });
 
-            if (refundError) {
-              Alert.alert('환불 실패', getUserMessage(refundError));
-            } else {
-              Alert.alert('완료', `₩${(data?.refundAmount ?? 0).toLocaleString()} 환불이 완료되었습니다.`);
-              setRefundPayment(null);
-              setRefundReason('');
-              setForceRefund(false);
-              await fetchData();
-            }
-            setIsRefunding(false);
-          },
-        },
-      ]
+        if (refundError) {
+          xAlert('환불 실패', getUserMessage(refundError));
+        } else {
+          xAlert('완료', `₩${(data?.refundAmount ?? 0).toLocaleString()} 환불이 완료되었습니다.`);
+          setRefundPayment(null);
+          setRefundReason('');
+          setForceRefund(false);
+          await fetchData();
+        }
+        setIsRefunding(false);
+      },
+      { confirmText: '환불 진행' },
     );
   }, [refundPayment, refundReason, forceRefund, fetchData]);
 

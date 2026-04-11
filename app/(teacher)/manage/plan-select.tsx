@@ -1,19 +1,20 @@
 import { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, Pressable, StyleSheet,
-  Alert, ActivityIndicator, Platform,
+  ActivityIndicator, Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
 
-import { useThemeColors } from '@/hooks/useTheme';
+import { useThemeColors, type ThemeColors } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscription } from '@/hooks/useSubscription';
 import { getSubscriptionPlans, changePlan } from '@/services/billing';
 import { getUserMessage } from '@/lib/errors';
 import { requestTossBillingAuth, isTossConfigured, buildPaymentUrls } from '@/lib/toss';
 import { PAYMENT_CALLBACK, CONTACT, ALL_PLAN_KEYS } from '@/lib/constants';
+import { alert as xAlert, confirm as xConfirm } from '@/lib/alert';
 import type { SubscriptionPlan } from '@/lib/types';
 
 const PLAN_ORDER = ALL_PLAN_KEYS;
@@ -51,19 +52,19 @@ export default function PlanSelectScreen() {
     });
 
     if (!user || !currentOrg) {
-      Alert.alert('오류', '로그인 정보를 확인해 주세요.');
+      xAlert('오류', '로그인 정보를 확인해 주세요.');
       return;
     }
 
     if (!isOwner) {
-      Alert.alert('권한 없음', '구독 변경은 학원 원장만 가능합니다.');
+      xAlert('권한 없음', '구독 변경은 학원 원장만 가능합니다.');
       return;
     }
 
     if (plan.plan_key === currentPlanKey) return;
 
     if (plan.plan_key === 'academy') {
-      Alert.alert('도입 문의', `Academy 플랜은 별도 문의가 필요합니다.\n${CONTACT.SUPPORT_EMAIL}`);
+      xAlert('도입 문의', `Academy 플랜은 별도 문의가 필요합니다.\n${CONTACT.SUPPORT_EMAIL}`);
       return;
     }
 
@@ -77,51 +78,41 @@ export default function PlanSelectScreen() {
       const isDowngrade = targetIdx < currentIdx;
 
       if (isDowngrade) {
-        Alert.alert(
+        xConfirm(
           '플랜 다운그레이드',
           `${plan.name} 플랜으로 변경하시겠습니까?\n다음 갱신일부터 적용됩니다.`,
-          [
-            { text: '취소', style: 'cancel' },
-            {
-              text: '변경',
-              onPress: async () => {
-                setIsProcessing(true);
-                setProcessingMessage('플랜을 변경하고 있습니다...');
-                const { error: changeError } = await changePlan(plan.plan_key, currentOrg!.id);
-                setIsProcessing(false);
-                if (changeError) {
-                  setError(getUserMessage(changeError));
-                } else {
-                  await refreshSubscription();
-                  Alert.alert('완료', '플랜이 변경되었습니다.');
-                }
-              },
-            },
-          ]
+          async () => {
+            setIsProcessing(true);
+            setProcessingMessage('플랜을 변경하고 있습니다...');
+            const { error: changeError } = await changePlan(plan.plan_key, currentOrg!.id);
+            setIsProcessing(false);
+            if (changeError) {
+              setError(getUserMessage(changeError));
+            } else {
+              await refreshSubscription();
+              xAlert('완료', '플랜이 변경되었습니다.');
+            }
+          },
+          { confirmText: '변경' },
         );
       } else {
         // 업그레이드: 일할 결제
-        Alert.alert(
+        xConfirm(
           '플랜 업그레이드',
           `${plan.name} 플랜으로 업그레이드하시겠습니까?\n남은 기간에 대한 차액이 즉시 결제됩니다.`,
-          [
-            { text: '취소', style: 'cancel' },
-            {
-              text: '업그레이드',
-              onPress: async () => {
-                setIsProcessing(true);
-                setProcessingMessage('업그레이드를 처리하고 있습니다...');
-                const { error: changeError } = await changePlan(plan.plan_key, currentOrg!.id);
-                setIsProcessing(false);
-                if (changeError) {
-                  setError(getUserMessage(changeError));
-                } else {
-                  await refreshSubscription();
-                  Alert.alert('완료', '업그레이드가 완료되었습니다.');
-                }
-              },
-            },
-          ]
+          async () => {
+            setIsProcessing(true);
+            setProcessingMessage('업그레이드를 처리하고 있습니다...');
+            const { error: changeError } = await changePlan(plan.plan_key, currentOrg!.id);
+            setIsProcessing(false);
+            if (changeError) {
+              setError(getUserMessage(changeError));
+            } else {
+              await refreshSubscription();
+              xAlert('완료', '업그레이드가 완료되었습니다.');
+            }
+          },
+          { confirmText: '업그레이드' },
         );
       }
       return;
@@ -132,7 +123,7 @@ export default function PlanSelectScreen() {
 
     if (Platform.OS === 'web') {
       if (!isTossConfigured()) {
-        Alert.alert('설정 필요', '결제 시스템이 아직 설정되지 않았습니다. 관리자에게 문의해 주세요.');
+        xAlert('설정 필요', '결제 시스템이 아직 설정되지 않았습니다. 관리자에게 문의해 주세요.');
         return;
       }
 
@@ -143,7 +134,7 @@ export default function PlanSelectScreen() {
           cycle: billingCycle,
         });
         if (!urls) {
-          Alert.alert('오류', '결제 URL을 생성할 수 없습니다.');
+          xAlert('오류', '결제 URL을 생성할 수 없습니다.');
           return;
         }
 
@@ -155,7 +146,7 @@ export default function PlanSelectScreen() {
         // 리다이렉트됨 — 이후 코드 실행 안 됨
       } catch (err) {
         if (__DEV__) console.warn('[AppError] Toss billing auth:', err);
-        Alert.alert('결제 오류', getUserMessage(err));
+        xAlert('결제 오류', getUserMessage(err));
       }
     } else {
       // 네이티브: 웹 브라우저에서 결제 진행
@@ -169,10 +160,10 @@ export default function PlanSelectScreen() {
           await refreshSubscription();
         } catch (err) {
           if (__DEV__) console.warn('[AppError] WebBrowser:', err);
-          Alert.alert('오류', getUserMessage(err));
+          xAlert('오류', getUserMessage(err));
         }
       } else {
-        Alert.alert(
+        xAlert(
           '웹에서 결제',
           '결제는 웹 브라우저에서 진행해 주세요.\n결제 완료 후 앱에 자동 반영됩니다.'
         );
@@ -389,7 +380,7 @@ export default function PlanSelectScreen() {
   );
 }
 
-function FeatureItem({ label, enabled, colors }: { label: string; enabled: boolean; colors: any }) {
+function FeatureItem({ label, enabled, colors }: { label: string; enabled: boolean; colors: ThemeColors }) {
   return (
     <View style={styles.featureRow}>
       <Ionicons

@@ -4,7 +4,6 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  Alert,
   Modal,
   TextInput,
   KeyboardAvoidingView,
@@ -13,6 +12,7 @@ import {
 import { useState, useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 
+import { alert as xAlert } from '@/lib/alert';
 import { useAuth } from '@/hooks/useAuth';
 import { canManageOrg } from '@/lib/permissions';
 import { updateOrganization } from '@/services/organizations';
@@ -41,7 +41,7 @@ export default function AcademyInfoScreen() {
     if (!currentOrg) return;
     const trimmed = editName.trim();
     if (!trimmed) {
-      Alert.alert('오류', '학원명을 입력해주세요');
+      xAlert('오류', '학원명을 입력해주세요');
       return;
     }
 
@@ -54,7 +54,7 @@ export default function AcademyInfoScreen() {
       setShowEditModal(false);
       refreshUser();
     } else {
-      Alert.alert('오류', result.error || '수정에 실패했습니다');
+      xAlert('오류', result.error || '수정에 실패했습니다');
     }
   };
 

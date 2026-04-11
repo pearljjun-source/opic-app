@@ -1,8 +1,9 @@
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, TextInput, Alert, Platform, KeyboardAvoidingView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, TextInput, Platform, KeyboardAvoidingView } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useState, useEffect, useRef } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 
+import { alert as xAlert } from '@/lib/alert';
 import { useThemeColors } from '@/hooks/useTheme';
 import { getStudentScript, updateScriptAsStudent, StudentScriptDetail } from '@/services/scripts';
 import { getUserMessage } from '@/lib/errors';
@@ -74,7 +75,7 @@ export default function ScriptViewScreen() {
 
     const trimmed = editContent.trim();
     if (!trimmed) {
-      Alert.alert('오류', '스크립트 내용을 입력해주세요.');
+      xAlert('오류', '스크립트 내용을 입력해주세요.');
       return;
     }
 
@@ -91,13 +92,13 @@ export default function ScriptViewScreen() {
       });
 
       if (saveError) {
-        Alert.alert('오류', getUserMessage(saveError));
+        xAlert('오류', getUserMessage(saveError));
       } else {
         setScript({ ...script, content: trimmed, content_ko: null });
         setIsEditing(false);
       }
     } catch (err) {
-      Alert.alert('오류', getUserMessage(err));
+      xAlert('오류', getUserMessage(err));
     } finally {
       setIsSaving(false);
     }

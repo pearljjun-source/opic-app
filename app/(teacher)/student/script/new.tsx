@@ -8,11 +8,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useState, useEffect } from 'react';
 
+import { alert as xAlert, confirm as xConfirm } from '@/lib/alert';
 import { NOTIFICATION_TYPES } from '@/lib/constants';
 import { createScript } from '@/services/scripts';
 import { notifyAction, deliverNotification } from '@/services/notifications';
@@ -42,12 +42,12 @@ export default function NewScriptScreen() {
 
   const handleSave = async () => {
     if (!content.trim()) {
-      Alert.alert('알림', '스크립트 내용을 입력해주세요.');
+      xAlert('알림', '스크립트 내용을 입력해주세요.');
       return;
     }
 
     if (!studentId || !questionId) {
-      Alert.alert('오류', '학생 또는 질문 정보가 없습니다.');
+      xAlert('오류', '학생 또는 질문 정보가 없습니다.');
       return;
     }
 
@@ -56,13 +56,11 @@ export default function NewScriptScreen() {
     // 스크립트 쿼터 체크
     const quota = await getRemainingQuota('scripts');
     if (!quota.allowed) {
-      Alert.alert(
+      xConfirm(
         '스크립트 한도 도달',
         `현재 플랜의 스크립트 한도(${quota.limit}개)에 도달했습니다. 플랜을 업그레이드해 주세요.`,
-        [
-          { text: '확인', style: 'cancel' },
-          { text: '업그레이드', onPress: () => router.push('/(teacher)/manage/plan-select') },
-        ]
+        () => router.push('/(teacher)/manage/plan-select'),
+        { confirmText: '업그레이드' },
       );
       setIsSaving(false);
       return;
@@ -78,7 +76,7 @@ export default function NewScriptScreen() {
     setIsSaving(false);
 
     if (error) {
-      Alert.alert('오류', getUserMessage(error));
+      xAlert('오류', getUserMessage(error));
       return;
     }
 

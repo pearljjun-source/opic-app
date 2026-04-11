@@ -1,4 +1,4 @@
-import { View, Text, ActivityIndicator, Animated, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator, Animated, StyleSheet, type ViewStyle, type StyleProp } from 'react-native';
 import { useEffect, useRef } from 'react';
 
 import { useThemeColors } from '@/hooks/useTheme';
@@ -24,7 +24,7 @@ export interface SkeletonProps {
   width?: number | string;
   height?: number | string;
   borderRadius?: number;
-  style?: any;
+  style?: StyleProp<ViewStyle>;
 }
 
 // Simple spinner
@@ -105,8 +105,8 @@ export function Skeleton({
     <Animated.View
       style={[
         {
-          width: width as any,
-          height: height as any,
+          width: width as number | `${number}%`,
+          height: height as number | `${number}%`,
           borderRadius,
           backgroundColor: colors.border,
           opacity,
@@ -118,7 +118,7 @@ export function Skeleton({
 }
 
 // Skeleton group: Card (avatar + text lines)
-export function SkeletonCard({ style }: { style?: any }) {
+export function SkeletonCard({ style }: { style?: StyleProp<ViewStyle> }) {
   const colors = useThemeColors();
   return (
     <View style={[skStyles.card, { backgroundColor: colors.surface }, style]}>
@@ -136,7 +136,7 @@ export function SkeletonCard({ style }: { style?: any }) {
 }
 
 // Skeleton group: List (multiple cards)
-export function SkeletonList({ count = 3, style }: { count?: number; style?: any }) {
+export function SkeletonList({ count = 3, style }: { count?: number; style?: StyleProp<ViewStyle> }) {
   return (
     <View style={style}>
       {Array.from({ length: count }).map((_, index) => (
@@ -147,7 +147,7 @@ export function SkeletonList({ count = 3, style }: { count?: number; style?: any
 }
 
 // Skeleton group: Stat row (3 equal boxes)
-export function SkeletonStatRow({ style }: { style?: any }) {
+export function SkeletonStatRow({ style }: { style?: StyleProp<ViewStyle> }) {
   const colors = useThemeColors();
   return (
     <View style={[skStyles.statRow, style]}>
@@ -162,7 +162,7 @@ export function SkeletonStatRow({ style }: { style?: any }) {
 }
 
 // Skeleton group: Dashboard (stat row + card list)
-export function SkeletonDashboard({ style }: { style?: any }) {
+export function SkeletonDashboard({ style }: { style?: StyleProp<ViewStyle> }) {
   return (
     <View style={[skStyles.dashPad, style]}>
       <SkeletonStatRow style={{ marginBottom: 16 }} />
@@ -172,7 +172,7 @@ export function SkeletonDashboard({ style }: { style?: any }) {
 }
 
 // Skeleton group: Detail (header + content blocks)
-export function SkeletonDetail({ style }: { style?: any }) {
+export function SkeletonDetail({ style }: { style?: StyleProp<ViewStyle> }) {
   const colors = useThemeColors();
   return (
     <View style={[skStyles.dashPad, style]}>

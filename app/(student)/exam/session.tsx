@@ -509,14 +509,15 @@ export default function ExamSessionScreen() {
 
       // 문항별 카운트다운 타이머 시작
       startQuestionTimer(currentQuestion);
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (__DEV__) console.warn('[AppError] Recording start error:', err);
       if (Platform.OS !== 'web') {
         await setAudioModeAsync({ allowsRecording: false }).catch(() => {});
       }
-      const msg = err?.name === 'NotFoundError'
+      const errName = err instanceof Error ? err.name : '';
+      const msg = errName === 'NotFoundError'
         ? '마이크를 찾을 수 없습니다. 마이크가 연결되어 있는지 확인해주세요.'
-        : err?.name === 'NotAllowedError'
+        : errName === 'NotAllowedError'
           ? '마이크 권한이 거부되었습니다. 브라우저 설정에서 마이크 권한을 허용해주세요.'
           : '녹음 시작에 실패했습니다.';
       if (Platform.OS === 'web') {
