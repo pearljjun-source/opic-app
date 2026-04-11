@@ -17,7 +17,7 @@ import { PAYMENT_CALLBACK, CONTACT, ALL_PLAN_KEYS } from '@/lib/constants';
 import { alert as xAlert, confirm as xConfirm } from '@/lib/alert';
 import type { SubscriptionPlan } from '@/lib/types';
 
-const PLAN_ORDER = ALL_PLAN_KEYS;
+const PLAN_ORDER: readonly string[] = ALL_PLAN_KEYS;
 
 export default function PlanSelectScreen() {
   const colors = useThemeColors();

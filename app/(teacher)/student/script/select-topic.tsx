@@ -36,6 +36,8 @@ export default function SelectTopicScreen() {
               icon: t.topic_icon,
               description: null,
               category: t.topic_category,
+              group_id: null,
+              is_auto_assigned: false,
             })),
           );
           setError(null);

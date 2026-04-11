@@ -240,14 +240,14 @@ describe('handleStopRecording 에러 처리', () => {
     content = fs.readFileSync(practicePath, 'utf8');
   });
 
-  it('모든 에러 경로에서 Alert.alert을 호출한다', () => {
+  it('모든 에러 경로에서 xAlert을 호출한다', () => {
     const funcMatch = content.match(
       /const handleStopRecording = async[\s\S]*?(?=\n  \/\/ 시간 포맷|\n  const formatTime)/
     );
     expect(funcMatch).not.toBeNull();
     const funcBody = funcMatch![0];
 
-    const alertCalls = (funcBody.match(/Alert\.alert\(/g) || []).length;
+    const alertCalls = (funcBody.match(/xAlert\(/g) || []).length;
     // uri없음, upload실패, save실패, stt실패, feedback실패, catch
     expect(alertCalls).toBeGreaterThanOrEqual(6);
   });
@@ -264,9 +264,9 @@ describe('handleStopRecording 에러 처리', () => {
     expect(readyCalls).toBeGreaterThanOrEqual(6);
   });
 
-  it('Alert import가 존재한다', () => {
-    expect(content).toContain('Alert,');
-    expect(content).toContain("} from 'react-native'");
+  it('xAlert import가 존재한다', () => {
+    expect(content).toContain("alert as xAlert");
+    expect(content).toContain("from '@/lib/alert'");
   });
 });
 
