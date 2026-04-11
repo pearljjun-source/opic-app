@@ -629,6 +629,7 @@ export async function generateQuestionAudio(
  */
 export async function generateScriptAudio(
   scriptId: string,
+  voice?: string,
 ): Promise<{
   data: { audioUrl: string; cached: boolean } | null;
   error: Error | null;
@@ -636,7 +637,7 @@ export async function generateScriptAudio(
   try {
     const { data, error } = await invokeFunction<{ audioUrl: string; cached: boolean }>(
       'tts-generate',
-      { scriptId },
+      { scriptId, ...(voice && { voice }) },
     );
 
     if (error) {

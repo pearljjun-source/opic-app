@@ -25,6 +25,7 @@ import { getUserMessage } from '@/lib/errors';
 import { useThemeColors } from '@/hooks/useTheme';
 import { showToast } from '@/lib/toast';
 import { alert as xAlert } from '@/lib/alert';
+import { emit } from '@/lib/events';
 
 export default function TeacherPracticeDetailScreen() {
   const colors = useThemeColors();
@@ -142,6 +143,7 @@ export default function TeacherPracticeDetailScreen() {
     }
 
     showToast('피드백이 저장되었습니다.');
+    emit('practice-changed');
 
     // 기존 피드백 업데이트
     if (practice && data) {

@@ -18,6 +18,7 @@ import { getScript, updateScript, deleteScript, ScriptDetail } from '@/services/
 import { useThemeColors } from '@/hooks/useTheme';
 import { showToast } from '@/lib/toast';
 import { alert as xAlert, confirm as xConfirm } from '@/lib/alert';
+import { emit } from '@/lib/events';
 
 export default function EditScriptScreen() {
   const colors = useThemeColors();
@@ -80,6 +81,7 @@ export default function EditScriptScreen() {
     }
 
     showToast('스크립트가 수정되었습니다.');
+    emit('script-changed');
     router.back();
   };
 
@@ -107,6 +109,7 @@ export default function EditScriptScreen() {
     }
 
     showToast('스크립트가 삭제되었습니다.');
+    emit('script-changed');
     router.back();
   };
 

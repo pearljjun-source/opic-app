@@ -306,6 +306,34 @@ export const APP_CONFIG = {
 } as const;
 
 // ============================================================================
+// TTS 설정 (쉐도잉 음성/속도)
+// ============================================================================
+
+/** TTS 음성 옵션 (OpenAI TTS voices) */
+export const TTS_VOICES = [
+  { key: 'nova', label: 'Nova', gender: 'female' as const },
+  { key: 'echo', label: 'Echo', gender: 'male' as const },
+  { key: 'onyx', label: 'Onyx', gender: 'male' as const },
+] as const;
+
+export type TtsVoiceKey = (typeof TTS_VOICES)[number]['key'];
+
+/** TTS 재생 속도 옵션 (클라이언트 사이드 playbackRate) */
+export const TTS_SPEEDS = [
+  { key: 0.5, label: '0.5x' },
+  { key: 0.75, label: '0.75x' },
+  { key: 1.0, label: '1.0x' },
+] as const;
+
+export type TtsSpeedKey = (typeof TTS_SPEEDS)[number]['key'];
+
+/** TTS 기본값 */
+export const TTS_DEFAULTS = {
+  VOICE: 'nova' as TtsVoiceKey,
+  SPEED: 0.75 as TtsSpeedKey,
+} as const;
+
+// ============================================================================
 // Storage 버킷
 // ============================================================================
 

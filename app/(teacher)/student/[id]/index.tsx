@@ -44,6 +44,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { canManageOrg } from '@/lib/permissions';
 import { removeOrgMember } from '@/services/organizations';
 import { useThemeColors } from '@/hooks/useTheme';
+import { on } from '@/lib/events';
 
 type TabType = 'topics' | 'scripts' | 'practices' | 'exams';
 
@@ -171,6 +172,14 @@ export default function StudentDetailScreen() {
       fetchExams();
     }, [fetchTopics, fetchScripts, fetchPractices, fetchExams]),
   );
+
+  // 이벤트 버스 구독 (웹에서 useFocusEffect가 작동하지 않는 경우 대비)
+  useEffect(() => {
+    const offScript = on('script-changed', fetchScripts);
+    const offTopics = on('topics-changed', fetchTopics);
+    const offPractice = on('practice-changed', fetchPractices);
+    return () => { offScript(); offTopics(); offPractice(); };
+  }, [fetchScripts, fetchTopics, fetchPractices]);
 
   // Refresh handler
   const handleRefresh = useCallback(async () => {

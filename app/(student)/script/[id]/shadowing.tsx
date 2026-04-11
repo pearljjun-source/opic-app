@@ -21,11 +21,13 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useThemeColors } from '@/hooks/useTheme';
 import { useVoiceConsent } from '@/hooks/useVoiceConsent';
+import { useTtsPreferences } from '@/hooks/useTtsPreferences';
 import { getStudentScript, StudentScriptDetail } from '@/services/scripts';
 import { generateScriptAudio } from '@/services/practices';
 import { getUserMessage } from '@/lib/errors';
 import { alert as xAlert } from '@/lib/alert';
 import { VoiceConsentModal } from '@/components/ui/VoiceConsentModal';
+import { TTS_VOICES, TTS_SPEEDS, type TtsVoiceKey, type TtsSpeedKey } from '@/lib/constants';
 
 type ShadowingState = 'loading' | 'ready' | 'playing_tts' | 'recording' | 'playing_recording';
 
@@ -39,6 +41,7 @@ export default function ShadowingScreen() {
   const colors = useThemeColors();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { requireConsent, showConsentModal, handleAgree, handleDecline } = useVoiceConsent();
+  const { voice, speed, setVoice, setSpeed, loaded: ttsPrefsLoaded } = useTtsPreferences();
 
   const [consentLoading, setConsentLoading] = useState(false);
   const [script, setScript] = useState<StudentScriptDetail | null>(null);
@@ -158,6 +161,13 @@ export default function ShadowingScreen() {
     }
   }, [playerStatus.didJustFinish]);
 
+  // 재생 중 속도 변경 즉시 반영
+  useEffect(() => {
+    if (state === 'playing_tts' || state === 'playing_recording') {
+      player.playbackRate = speed;
+    }
+  }, [speed]);
+
   // ── TTS 재생 ──
   const handlePlayTTS = async () => {
     if (!script) return;
@@ -166,7 +176,7 @@ export default function ShadowingScreen() {
       setState('playing_tts');
       setActiveSentence(0);
 
-      const { data: ttsData, error: ttsError } = await generateScriptAudio(id!);
+      const { data: ttsData, error: ttsError } = await generateScriptAudio(id!, voice);
       if (ttsError || !ttsData) {
         xAlert('오류', getUserMessage(ttsError) || 'TTS 오디오 생성에 실패했습니다.');
         setActiveSentence(-1);
@@ -176,6 +186,7 @@ export default function ShadowingScreen() {
 
       playbackTypeRef.current = 'tts';
       player.replace({ uri: ttsData.audioUrl });
+      player.playbackRate = speed;
       player.play();
     } catch (err) {
       if (__DEV__) console.warn('[AppError] Error playing TTS:', err);
@@ -320,6 +331,7 @@ export default function ShadowingScreen() {
       setState('playing_recording');
       playbackTypeRef.current = 'recording';
       player.replace({ uri: recordingUriRef.current });
+      player.playbackRate = speed;
       player.play();
     } catch (err) {
       if (__DEV__) console.warn('[AppError] Error playing recording:', err);
@@ -412,6 +424,55 @@ export default function ShadowingScreen() {
 
       {/* ── 컴팩트 컨트롤 ── */}
       <View style={[styles.controlSection, { backgroundColor: colors.surface }]}>
+        {/* 음성/속도 설정 */}
+        <View style={styles.settingsRow}>
+          <Text style={[styles.settingsLabel, { color: colors.textSecondary }]}>음성</Text>
+          {TTS_VOICES.map((v) => (
+            <Pressable
+              key={v.key}
+              style={[
+                styles.chip,
+                { borderColor: voice === v.key ? colors.primary : colors.surfaceSecondary },
+                voice === v.key && { backgroundColor: colors.primary + '15' },
+              ]}
+              onPress={() => setVoice(v.key as TtsVoiceKey)}
+              disabled={state === 'playing_tts'}
+            >
+              <Text
+                style={[
+                  styles.chipText,
+                  { color: voice === v.key ? colors.primary : colors.textSecondary },
+                ]}
+              >
+                {v.label} {v.gender === 'female' ? '♀' : '♂'}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+        <View style={styles.settingsRow}>
+          <Text style={[styles.settingsLabel, { color: colors.textSecondary }]}>속도</Text>
+          {TTS_SPEEDS.map((s) => (
+            <Pressable
+              key={s.key}
+              style={[
+                styles.chip,
+                { borderColor: speed === s.key ? colors.primary : colors.surfaceSecondary },
+                speed === s.key && { backgroundColor: colors.primary + '15' },
+              ]}
+              onPress={() => setSpeed(s.key as TtsSpeedKey)}
+            >
+              <Text
+                style={[
+                  styles.chipText,
+                  { color: speed === s.key ? colors.primary : colors.textSecondary },
+                ]}
+              >
+                {s.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
         {/* TTS 듣기 / 중지 */}
         {isTTSPlaying ? (
           Platform.OS === 'web' ? (
@@ -697,6 +758,27 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 12,
+  },
+  settingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  settingsLabel: {
+    fontSize: 12,
+    fontFamily: 'Pretendard-Medium',
+    width: 28,
+  },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  chipText: {
+    fontSize: 12,
+    fontFamily: 'Pretendard-Medium',
   },
   ttsButton: {
     flexDirection: 'row',

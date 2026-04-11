@@ -13,6 +13,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { useState, useEffect } from 'react';
 
 import { alert as xAlert, confirm as xConfirm } from '@/lib/alert';
+import { emit } from '@/lib/events';
 import { NOTIFICATION_TYPES } from '@/lib/constants';
 import { createScript } from '@/services/scripts';
 import { notifyAction, deliverNotification } from '@/services/notifications';
@@ -90,6 +91,7 @@ export default function NewScriptScreen() {
     }
 
     showToast('스크립트가 저장되었습니다.');
+    emit('script-changed');
     router.replace(`/(teacher)/student/${studentId}` as any);
   };
 

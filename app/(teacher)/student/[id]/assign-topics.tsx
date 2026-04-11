@@ -23,6 +23,7 @@ import { getUserMessage } from '@/lib/errors';
 import { alert as xAlert } from '@/lib/alert';
 import type { TopicGroup, SurveyProfile } from '@/lib/types';
 import { useThemeColors } from '@/hooks/useTheme';
+import { emit } from '@/lib/events';
 
 export default function AssignTopicsScreen() {
   const colors = useThemeColors();
@@ -119,6 +120,7 @@ export default function AssignTopicsScreen() {
       return;
     }
 
+    emit('topics-changed');
     router.back();
   };
 

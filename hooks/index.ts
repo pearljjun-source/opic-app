@@ -22,3 +22,4 @@ export {
   type UseAppStateOptions,
 } from './useAppState';
 export { usePushNotifications } from './usePushNotifications';
+export { useTtsPreferences } from './useTtsPreferences';

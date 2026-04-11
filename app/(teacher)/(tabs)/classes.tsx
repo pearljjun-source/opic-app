@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable, RefreshControl } from 'react-native';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { router } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +11,7 @@ import { getUserMessage } from '@/lib/errors';
 import { SkeletonList } from '@/components/ui/Loading';
 import { useThemeColors } from '@/hooks/useTheme';
 import { useOfflineGuard } from '@/hooks/useOfflineGuard';
+import { on } from '@/lib/events';
 
 export default function ClassesTab() {
   const colors = useThemeColors();
@@ -41,6 +42,11 @@ export default function ClassesTab() {
       fetchClasses();
     }, [fetchClasses])
   );
+
+  // 이벤트 버스 구독 (반 생성/수정/삭제 감지)
+  useEffect(() => {
+    return on('class-changed', fetchClasses);
+  }, [fetchClasses]);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);

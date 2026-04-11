@@ -43,10 +43,14 @@ serve(async (req) => {
     }
 
     // 요청 파싱 (questionId 또는 scriptId, text는 DB에서 조회)
-    const { questionId, scriptId } = await req.json();
+    // voice: 'nova'(여성) | 'echo'(남성) | 'onyx'(남성) — lib/constants.ts TTS_VOICES 참조
+    const { questionId, scriptId, voice: rawVoice } = await req.json();
     if (!questionId && !scriptId) {
       throw new Error('questionId or scriptId is required');
     }
+    const ALLOWED_VOICES = ['nova', 'echo', 'onyx'];
+    const voice = rawVoice && ALLOWED_VOICES.includes(rawVoice) ? rawVoice : 'nova';
+    const voiceSuffix = voice === 'nova' ? '' : `_${voice}`;
 
     // Service Role 클라이언트
     const supabaseAdmin = createClient(
@@ -78,12 +82,12 @@ serve(async (req) => {
       }
 
       text = script.content;
-      filePath = `scripts/${scriptId}.mp3`;
+      filePath = `scripts/${scriptId}${voiceSuffix}.mp3`;
 
       // Storage 기반 캐싱: 파일이 존재하고 스크립트보다 최신이면 반환
       const { data: existingFile } = await supabaseAdmin.storage
         .from('question-audio')
-        .list('scripts', { search: `${scriptId}.mp3` });
+        .list('scripts', { search: `${scriptId}${voiceSuffix}.mp3` });
 
       if (existingFile && existingFile.length > 0) {
         const fileUpdated = new Date(existingFile[0].updated_at || existingFile[0].created_at);
@@ -111,12 +115,24 @@ serve(async (req) => {
         throw new Error('Question not found');
       }
 
-      if (question.audio_url) {
+      // nova(기본)만 DB audio_url 캐시 사용, 다른 음성은 Storage 캐시
+      if (voice === 'nova' && question.audio_url) {
         cachedUrl = question.audio_url;
+      } else if (voice !== 'nova') {
+        // Storage 기반 캐시 확인
+        const { data: existingQFile } = await supabaseAdmin.storage
+          .from('question-audio')
+          .list('questions', { search: `${questionId}${voiceSuffix}.mp3` });
+        if (existingQFile && existingQFile.length > 0) {
+          const { data: qUrlData } = supabaseAdmin.storage
+            .from('question-audio')
+            .getPublicUrl(`questions/${questionId}${voiceSuffix}.mp3`);
+          cachedUrl = qUrlData.publicUrl;
+        }
       }
 
       text = question.question_text;
-      filePath = `questions/${questionId}.mp3`;
+      filePath = `questions/${questionId}${voiceSuffix}.mp3`;
     }
 
     // 캐시 히트 → 바로 반환 (rate limit 소비 안 함)
@@ -168,7 +184,7 @@ serve(async (req) => {
       );
     }
 
-    // OpenAI TTS API 호출 (Ava 느낌: nova 음성)
+    // OpenAI TTS API 호출 (선택된 음성 사용)
     const ttsResponse = await fetch(OPENAI_TTS_URL, {
       method: 'POST',
       headers: {
@@ -178,7 +194,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model: 'tts-1',
         input: text,
-        voice: 'nova',
+        voice,
         response_format: 'mp3',
         speed: scriptId ? 1.0 : 0.95, // 스크립트: 일반 속도, 질문: 약간 느리게
       }),
@@ -210,8 +226,8 @@ serve(async (req) => {
 
     const audioUrl = urlData.publicUrl;
 
-    // 질문 TTS인 경우 questions 테이블에 audio_url 캐싱
-    if (questionId) {
+    // 질문 TTS인 경우 questions 테이블에 audio_url 캐싱 (nova만 — DB 컬럼은 단일 값)
+    if (questionId && voice === 'nova') {
       await supabaseAdmin
         .from('questions')
         .update({ audio_url: audioUrl })

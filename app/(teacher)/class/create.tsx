@@ -15,6 +15,7 @@ import { router } from 'expo-router';
 import { createClass } from '@/services/classes';
 import { getUserMessage } from '@/lib/errors';
 import { useThemeColors } from '@/hooks/useTheme';
+import { emit } from '@/lib/events';
 
 export default function CreateClassScreen() {
   const colors = useThemeColors();
@@ -40,6 +41,7 @@ export default function CreateClassScreen() {
     try {
       const result = await createClass(trimmedName, description.trim() || undefined);
       if (result.success) {
+        emit('class-changed');
         router.back();
       } else {
         setError(result.error || '반 생성에 실패했습니다');

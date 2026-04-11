@@ -15,6 +15,7 @@ import { getClassDetail, addClassMember } from '@/services/classes';
 import { getUserMessage } from '@/lib/errors';
 import type { TeacherStudentListItem } from '@/lib/types';
 import { useThemeColors } from '@/hooks/useTheme';
+import { emit } from '@/lib/events';
 
 export default function AddMembersScreen() {
   const colors = useThemeColors();
@@ -85,6 +86,7 @@ export default function AddMembersScreen() {
     }
 
     setIsSubmitting(false);
+    emit('class-changed');
     router.back();
   };
 

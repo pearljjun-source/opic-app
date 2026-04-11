@@ -17,6 +17,7 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { alert as xAlert, confirm as xConfirm } from '@/lib/alert';
+import { on, emit } from '@/lib/events';
 
 import { getClassDetail, getTeacherClasses, deleteClass, removeClassMember, updateClass, moveClassMember } from '@/services/classes';
 import { StudentCard } from '@/components/teacher';
@@ -75,6 +76,11 @@ export default function ClassDetailScreen() {
     fetchDetail();
   }, [fetchDetail]);
 
+  // 이벤트 버스 구독 (멤버 추가 등 자식 화면 변경 감지)
+  useEffect(() => {
+    return on('class-changed', fetchDetail);
+  }, [fetchDetail]);
+
   const handleDeleteClass = () => {
     xConfirm(
       '반 삭제',
@@ -82,6 +88,7 @@ export default function ClassDetailScreen() {
       async () => {
         const result = await deleteClass(classId);
         if (result.success) {
+          emit('class-changed');
           router.back();
         } else {
           xAlert('오류', result.error || '삭제에 실패했습니다');
