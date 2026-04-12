@@ -333,7 +333,7 @@ export async function processExamResults(
 
   const total = recordings.length;
   let sttFailures = 0;
-  const uploadedOrders = new Set<number>(); // 업로드 성공 추적
+  const uploadedPaths = new Map<number, string>(); // questionOrder → 실제 업로드 경로
 
   // 1단계: 녹음 업로드
   for (let i = 0; i < recordings.length; i++) {
@@ -349,7 +349,7 @@ export async function processExamResults(
       continue;
     }
 
-    uploadedOrders.add(rec.questionOrder);
+    uploadedPaths.set(rec.questionOrder, uploadResult.path);
 
     // DB에 audio_url 저장
     const { error: audioSaveError } = await fromTable('exam_responses')
@@ -365,12 +365,12 @@ export async function processExamResults(
     onProgress?.('stt', i + 1, total);
 
     // 업로드 실패한 녹음은 STT 건너뛰기 (rate limit 낭비 방지)
-    if (!uploadedOrders.has(rec.questionOrder)) {
+    const audioPath = uploadedPaths.get(rec.questionOrder);
+    if (!audioPath) {
       sttFailures++;
       continue;
     }
 
-    const audioPath = `${user.id}/exam_${sessionId}_q${rec.questionOrder}.m4a`;
     const { data: sttResult, error: sttError } = await transcribeAudio(audioPath);
 
     if (sttError || !sttResult) {
