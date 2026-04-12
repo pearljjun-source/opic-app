@@ -22,6 +22,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '@/hooks/useTheme';
 import { useVoiceConsent } from '@/hooks/useVoiceConsent';
 import { useTtsPreferences } from '@/hooks/useTtsPreferences';
+import { useRecordingTimer } from '@/hooks/useRecordingTimer';
+import { formatDuration } from '@/lib/helpers';
 import { getStudentScript, StudentScriptDetail } from '@/services/scripts';
 import { generateScriptAudio } from '@/services/practices';
 import { getUserMessage } from '@/lib/errors';
@@ -46,13 +48,12 @@ export default function ShadowingScreen() {
   const [consentLoading, setConsentLoading] = useState(false);
   const [script, setScript] = useState<StudentScriptDetail | null>(null);
   const [state, setState] = useState<ShadowingState>('loading');
-  const [recordingTime, setRecordingTime] = useState(0);
+  const recTimer = useRecordingTimer();
   const [hasRecording, setHasRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeSentence, setActiveSentence] = useState(-1);
 
   const recordingUriRef = useRef<string | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const playbackTypeRef = useRef<'tts' | 'recording' | null>(null);
   // TTS audioUrl 클라이언트 캐시 (voice_speed → url) — 같은 조합 재생 시 Edge Function 호출 생략
   const ttsUrlCacheRef = useRef<Record<string, string>>({});
@@ -118,7 +119,7 @@ export default function ShadowingScreen() {
   useEffect(() => {
     return () => {
       player.pause();
-      if (timerRef.current) clearInterval(timerRef.current);
+      recTimer.cleanup();
       if (Platform.OS === 'web' && webRecorderRef.current) {
         if (webRecorderRef.current.state !== 'inactive') {
           webRecorderRef.current.stop();
@@ -278,11 +279,7 @@ export default function ShadowingScreen() {
       }
 
       setState('recording');
-      setRecordingTime(0);
-
-      timerRef.current = setInterval(() => {
-        setRecordingTime((prev) => prev + 1);
-      }, 1000);
+      recTimer.start();
     } catch (err: unknown) {
       if (__DEV__) console.warn('[AppError] Error starting recording:', err);
       const errName = err instanceof Error ? err.name : '';
@@ -302,10 +299,7 @@ export default function ShadowingScreen() {
   // ── 녹음 중지 ──
   const handleStopRecording = async () => {
     try {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
+      recTimer.stop();
 
       let uri: string | null = null;
 
@@ -373,11 +367,6 @@ export default function ShadowingScreen() {
     setState('ready');
   };
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   // ── 로딩 ──
   if (state === 'loading') {
@@ -560,7 +549,7 @@ export default function ShadowingScreen() {
             <>
               <View style={styles.recordingInfo}>
                 <View style={[styles.recordingDot, { backgroundColor: colors.error }]} />
-                <Text style={[styles.recordingTimeText, { color: colors.error }]}>{formatTime(recordingTime)}</Text>
+                <Text style={[styles.recordingTimeText, { color: colors.error }]}>{formatDuration(recTimer.seconds)}</Text>
               </View>
               {Platform.OS === 'web' ? (
                 <div

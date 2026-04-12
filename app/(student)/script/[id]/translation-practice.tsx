@@ -20,6 +20,8 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useThemeColors } from '@/hooks/useTheme';
 import { useVoiceConsent } from '@/hooks/useVoiceConsent';
+import { useRecordingTimer } from '@/hooks/useRecordingTimer';
+import { formatDuration } from '@/lib/helpers';
 import { NOTIFICATION_TYPES, PRACTICE_STEP_LABELS, type PracticeProcessingStep } from '@/lib/constants';
 import { getStudentScript, translateScript, StudentScriptDetail } from '@/services/scripts';
 import {
@@ -48,11 +50,9 @@ export default function TranslationPracticeScreen() {
   const [contentKo, setContentKo] = useState<string | null>(null);
   const [practiceState, setPracticeState] = useState<PracticeState>('loading');
   const [processingStep, setProcessingStep] = useState<PracticeProcessingStep>('upload');
-  const [recordingTime, setRecordingTime] = useState(0);
+  const recTimer = useRecordingTimer();
   const [error, setError] = useState<string | null>(null);
   const [showEnglish, setShowEnglish] = useState(false);
-
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // 웹 전용: MediaRecorder API
   const webRecorderRef = useRef<MediaRecorder | null>(null);
@@ -104,7 +104,7 @@ export default function TranslationPracticeScreen() {
   // 클린업
   useEffect(() => {
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+      recTimer.cleanup();
       if (Platform.OS === 'web' && webRecorderRef.current) {
         if (webRecorderRef.current.state !== 'inactive') {
           webRecorderRef.current.stop();
@@ -159,11 +159,7 @@ export default function TranslationPracticeScreen() {
       }
 
       setPracticeState('recording');
-      setRecordingTime(0);
-
-      timerRef.current = setInterval(() => {
-        setRecordingTime((prev) => prev + 1);
-      }, 1000);
+      recTimer.start();
     } catch (err: unknown) {
       if (__DEV__) console.warn('[AppError] Error starting recording:', err);
       const errName = err instanceof Error ? err.name : '';
@@ -185,10 +181,7 @@ export default function TranslationPracticeScreen() {
     if (!script || !id) return;
 
     try {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
+      recTimer.stop();
 
       setPracticeState('processing');
       setProcessingStep('upload');
@@ -238,7 +231,7 @@ export default function TranslationPracticeScreen() {
         createPractice({
           scriptId: id,
           audioPath: uploadData.path,
-          duration: recordingTime,
+          duration: recTimer.seconds,
         }),
         transcribeAudio(uploadData.path),
       ]);
@@ -307,11 +300,6 @@ export default function TranslationPracticeScreen() {
     }
   };
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   // ── 로딩 ──
   if (practiceState === 'loading') {
@@ -419,7 +407,7 @@ export default function TranslationPracticeScreen() {
             <>
               <View style={styles.compactRecordingInfo}>
                 <View style={[styles.recordingDot, { backgroundColor: colors.error }]} />
-                <Text style={[styles.compactTimer, { color: colors.error }]}>{formatTime(recordingTime)}</Text>
+                <Text style={[styles.compactTimer, { color: colors.error }]}>{formatDuration(recTimer.seconds)}</Text>
               </View>
               {Platform.OS === 'web' ? (
                 <div
@@ -441,7 +429,7 @@ export default function TranslationPracticeScreen() {
             </>
           ) : (
             <>
-              <Text style={[styles.compactTimer, { color: colors.textSecondary }]}>{formatTime(recordingTime)}</Text>
+              <Text style={[styles.compactTimer, { color: colors.textSecondary }]}>{formatDuration(recTimer.seconds)}</Text>
               {Platform.OS === 'web' ? (
                 <div
                   onClick={practiceState === 'ready' ? handleStartRecording : undefined}
@@ -470,7 +458,7 @@ export default function TranslationPracticeScreen() {
         </View>
       ) : (
         <View style={styles.recordSection}>
-          <Text style={[styles.timer, { color: colors.textPrimary }]}>{formatTime(recordingTime)}</Text>
+          <Text style={[styles.timer, { color: colors.textPrimary }]}>{formatDuration(recTimer.seconds)}</Text>
 
           {practiceState === 'recording' ? (
             <>

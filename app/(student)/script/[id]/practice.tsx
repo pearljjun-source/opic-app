@@ -21,6 +21,8 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useThemeColors } from '@/hooks/useTheme';
 import { useVoiceConsent } from '@/hooks/useVoiceConsent';
+import { useRecordingTimer } from '@/hooks/useRecordingTimer';
+import { formatDuration } from '@/lib/helpers';
 import { NOTIFICATION_TYPES, PRACTICE_STEP_LABELS, type PracticeProcessingStep } from '@/lib/constants';
 import { getStudentScript, StudentScriptDetail } from '@/services/scripts';
 import {
@@ -49,10 +51,8 @@ export default function PracticeScreen() {
   const [script, setScript] = useState<StudentScriptDetail | null>(null);
   const [practiceState, setPracticeState] = useState<PracticeState>('loading');
   const [processingStep, setProcessingStep] = useState<PracticeProcessingStep>('upload');
-  const [recordingTime, setRecordingTime] = useState(0);
+  const recTimer = useRecordingTimer();
   const [error, setError] = useState<string | null>(null);
-
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // 웹 전용: 직접 MediaRecorder API 사용 (expo-audio 웹 녹음 불안정)
   const webRecorderRef = useRef<MediaRecorder | null>(null);
@@ -111,7 +111,7 @@ export default function PracticeScreen() {
   useEffect(() => {
     return () => {
       player.pause();
-      if (timerRef.current) clearInterval(timerRef.current);
+      recTimer.cleanup();
       if (Platform.OS === 'web' && webRecorderRef.current) {
         if (webRecorderRef.current.state !== 'inactive') {
           webRecorderRef.current.stop();
@@ -218,11 +218,7 @@ export default function PracticeScreen() {
       }
 
       setPracticeState('recording');
-      setRecordingTime(0);
-
-      timerRef.current = setInterval(() => {
-        setRecordingTime((prev) => prev + 1);
-      }, 1000);
+      recTimer.start();
     } catch (err: unknown) {
       if (__DEV__) console.warn('[AppError] Error starting recording:', err);
       const errName = err instanceof Error ? err.name : '';
@@ -245,10 +241,7 @@ export default function PracticeScreen() {
 
     try {
       // 타이머 정지
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
+      recTimer.stop();
 
       setPracticeState('processing');
       setProcessingStep('upload');
@@ -303,7 +296,7 @@ export default function PracticeScreen() {
         createPractice({
           scriptId: id,
           audioPath: uploadData.path,
-          duration: recordingTime,
+          duration: recTimer.seconds,
         }),
         transcribeAudio(uploadData.path),
       ]);
@@ -372,12 +365,6 @@ export default function PracticeScreen() {
     }
   };
 
-  // 시간 포맷
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   if (practiceState === 'loading') {
     return (
@@ -456,7 +443,7 @@ export default function PracticeScreen() {
 
       {/* 녹음 섹션 */}
       <View style={styles.recordSection}>
-        <Text style={[styles.timer, { color: colors.textPrimary }]}>{formatTime(recordingTime)}</Text>
+        <Text style={[styles.timer, { color: colors.textPrimary }]}>{formatDuration(recTimer.seconds)}</Text>
 
         {practiceState === 'recording' ? (
           <>

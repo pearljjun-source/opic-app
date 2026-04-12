@@ -24,7 +24,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '@/hooks/useTheme';
 import { useVoiceConsent } from '@/hooks/useVoiceConsent';
 import { useExamRoutes } from '@/hooks/useExamRoutes';
+import { useRecordingTimer } from '@/hooks/useRecordingTimer';
 import { EXAM_CONFIG, EXAM_TYPE_LABELS, QUESTION_TIME_LIMITS } from '@/lib/constants';
+import { formatDuration } from '@/lib/helpers';
 import { abandonExamSession, generateLevelTestQuestions, checkExamAvailability, createExamSession } from '@/services/exams';
 import { useAuth } from '@/hooks/useAuth';
 import { generateQuestionAudio } from '@/services/practices';
@@ -33,6 +35,7 @@ import { alert as xAlert, confirm as xConfirm } from '@/lib/alert';
 import type { ExamType, ExamRecording } from '@/lib/types';
 import type { GeneratedQuestion } from '@/services/exams';
 import { VoiceConsentModal } from '@/components/ui/VoiceConsentModal';
+import { ExamTimerBar } from '@/components/ui/ExamTimerBar';
 
 type SessionState = 'loading' | 'ready' | 'playing_question' | 'recording' | 'between_questions' | 'exam_end';
 
@@ -58,7 +61,7 @@ export default function ExamSessionScreen() {
 
   // 상태
   const [sessionState, setSessionState] = useState<SessionState>('loading');
-  const [recordingTime, setRecordingTime] = useState(0);
+  const recTimer = useRecordingTimer();
   const [totalElapsed, setTotalElapsed] = useState(0);
   const [questionTimeRemaining, setQuestionTimeRemaining] = useState(0);
   const [questionTimeUp, setQuestionTimeUp] = useState(false);
@@ -67,7 +70,6 @@ export default function ExamSessionScreen() {
   const [recordings, setRecordings] = useState<ExamRecording[]>([]);
 
   // Refs
-  const recTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const totalTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const questionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -84,7 +86,6 @@ export default function ExamSessionScreen() {
   const isInitRef = useRef(false);
   const wasAutoAdvancedRef = useRef(false);
   const currentQuestionRef = useRef<GeneratedQuestion | null>(null);
-  const recordingTimeRef = useRef(0);
 
   // expo-audio hooks
   const player = useAudioPlayer(null);
@@ -101,11 +102,9 @@ export default function ExamSessionScreen() {
     return QUESTION_TIME_LIMITS[q.question_type] || QUESTION_TIME_LIMITS.default;
   }, []);
 
-  const isQuestionWarning = questionTimeRemaining > 0 && questionTimeRemaining <= EXAM_CONFIG.QUESTION_WARNING_THRESHOLD_SEC;
 
   // Ref 동기화 (stale closure 방지 — handleTimeUp에서 사용)
   useEffect(() => { currentQuestionRef.current = currentQuestion || null; }, [currentQuestion]);
-  useEffect(() => { recordingTimeRef.current = recordingTime; }, [recordingTime]);
 
   // TTS 재생 완료 감지
   useEffect(() => {
@@ -231,7 +230,7 @@ export default function ExamSessionScreen() {
   useEffect(() => {
     return () => {
       player.pause();
-      if (recTimerRef.current) clearInterval(recTimerRef.current);
+      recTimer.cleanup();
       if (totalTimerRef.current) clearInterval(totalTimerRef.current);
       if (questionTimerRef.current) clearInterval(questionTimerRef.current);
       if (Platform.OS === 'web' && webRecorderRef.current) {
@@ -309,10 +308,7 @@ export default function ExamSessionScreen() {
 
     // 녹음 중지 + 자동 넘김 (handleStopRecording 로직 재사용)
     const autoAdvance = async () => {
-      if (recTimerRef.current) {
-        clearInterval(recTimerRef.current);
-        recTimerRef.current = null;
-      }
+      recTimer.stop();
 
       try {
         let uri: string | null = null;
@@ -331,7 +327,7 @@ export default function ExamSessionScreen() {
             questionId: q.question_id || q.roleplay_question_id || '',
             questionType: q.source === 'roleplay_question' ? 'roleplay_question' : 'question',
             uri,
-            duration: recordingTimeRef.current,
+            duration: recTimer.secondsRef.current,
           }]);
         }
       } catch {
@@ -353,7 +349,7 @@ export default function ExamSessionScreen() {
   // 시간 초과 (전체)
   const handleTimeUp = useCallback(() => {
     if (totalTimerRef.current) clearInterval(totalTimerRef.current);
-    if (recTimerRef.current) clearInterval(recTimerRef.current);
+    recTimer.stop();
     stopQuestionTimer();
 
     const isWebRecording = Platform.OS === 'web' && webRecorderRef.current?.state === 'recording';
@@ -368,7 +364,7 @@ export default function ExamSessionScreen() {
             questionId: q.question_id || q.roleplay_question_id || '',
             questionType: q.source === 'roleplay_question' ? 'roleplay_question' : 'question',
             uri,
-            duration: recordingTimeRef.current,
+            duration: recTimer.secondsRef.current,
           }]);
         }
         setSessionState('exam_end');
@@ -385,7 +381,7 @@ export default function ExamSessionScreen() {
             questionId: q.question_id || q.roleplay_question_id || '',
             questionType: q.source === 'roleplay_question' ? 'roleplay_question' : 'question',
             uri,
-            duration: recordingTimeRef.current,
+            duration: recTimer.secondsRef.current,
           }]);
         }
         setSessionState('exam_end');
@@ -523,11 +519,7 @@ export default function ExamSessionScreen() {
       }
 
       setSessionState('recording');
-      setRecordingTime(0);
-
-      recTimerRef.current = setInterval(() => {
-        setRecordingTime((prev) => prev + 1);
-      }, 1000);
+      recTimer.start();
 
       // 문항별 카운트다운 타이머 시작
       startQuestionTimer(currentQuestion);
@@ -554,10 +546,7 @@ export default function ExamSessionScreen() {
   const handleStopRecording = async () => {
     if (!currentQuestion) return;
 
-    if (recTimerRef.current) {
-      clearInterval(recTimerRef.current);
-      recTimerRef.current = null;
-    }
+    recTimer.stop();
     stopQuestionTimer();
 
     try {
@@ -579,7 +568,7 @@ export default function ExamSessionScreen() {
           questionId: currentQuestion.question_id || currentQuestion.roleplay_question_id || '',
           questionType: currentQuestion.source === 'roleplay_question' ? 'roleplay_question' : 'question',
           uri,
-          duration: recordingTime,
+          duration: recTimer.seconds,
         }]);
       }
 
@@ -600,7 +589,7 @@ export default function ExamSessionScreen() {
   const handleNextQuestion = () => {
     wasAutoAdvancedRef.current = false;
     setCurrentIndex((prev) => prev + 1);
-    setRecordingTime(0);
+    recTimer.reset();
     setQuestionTimeRemaining(0);
     setSessionState('ready');
   };
@@ -642,12 +631,8 @@ export default function ExamSessionScreen() {
     router.replace(`${routes.processing}?${processingParams.toString()}` as any);
   };
 
-  // 시간 포맷
-  const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  };
+  /** 현재 문항의 전체 시간 (프로그레스 바 비율용) */
+  const questionTimeTotal = getQuestionTimeLimit(currentQuestion);
 
   const remainingTime = totalTime > 0 ? Math.max(0, totalTime - totalElapsed) : 0;
 
@@ -725,7 +710,7 @@ export default function ExamSessionScreen() {
           </Text>
           {isMockExam && (
             <Text style={[styles.timer, { color: remainingTime < 300 ? colors.error : colors.textSecondary }]}>
-              {formatTime(remainingTime)}
+              {formatDuration(remainingTime)}
             </Text>
           )}
         </View>
@@ -791,28 +776,14 @@ export default function ExamSessionScreen() {
 
       {/* 녹음 영역 */}
       <View style={styles.recordArea}>
-        {/* 문항별 남은 시간 (녹음 중에만 표시) */}
+        {/* 문항별 남은 시간 — 프로그레스 바 + 카운트다운 (녹음 중) */}
         {sessionState === 'recording' && questionTimeRemaining > 0 && (
-          <View style={styles.questionTimerContainer}>
-            <Ionicons
-              name="timer-outline"
-              size={16}
-              color={isQuestionWarning ? colors.error : colors.textSecondary}
-            />
-            <Text style={[
-              styles.questionTimerText,
-              { color: isQuestionWarning ? colors.error : colors.textSecondary },
-              isQuestionWarning && styles.questionTimerWarning,
-            ]}>
-              남은 시간 {formatTime(questionTimeRemaining)}
-            </Text>
-          </View>
+          <ExamTimerBar
+            remaining={questionTimeRemaining}
+            total={questionTimeTotal}
+            warningThreshold={EXAM_CONFIG.QUESTION_WARNING_THRESHOLD_SEC}
+          />
         )}
-
-        {/* 녹음 시간 (위로 카운트) */}
-        <Text style={[styles.recTimer, { color: colors.textPrimary }]}>
-          {formatTime(recordingTime)}
-        </Text>
 
         {sessionState === 'recording' ? (
           <>
@@ -867,7 +838,7 @@ export default function ExamSessionScreen() {
         {/* 답변 시간 안내 (녹음 전) */}
         {sessionState === 'ready' && (
           <Text style={[styles.timeLimitHint, { color: colors.textDisabled }]}>
-            답변 시간: {formatTime(getQuestionTimeLimit(currentQuestion))}
+            답변 시간: {formatDuration(getQuestionTimeLimit(currentQuestion))}
           </Text>
         )}
 
@@ -969,12 +940,6 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     paddingTop: 16,
   },
-  recTimer: {
-    fontSize: 40,
-    fontWeight: '300',
-    marginBottom: 16,
-    fontVariant: ['tabular-nums'],
-  },
   recordingIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -993,23 +958,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 4,
-  },
-  questionTimerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  questionTimerText: {
-    fontSize: 14,
-    fontFamily: 'Pretendard-SemiBold',
-    fontVariant: ['tabular-nums'] as any,
-  },
-  questionTimerWarning: {
-    fontFamily: 'Pretendard-Bold',
   },
   timeLimitHint: {
     fontSize: 12,
