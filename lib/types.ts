@@ -350,6 +350,8 @@ export interface ExamRecording {
   questionType: 'question' | 'roleplay_question';
   uri: string;
   duration: number;
+  /** 이미 업로드된 경로 (session에서 즉시 업로드 완료 시) */
+  uploadedPath?: string;
 }
 
 // ============================================================================

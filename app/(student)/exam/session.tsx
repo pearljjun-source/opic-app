@@ -29,7 +29,7 @@ import { EXAM_CONFIG, EXAM_TYPE_LABELS, QUESTION_TIME_LIMITS } from '@/lib/const
 import { formatDuration } from '@/lib/helpers';
 import { abandonExamSession, generateLevelTestQuestions, checkExamAvailability, createExamSession } from '@/services/exams';
 import { useAuth } from '@/hooks/useAuth';
-import { generateQuestionAudio } from '@/services/practices';
+import { generateQuestionAudio, uploadRecording } from '@/services/practices';
 import { getUserMessage } from '@/lib/errors';
 import { alert as xAlert, confirm as xConfirm } from '@/lib/alert';
 import type { ExamType, ExamRecording } from '@/lib/types';
@@ -68,6 +68,8 @@ export default function ExamSessionScreen() {
 
   // 녹음 데이터 (로컬)
   const [recordings, setRecordings] = useState<ExamRecording[]>([]);
+  // 백그라운드 업로드 추적 (questionOrder → Promise<uploadedPath | null>)
+  const uploadPromisesRef = useRef<Map<number, Promise<string | null>>>(new Map());
 
   // Refs
   const totalTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -268,6 +270,19 @@ export default function ExamSessionScreen() {
     return uri;
   }, []);
 
+  // 녹음 즉시 업로드 (백그라운드, fire-and-forget)
+  const startBackgroundUpload = useCallback((uri: string, questionOrder: number) => {
+    const baseName = `exam_${sessionIdRef.current}_q${questionOrder}`;
+    const promise = uploadRecording(uri, baseName).then(({ data, error }) => {
+      if (error || !data) {
+        if (__DEV__) console.warn('[AppError] Background upload failed Q' + questionOrder, error);
+        return null;
+      }
+      return data.path;
+    });
+    uploadPromisesRef.current.set(questionOrder, promise);
+  }, []);
+
   // 문항별 타이머 시작/중지
   const startQuestionTimer = useCallback((q: GeneratedQuestion | undefined) => {
     if (questionTimerRef.current) {
@@ -329,6 +344,7 @@ export default function ExamSessionScreen() {
             uri,
             duration: recTimer.secondsRef.current,
           }]);
+          startBackgroundUpload(uri, q.question_order);
         }
       } catch {
         if (__DEV__) console.warn('[AppError] Auto-advance recording stop error');
@@ -366,6 +382,7 @@ export default function ExamSessionScreen() {
             uri,
             duration: recTimer.secondsRef.current,
           }]);
+          startBackgroundUpload(uri, q.question_order);
         }
         setSessionState('exam_end');
       }).catch(() => {
@@ -383,6 +400,7 @@ export default function ExamSessionScreen() {
             uri,
             duration: recTimer.secondsRef.current,
           }]);
+          startBackgroundUpload(uri, q.question_order);
         }
         setSessionState('exam_end');
       }).catch(() => {
@@ -570,6 +588,7 @@ export default function ExamSessionScreen() {
           uri,
           duration: recTimer.seconds,
         }]);
+        startBackgroundUpload(uri, currentQuestion.question_order);
       }
 
       // 다음 문항 또는 시험 종료
@@ -604,7 +623,7 @@ export default function ExamSessionScreen() {
   };
 
   // 시험 종료 → 처리 화면으로
-  const handleFinish = () => {
+  const handleFinish = async () => {
     if (totalTimerRef.current) clearInterval(totalTimerRef.current);
 
     if (recordings.length === 0) {
@@ -624,9 +643,18 @@ export default function ExamSessionScreen() {
       return;
     }
 
+    // 백그라운드 업로드 완료 대기 → uploadedPath 채워서 전달
+    const finalRecordings = await Promise.all(
+      recordings.map(async (rec) => {
+        const uploadPromise = uploadPromisesRef.current.get(rec.questionOrder);
+        const uploadedPath = uploadPromise ? await uploadPromise : null;
+        return { ...rec, ...(uploadedPath && { uploadedPath }) };
+      })
+    );
+
     const processingParams = new URLSearchParams({
       sessionId: sessionIdRef.current,
-      recordings: JSON.stringify(recordings),
+      recordings: JSON.stringify(finalRecordings),
     });
     router.replace(`${routes.processing}?${processingParams.toString()}` as any);
   };

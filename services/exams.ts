@@ -293,7 +293,7 @@ export async function saveExamResponse(params: {
 
 /**
  * 시험 결과 처리
- * 1. 녹음 파일 순차 업로드
+ * 1. 녹음 파일 업로드 (이미 업로드된 건 스킵)
  * 2. STT 순차 처리 (500ms 간격)
  * 3. claude-exam-evaluate 호출 (배치 1회)
  */
@@ -335,11 +335,24 @@ export async function processExamResults(
   let sttFailures = 0;
   const uploadedPaths = new Map<number, string>(); // questionOrder → 실제 업로드 경로
 
-  // 1단계: 녹음 업로드
+  // 1단계: 녹음 업로드 (session에서 이미 업로드된 건 스킵)
   for (let i = 0; i < recordings.length; i++) {
     const rec = recordings[i];
     onProgress?.('upload', i + 1, total);
 
+    // session에서 이미 업로드 완료된 경우
+    if (rec.uploadedPath) {
+      uploadedPaths.set(rec.questionOrder, rec.uploadedPath);
+      // DB에 audio_url + duration 저장
+      const { error: audioSaveError } = await fromTable('exam_responses')
+        .update({ audio_url: rec.uploadedPath, duration_sec: Math.round(rec.duration) })
+        .eq('exam_session_id', sessionId)
+        .eq('question_order', rec.questionOrder);
+      if (audioSaveError && __DEV__) console.warn('[AppError] audio_url save failed Q' + rec.questionOrder, audioSaveError);
+      continue;
+    }
+
+    // 아직 업로드되지 않은 경우 (폴백)
     const { data: uploadResult, error: uploadError } = await uploadRecording(
       rec.uri, `exam_${sessionId}_q${rec.questionOrder}`
     );
