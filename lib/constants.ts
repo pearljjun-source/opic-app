@@ -313,12 +313,11 @@ export const APP_CONFIG = {
 export const TTS_VOICES = [
   { key: 'nova', label: 'Nova', gender: 'female' as const },
   { key: 'echo', label: 'Echo', gender: 'male' as const },
-  { key: 'onyx', label: 'Onyx', gender: 'male' as const },
 ] as const;
 
 export type TtsVoiceKey = (typeof TTS_VOICES)[number]['key'];
 
-/** TTS 재생 속도 옵션 (클라이언트 사이드 playbackRate) */
+/** TTS 재생 속도 옵션 (OpenAI API speed 파라미터로 서버에서 생성) */
 export const TTS_SPEEDS = [
   { key: 0.5, label: '0.5x' },
   { key: 0.75, label: '0.75x' },

@@ -161,9 +161,15 @@ export default function ShadowingScreen() {
     }
   }, [playerStatus.didJustFinish]);
 
-  // 재생 중 속도 변경 즉시 반영
+  // 속도 변경 시: TTS 재생 중이면 자동 중지 (새 속도는 API 재생성 필요), 녹음 재생은 즉시 반영
   useEffect(() => {
-    if (state === 'playing_tts' || state === 'playing_recording') {
+    if (state === 'playing_tts') {
+      // TTS는 API에서 속도가 적용되므로, 새 속도로 다시 재생 필요 → 중지
+      player.pause();
+      playbackTypeRef.current = null;
+      setActiveSentence(-1);
+      setState('ready');
+    } else if (state === 'playing_recording') {
       player.playbackRate = speed;
     }
   }, [speed]);
@@ -176,7 +182,7 @@ export default function ShadowingScreen() {
       setState('playing_tts');
       setActiveSentence(0);
 
-      const { data: ttsData, error: ttsError } = await generateScriptAudio(id!, voice);
+      const { data: ttsData, error: ttsError } = await generateScriptAudio(id!, voice, speed);
       if (ttsError || !ttsData) {
         xAlert('오류', getUserMessage(ttsError) || 'TTS 오디오 생성에 실패했습니다.');
         setActiveSentence(-1);
@@ -186,7 +192,7 @@ export default function ShadowingScreen() {
 
       playbackTypeRef.current = 'tts';
       player.replace({ uri: ttsData.audioUrl });
-      player.playbackRate = speed;
+      player.playbackRate = 1.0; // 속도는 API에서 이미 적용됨
       player.play();
     } catch (err) {
       if (__DEV__) console.warn('[AppError] Error playing TTS:', err);
@@ -458,8 +464,10 @@ export default function ShadowingScreen() {
                 styles.chip,
                 { borderColor: speed === s.key ? colors.primary : colors.surfaceSecondary },
                 speed === s.key && { backgroundColor: colors.primary + '15' },
+                state === 'playing_tts' && styles.buttonDisabled,
               ]}
               onPress={() => setSpeed(s.key as TtsSpeedKey)}
+              disabled={state === 'playing_tts'}
             >
               <Text
                 style={[

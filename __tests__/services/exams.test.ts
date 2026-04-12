@@ -47,11 +47,12 @@ const chain = mockSupabase._mockChain;
 
 /** 모든 chain 메서드를 기본 상태(mockReturnThis)로 리셋 */
 function resetChain() {
-  for (const key of Object.keys(chain)) {
+  const chainRecord = chain as unknown as Record<string, jest.Mock>;
+  for (const key of Object.keys(chainRecord)) {
     if (key === 'single' || key === 'maybeSingle') {
-      chain[key].mockReset().mockResolvedValue({ data: null, error: null });
+      chainRecord[key].mockReset().mockResolvedValue({ data: null, error: null });
     } else {
-      chain[key].mockReset().mockReturnThis();
+      chainRecord[key].mockReset().mockReturnThis();
     }
   }
   mockSupabase.from.mockReset().mockReturnValue(chain);
@@ -121,7 +122,7 @@ describe('createExamSession', () => {
     mockUnauthenticatedUser();
 
     const result = await createExamSession({
-      examType: 'mock_test',
+      examType: 'mock_exam',
       questions: sampleQuestions,
     });
 
@@ -143,7 +144,7 @@ describe('createExamSession', () => {
     // (기본 mockReturnThis로 충분)
 
     const result = await createExamSession({
-      examType: 'mock_test',
+      examType: 'mock_exam',
       selfAssessmentLevel: 4,
       surveyTopics: ['topic-1', 'topic-2'],
       questions: sampleQuestions,
@@ -162,7 +163,7 @@ describe('createExamSession', () => {
     });
 
     const result = await createExamSession({
-      examType: 'mock_test',
+      examType: 'mock_exam',
       questions: sampleQuestions,
     });
 
@@ -185,7 +186,7 @@ describe('createExamSession', () => {
       .mockResolvedValueOnce({ data: null, error: { code: 'PGRST000', message: 'Insert failed' } });
 
     const result = await createExamSession({
-      examType: 'mock_test',
+      examType: 'mock_exam',
       questions: sampleQuestions,
     });
 
@@ -215,7 +216,7 @@ describe('getExamSession', () => {
     const session = {
       id: 'session-1',
       student_id: 'student-1',
-      exam_type: 'mock_test',
+      exam_type: 'mock_exam',
       status: 'completed',
       estimated_grade: 'IH',
       overall_score: 75,
@@ -291,7 +292,7 @@ describe('getMyExamSessions', () => {
     mockAuthenticatedUser();
 
     const sessions = [
-      { id: 's1', exam_type: 'mock_test', status: 'completed', estimated_grade: 'IH' },
+      { id: 's1', exam_type: 'mock_exam', status: 'completed', estimated_grade: 'IH' },
       { id: 's2', exam_type: 'level_test', status: 'completed', estimated_grade: 'AL' },
     ];
 
@@ -313,11 +314,11 @@ describe('getMyExamSessions', () => {
     chain.eq
       .mockReturnValueOnce(chain) // eq('student_id') → 체인 계속
       .mockResolvedValueOnce({    // eq('exam_type') → 터미널
-        data: [{ id: 's1', exam_type: 'mock_test' }],
+        data: [{ id: 's1', exam_type: 'mock_exam' }],
         error: null,
       });
 
-    const result = await getMyExamSessions('mock_test');
+    const result = await getMyExamSessions('mock_exam');
 
     expect(result.data).toHaveLength(1);
     expect(result.error).toBeNull();
@@ -355,7 +356,7 @@ describe('getStudentExamSessions', () => {
   it('returns student sessions on success', async () => {
     mockAuthenticatedUser('teacher-1');
 
-    const sessions = [{ id: 's1', exam_type: 'mock_test', status: 'completed' }];
+    const sessions = [{ id: 's1', exam_type: 'mock_exam', status: 'completed' }];
 
     chain.order.mockResolvedValueOnce({ data: sessions, error: null });
 
@@ -483,8 +484,8 @@ describe('saveExamResponse', () => {
 
 describe('processExamResults', () => {
   const recordings = [
-    { questionOrder: 1, uri: 'file:///audio1.m4a', duration: 30 },
-    { questionOrder: 2, uri: 'file:///audio2.m4a', duration: 45 },
+    { questionOrder: 1, questionId: 'q1', questionType: 'question' as const, uri: 'file:///audio1.m4a', duration: 30 },
+    { questionOrder: 2, questionId: 'q2', questionType: 'question' as const, uri: 'file:///audio2.m4a', duration: 45 },
   ];
 
   it('returns AUTH_REQUIRED when not authenticated', async () => {
@@ -622,7 +623,7 @@ describe('processExamResults', () => {
 
     mockInvokeFunction.mockResolvedValueOnce({
       data: null,
-      error: { message: 'Rate limit exceeded' },
+      error: { name: 'FunctionsHttpError', message: 'Rate limit exceeded' },
     });
 
     const result = await processExamResults('session-1', recordings);
@@ -850,12 +851,12 @@ describe('checkExamAvailability', () => {
       error: null,
     });
 
-    const result = await checkExamAvailability('mock_test', 15);
+    const result = await checkExamAvailability('mock_exam', 15);
 
     expect(result.success).toBe(true);
     expect(result.exams_remaining).toBe(3);
     expect(mockSupabase.rpc).toHaveBeenCalledWith('check_exam_availability', {
-      p_exam_type: 'mock_test',
+      p_exam_type: 'mock_exam',
       p_question_count: 15,
     });
   });
@@ -877,7 +878,7 @@ describe('checkExamAvailability', () => {
       error: { code: 'PGRST000', message: 'DB error' },
     });
 
-    const result = await checkExamAvailability('mock_test');
+    const result = await checkExamAvailability('mock_exam');
 
     expect(result.success).toBe(false);
     expect(result.error).toBeDefined();
@@ -889,7 +890,7 @@ describe('checkExamAvailability', () => {
       error: null,
     });
 
-    const result = await checkExamAvailability('mock_test');
+    const result = await checkExamAvailability('mock_exam');
 
     expect(result.success).toBe(false);
     expect(typeof result.error).toBe('string');

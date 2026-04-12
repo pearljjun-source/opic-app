@@ -412,85 +412,144 @@ export default function TranslationPracticeScreen() {
         )}
       </ScrollView>
 
-      {/* 녹음 섹션 */}
-      <View style={styles.recordSection}>
-        <Text style={[styles.timer, { color: colors.textPrimary }]}>{formatTime(recordingTime)}</Text>
-
-        {practiceState === 'recording' ? (
-          <>
-            <View style={styles.recordingIndicator}>
-              <View style={[styles.recordingDot, { backgroundColor: colors.error }]} />
-              <Text style={[styles.recordingText, { color: colors.error }]}>녹음 중</Text>
-            </View>
-
-            {Platform.OS === 'web' ? (
-              <div
-                onClick={handleStopRecording}
-                style={{
-                  width: 80, height: 80, borderRadius: 40,
-                  backgroundColor: '#4B5563',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  cursor: 'pointer',
-                }}
-              >
-                <Ionicons name="stop" size={28} color="#FFFFFF" />
-              </div>
-            ) : (
-              <Pressable style={[styles.stopButton, { backgroundColor: colors.gray600 }]} onPress={handleStopRecording}>
-                <Ionicons name="stop" size={28} color="#FFFFFF" />
-              </Pressable>
-            )}
-            <Text style={[styles.recordHint, { color: colors.textSecondary }]}>탭하여 녹음 종료</Text>
-          </>
-        ) : (
-          <>
-            {Platform.OS === 'web' ? (
-              <div
-                onClick={practiceState === 'ready' ? handleStartRecording : undefined}
-                style={{
-                  width: 80, height: 80, borderRadius: 40,
-                  backgroundColor: '#F87171',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  cursor: practiceState === 'ready' ? 'pointer' : 'default',
-                  boxShadow: '0 4px 8px rgba(248,113,113,0.3)',
-                }}
-              >
-                <Ionicons name="mic" size={32} color="#FFFFFF" />
-              </div>
-            ) : (
-              <Pressable
-                style={[styles.recordButton, { backgroundColor: colors.error, shadowColor: colors.error }]}
-                onPress={handleStartRecording}
-                disabled={practiceState !== 'ready'}
-              >
-                <Ionicons name="mic" size={32} color="#FFFFFF" />
-              </Pressable>
-            )}
-            <Text style={[styles.recordHint, { color: colors.textSecondary }]}>탭하여 녹음 시작</Text>
-          </>
-        )}
-      </View>
-
-      {/* 취소 */}
-      {Platform.OS === 'web' ? (
-        <div
-          onClick={practiceState !== 'recording' ? () => router.back() : undefined}
-          style={{
-            padding: 12, alignSelf: 'center' as const,
-            cursor: practiceState !== 'recording' ? 'pointer' : 'default',
-            opacity: practiceState === 'recording' ? 0.5 : 1,
-          }}
-        >
-          <Text style={[styles.cancelText, { color: colors.textSecondary }]}>취소</Text>
-        </div>
+      {/* 녹음 섹션: 영어 스크립트 표시 중이면 컴팩트 바 */}
+      {showEnglish ? (
+        <View style={[styles.compactRecordSection, { backgroundColor: colors.surface }]}>
+          {practiceState === 'recording' ? (
+            <>
+              <View style={styles.compactRecordingInfo}>
+                <View style={[styles.recordingDot, { backgroundColor: colors.error }]} />
+                <Text style={[styles.compactTimer, { color: colors.error }]}>{formatTime(recordingTime)}</Text>
+              </View>
+              {Platform.OS === 'web' ? (
+                <div
+                  onClick={handleStopRecording}
+                  style={{
+                    width: 44, height: 44, borderRadius: 22,
+                    backgroundColor: '#4B5563',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Ionicons name="stop" size={20} color="#FFFFFF" />
+                </div>
+              ) : (
+                <Pressable style={[styles.compactStopButton, { backgroundColor: colors.gray600 }]} onPress={handleStopRecording}>
+                  <Ionicons name="stop" size={20} color="#FFFFFF" />
+                </Pressable>
+              )}
+            </>
+          ) : (
+            <>
+              <Text style={[styles.compactTimer, { color: colors.textSecondary }]}>{formatTime(recordingTime)}</Text>
+              {Platform.OS === 'web' ? (
+                <div
+                  onClick={practiceState === 'ready' ? handleStartRecording : undefined}
+                  style={{
+                    width: 44, height: 44, borderRadius: 22,
+                    backgroundColor: '#F87171',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: practiceState === 'ready' ? 'pointer' : 'default',
+                    boxShadow: '0 2px 4px rgba(248,113,113,0.25)',
+                  }}
+                >
+                  <Ionicons name="mic" size={20} color="#FFFFFF" />
+                </div>
+              ) : (
+                <Pressable
+                  style={[styles.compactRecordButton, { backgroundColor: colors.error, shadowColor: colors.error }]}
+                  onPress={handleStartRecording}
+                  disabled={practiceState !== 'ready'}
+                >
+                  <Ionicons name="mic" size={20} color="#FFFFFF" />
+                </Pressable>
+              )}
+              <Text style={[styles.compactHint, { color: colors.textSecondary }]}>탭하여 녹음</Text>
+            </>
+          )}
+        </View>
       ) : (
-        <Pressable
-          style={styles.cancelButton}
-          onPress={() => router.back()}
-          disabled={practiceState === 'recording'}
-        >
-          <Text style={[styles.cancelText, { color: colors.textSecondary }]}>취소</Text>
-        </Pressable>
+        <View style={styles.recordSection}>
+          <Text style={[styles.timer, { color: colors.textPrimary }]}>{formatTime(recordingTime)}</Text>
+
+          {practiceState === 'recording' ? (
+            <>
+              <View style={styles.recordingIndicator}>
+                <View style={[styles.recordingDot, { backgroundColor: colors.error }]} />
+                <Text style={[styles.recordingText, { color: colors.error }]}>녹음 중</Text>
+              </View>
+
+              {Platform.OS === 'web' ? (
+                <div
+                  onClick={handleStopRecording}
+                  style={{
+                    width: 80, height: 80, borderRadius: 40,
+                    backgroundColor: '#4B5563',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Ionicons name="stop" size={28} color="#FFFFFF" />
+                </div>
+              ) : (
+                <Pressable style={[styles.stopButton, { backgroundColor: colors.gray600 }]} onPress={handleStopRecording}>
+                  <Ionicons name="stop" size={28} color="#FFFFFF" />
+                </Pressable>
+              )}
+              <Text style={[styles.recordHint, { color: colors.textSecondary }]}>탭하여 녹음 종료</Text>
+            </>
+          ) : (
+            <>
+              {Platform.OS === 'web' ? (
+                <div
+                  onClick={practiceState === 'ready' ? handleStartRecording : undefined}
+                  style={{
+                    width: 80, height: 80, borderRadius: 40,
+                    backgroundColor: '#F87171',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: practiceState === 'ready' ? 'pointer' : 'default',
+                    boxShadow: '0 4px 8px rgba(248,113,113,0.3)',
+                  }}
+                >
+                  <Ionicons name="mic" size={32} color="#FFFFFF" />
+                </div>
+              ) : (
+                <Pressable
+                  style={[styles.recordButton, { backgroundColor: colors.error, shadowColor: colors.error }]}
+                  onPress={handleStartRecording}
+                  disabled={practiceState !== 'ready'}
+                >
+                  <Ionicons name="mic" size={32} color="#FFFFFF" />
+                </Pressable>
+              )}
+              <Text style={[styles.recordHint, { color: colors.textSecondary }]}>탭하여 녹음 시작</Text>
+            </>
+          )}
+        </View>
+      )}
+
+      {/* 취소 (컴팩트 모드에서는 숨김) */}
+      {!showEnglish && (
+        Platform.OS === 'web' ? (
+          <div
+            onClick={practiceState !== 'recording' ? () => router.back() : undefined}
+            style={{
+              padding: 12, alignSelf: 'center' as const,
+              cursor: practiceState !== 'recording' ? 'pointer' : 'default',
+              opacity: practiceState === 'recording' ? 0.5 : 1,
+            }}
+          >
+            <Text style={[styles.cancelText, { color: colors.textSecondary }]}>취소</Text>
+          </div>
+        ) : (
+          <Pressable
+            style={styles.cancelButton}
+            onPress={() => router.back()}
+            disabled={practiceState === 'recording'}
+          >
+            <Text style={[styles.cancelText, { color: colors.textSecondary }]}>취소</Text>
+          </Pressable>
+        )
       )}
 
       <VoiceConsentModal
@@ -663,5 +722,48 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 16,
     borderWidth: 1,
+  },
+
+  // ── 컴팩트 녹음 바 (영어 스크립트 표시 중) ──
+  compactRecordSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginTop: 4,
+  },
+  compactRecordButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  compactStopButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  compactTimer: {
+    fontSize: 18,
+    fontWeight: '300',
+    fontVariant: ['tabular-nums'],
+  },
+  compactRecordingInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  compactHint: {
+    fontSize: 12,
   },
 });
