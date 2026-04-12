@@ -114,6 +114,28 @@ export default function ExamSessionScreen() {
     }
   }, [playerStatus.didJustFinish]);
 
+  // 현재+다음 질문 오디오 프리페치 (audio_url 없는 question만)
+  useEffect(() => {
+    if (questions.length === 0) return;
+    let mounted = true;
+    const toPrefetch = [currentIndex, currentIndex + 1]
+      .filter(i => i < questions.length)
+      .map(i => questions[i])
+      .filter(q => q.source === 'question' && q.question_id && !q.audio_url);
+
+    toPrefetch.forEach(q => {
+      generateQuestionAudio(q.question_id!).then(({ data: ttsData }) => {
+        if (!mounted) return;
+        if (ttsData?.audioUrl) {
+          setQuestions(prev => prev.map(pq =>
+            pq.question_id === q.question_id ? { ...pq, audio_url: ttsData.audioUrl } : pq
+          ));
+        }
+      }).catch(() => {});
+    });
+    return () => { mounted = false; };
+  }, [currentIndex, questions.length]);
+
   // 문항 로드 (또는 레벨 테스트 시 생성)
   useEffect(() => {
     if (questionsParam) {

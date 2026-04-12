@@ -71,12 +71,15 @@ export default function PracticeScreen() {
     }
   }, [playerStatus.didJustFinish]);
 
-  // 스크립트 로드
+  // 스크립트 로드 + 질문 오디오 프리페치
   useEffect(() => {
+    let mounted = true;
+
     const loadScript = async () => {
       if (!id) return;
 
       const { data, error: fetchError } = await getStudentScript(id);
+      if (!mounted) return;
 
       if (fetchError) {
         setError(getUserMessage(fetchError));
@@ -84,10 +87,24 @@ export default function PracticeScreen() {
       } else if (data) {
         setScript(data);
         setPracticeState('ready');
+
+        // 백그라운드 프리페치: audio_url 없으면 미리 TTS 생성
+        if (!data.question.audio_url && data.question.id) {
+          generateQuestionAudio(data.question.id).then(({ data: ttsData }) => {
+            if (!mounted) return;
+            if (ttsData?.audioUrl) {
+              setScript(prev => prev ? {
+                ...prev,
+                question: { ...prev.question, audio_url: ttsData.audioUrl },
+              } : prev);
+            }
+          }).catch(() => {});
+        }
       }
     };
 
     loadScript();
+    return () => { mounted = false; };
   }, [id]);
 
   // 클린업

@@ -54,6 +54,8 @@ export default function ShadowingScreen() {
   const recordingUriRef = useRef<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const playbackTypeRef = useRef<'tts' | 'recording' | null>(null);
+  // TTS audioUrl 클라이언트 캐시 (voice_speed → url) — 같은 조합 재생 시 Edge Function 호출 생략
+  const ttsUrlCacheRef = useRef<Record<string, string>>({});
   const scrollViewRef = useRef<ScrollView>(null);
   const contentHeightRef = useRef(0);
   const scrollViewHeightRef = useRef(0);
@@ -86,20 +88,30 @@ export default function ShadowingScreen() {
     });
   }, [sentences]);
 
-  // 스크립트 로드
+  // 스크립트 로드 + TTS 프리페치
   useEffect(() => {
+    let mounted = true;
     const loadScript = async () => {
       if (!id) return;
       const { data, error: fetchError } = await getStudentScript(id);
+      if (!mounted) return;
       if (fetchError) {
         setError(getUserMessage(fetchError));
         setState('ready');
       } else if (data) {
         setScript(data);
         setState('ready');
+
+        // 백그라운드 프리페치: 사용자가 스크립트 읽는 동안 TTS URL 준비
+        generateScriptAudio(id, voice, speed).then(({ data: ttsData }) => {
+          if (ttsData?.audioUrl) {
+            ttsUrlCacheRef.current[`${voice}_${speed}`] = ttsData.audioUrl;
+          }
+        }).catch(() => {}); // 프리페치 실패는 무시 (탭 시 재시도)
       }
     };
     loadScript();
+    return () => { mounted = false; };
   }, [id]);
 
   // 클린업
@@ -182,16 +194,24 @@ export default function ShadowingScreen() {
       setState('playing_tts');
       setActiveSentence(0);
 
-      const { data: ttsData, error: ttsError } = await generateScriptAudio(id!, voice, speed);
-      if (ttsError || !ttsData) {
-        xAlert('오류', getUserMessage(ttsError) || 'TTS 오디오 생성에 실패했습니다.');
-        setActiveSentence(-1);
-        setState('ready');
-        return;
+      const cacheKey = `${voice}_${speed}`;
+      let audioUrl = ttsUrlCacheRef.current[cacheKey];
+
+      // 캐시 미스 → Edge Function 호출
+      if (!audioUrl) {
+        const { data: ttsData, error: ttsError } = await generateScriptAudio(id!, voice, speed);
+        if (ttsError || !ttsData) {
+          xAlert('오류', getUserMessage(ttsError) || 'TTS 오디오 생성에 실패했습니다.');
+          setActiveSentence(-1);
+          setState('ready');
+          return;
+        }
+        audioUrl = ttsData.audioUrl;
+        ttsUrlCacheRef.current[cacheKey] = audioUrl;
       }
 
       playbackTypeRef.current = 'tts';
-      player.replace({ uri: ttsData.audioUrl });
+      player.replace({ uri: audioUrl });
       player.playbackRate = 1.0; // 속도는 API에서 이미 적용됨
       player.play();
     } catch (err) {
