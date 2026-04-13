@@ -38,7 +38,10 @@ export type QuestionType = Database['public']['Enums']['question_type'];
 export type ApiType = Database['public']['Enums']['api_type'];
 
 /** 알림 유형 */
-export type NotificationType = 'practice_completed' | 'teacher_feedback' | 'new_script' | 'student_connected' | 'owner_invite_redeemed' | 'teacher_connected' | 'payment_failed';
+export type NotificationType = 'practice_completed' | 'teacher_feedback' | 'new_script' | 'student_connected' | 'owner_invite_redeemed' | 'teacher_connected' | 'payment_failed' | 'new_message';
+
+/** 메시지 대상 유형 */
+export type MessageTargetType = 'class' | 'individual';
 
 /** 취소 사유 */
 export type CancellationReason = 'too_expensive' | 'not_using' | 'missing_feature' | 'switching' | 'closing_academy' | 'other';

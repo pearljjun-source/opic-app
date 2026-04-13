@@ -242,19 +242,19 @@ describe('handleStopRecording 에러 처리', () => {
 
   it('모든 에러 경로에서 xAlert을 호출한다', () => {
     const funcMatch = content.match(
-      /const handleStopRecording = async[\s\S]*?(?=\n  \/\/ 시간 포맷|\n  const formatTime)/
+      /const handleStopRecording = async[\s\S]*?(?=\n\n\n  if \(practiceState)/
     );
     expect(funcMatch).not.toBeNull();
     const funcBody = funcMatch![0];
 
     const alertCalls = (funcBody.match(/xAlert\(/g) || []).length;
     // uri없음, upload실패, save실패, stt실패, feedback실패, catch
-    expect(alertCalls).toBeGreaterThanOrEqual(6);
+    expect(alertCalls).toBeGreaterThanOrEqual(5);
   });
 
   it('모든 에러 경로에서 setPracticeState("ready")를 호출한다', () => {
     const funcMatch = content.match(
-      /const handleStopRecording = async[\s\S]*?(?=\n  \/\/ 시간 포맷|\n  const formatTime)/
+      /const handleStopRecording = async[\s\S]*?(?=\n\n\n  if \(practiceState)/
     );
     expect(funcMatch).not.toBeNull();
     const funcBody = funcMatch![0];

@@ -50,15 +50,15 @@ app/
 ├── (admin)/         # 슈퍼 관리자: 대시보드, 학원/사용자/구독/랜딩 관리
 │   └── (tabs)/      # 6탭: index, landing, academies, users, billing, settings
 ├── (teacher)/       # 강사: 대시보드, 학생/반/스크립트/초대/구독 관리
-│   └── (tabs)/      # 4탭: index, classes, invite, settings
+│   └── (tabs)/      # 5탭: index, classes, invite, exam, settings
 ├── (student)/       # 학생: 연습, 이력, 토픽, 연결
-│   └── (tabs)/      # 3탭: index, history, settings
+│   └── (tabs)/      # 4탭: index, exam, history, settings
 ├── join/[code].tsx   # 공개 초대 링크 (speaky.co.kr/join/CODE)
 └── index.tsx        # 랜딩 페이지 (미인증) / 홈 리다이렉트 (인증)
 
-services/            # 12개 서비스 (admin, billing, classes, connection, invites,
-                     #   landing, notifications, organizations, practices, scripts,
-                     #   students, topics)
+services/            # 14개 서비스 (admin, billing, classes, connection, exams, invites,
+                     #   landing, messages, notifications, organizations, practices,
+                     #   scripts, students, topics)
 hooks/               # 7개 훅 (useAuth, useSubscription, useTheme,
                      #   usePushNotifications, useAppState, useNetworkStatus)
 lib/                 # errors.ts, types.ts, constants.ts, validations.ts, supabase.ts
@@ -316,6 +316,15 @@ END IF;
 | `check_api_rate_limit` | API 호출 전 rate limit 확인 |
 | `log_api_usage` | API 사용량 기록 |
 | `validate_subscription_change` | 구독 변경 트리거 |
+
+**메시징**:
+| 함수 | 용도 |
+|------|------|
+| `send_message` | 메시지 발송 (반/개인 팬아웃 + 알림 생성, SECURITY DEFINER) |
+| `get_my_messages` | 학생 수신함 조회 (sender_name, class_name, read_at 포함) |
+| `get_sent_messages` | 강사 발송 이력 (recipient_count, read_count 포함) |
+| `mark_message_read` | 메시지 읽음 처리 (recipient_id = auth.uid()) |
+| `get_unread_message_count` | 안 읽은 메시지 수 조회 |
 
 **온보딩**:
 | 함수 | 용도 |
@@ -800,6 +809,33 @@ CREATE INDEX idx_subscriptions_provider_subscription_id
   - `TOPIC_CATEGORIES.*`: 카테고리 문자열 상수화 (13개 파일)
   - Rate limit 값 불일치 수정 (claude: 50→30, tts: 20→50)
 
+### Phase 11 — 가격 조정 + Feature Gating 고도화 ✅
+- [x] **가격 인상** (073 마이그레이션): Solo ₩49,900 / Pro ₩99,900 / Academy ₩299,000
+- [x] **연간 할인 25%** 확대 (기존 21~22%)
+- [x] **트라이얼 30일** 연장 (기존 14일 → 30일, `create_trial_subscription` 재작성)
+- [x] **Free 티어 AI 피드백 월 5회** 무료 체험 (`_entitlement_free_default` 재작성)
+- [x] **Free 티어 모의고사 월 2회** 제한 (`max_exams_monthly` 컬럼 + `check_exam_availability` 재작성)
+- [x] 랜딩 페이지 pricing 시드 데이터 (DB CMS)
+- [x] `LandingPage.tsx` 하드코딩 폴백 가격 업데이트
+- [x] 이용약관 트라이얼 기간 30일 반영
+- [x] `EXAM_MONTHLY_LIMIT` 에러코드 추가
+
+### Phase 12 — 메시징 시스템 ✅
+- [x] **`messages` + `message_recipients` 테이블** (074 마이그레이션)
+- [x] `message_target_type` ENUM (class/individual)
+- [x] `send_message` RPC (SECURITY DEFINER, 권한 검증 + 팬아웃 + 알림 생성)
+- [x] `get_my_messages` RPC (학생 수신함, 발신자/반 이름 포함)
+- [x] `get_sent_messages` RPC (강사 발송 이력, 읽음률 포함)
+- [x] `mark_message_read` / `get_unread_message_count` RPC
+- [x] RLS 정책 (발신자 조회 + 수신자 조회/읽음 업데이트)
+- [x] `services/messages.ts` (5개 함수)
+- [x] 강사 UI: 발송 이력 + 메시지 작성 (반/학생 선택)
+- [x] 학생 UI: 수신함 (미읽음 표시 + 읽음 처리)
+- [x] 강사/학생 탭 헤더에 메시지 아이콘 + 뱃지
+- [x] 푸시 알림 네비게이션 (`message_id` → 학생 메시지 화면)
+- [x] `NOTIFICATION_TYPES.NEW_MESSAGE`, `MESSAGE_TARGET_TYPES` 상수
+- [x] `MSG_BODY_REQUIRED`, `MSG_INVALID_TARGET_TYPE` 에러코드
+
 ### 예정 📋
 - [ ] Universal Links / App Links (Phase E — 별도 EAS 빌드 필요)
 - [ ] 세금계산서 자동 발급 (팝빌/바로빌 API 연동)
@@ -807,7 +843,7 @@ CREATE INDEX idx_subscriptions_provider_subscription_id
 
 ---
 
-## 마이그레이션 이력 (57개)
+## 마이그레이션 이력 (59개)
 
 | 범위 | 파일 | 내용 |
 |------|------|------|
@@ -842,6 +878,8 @@ CREATE INDEX idx_subscriptions_provider_subscription_id
 | 서베이 | 066 | set_student_topics 돌발 토픽 허용 수정 |
 | 서베이 | 067 | 서베이 프로필 분리 (Q1~Q3 → student_survey_profiles, Q1~Q3 그룹 비활성화) |
 | 서베이 | 068 | 공통 토픽 자동 배정 (자기소개+집/거주+이웃/동네 is_auto_assigned, set_student_topics 자동 포함) |
+| 가격 | 073 | 가격 인상 (Solo 49,900/Pro 99,900/Academy 299,000), 연간 25% 할인, 트라이얼 30일, Free AI 5회/모의고사 2회 |
+| 메시징 | 074 | messages + message_recipients 테이블, send_message/get_my_messages/get_sent_messages/mark_message_read RPC |
 
 ---
 

@@ -151,8 +151,9 @@ export const ERROR_CODES = {
   ORG_NAME_REQUIRED: 'ORG_NAME_REQUIRED',
   ORG_NAME_TOO_LONG: 'ORG_NAME_TOO_LONG',
 
-  // EXAM (8)
+  // EXAM (9)
   EXAM_RATE_LIMIT: 'EXAM_RATE_LIMIT',
+  EXAM_MONTHLY_LIMIT: 'EXAM_MONTHLY_LIMIT',
   EXAM_INSUFFICIENT_QUOTA: 'EXAM_INSUFFICIENT_QUOTA',
   EXAM_PROCESSING_FAILED: 'EXAM_PROCESSING_FAILED',
   EXAM_PARTIAL_STT: 'EXAM_PARTIAL_STT',
@@ -160,6 +161,10 @@ export const ERROR_CODES = {
   EXAM_ALREADY_COMPLETED: 'EXAM_ALREADY_COMPLETED',
   EXAM_ALREADY_PROCESSING: 'EXAM_ALREADY_PROCESSING',
   EXAM_NO_RECORDINGS: 'EXAM_NO_RECORDINGS',
+
+  // MESSAGE (2)
+  MSG_BODY_REQUIRED: 'MSG_BODY_REQUIRED',
+  MSG_INVALID_TARGET_TYPE: 'MSG_INVALID_TARGET_TYPE',
 
   // SERVER (10)
   SVR_WHISPER_API: 'SVR_WHISPER_API',
@@ -177,7 +182,7 @@ export const ERROR_CODES = {
 export type ErrorCode = typeof ERROR_CODES[keyof typeof ERROR_CODES];
 
 export interface ErrorContext {
-  resource?: 'script' | 'practice' | 'invite' | 'connection' | 'user' | 'student' | 'teacher' | 'question' | 'notification' | 'audio' | 'class' | 'topic' | 'subscription' | 'plan' | 'landing_section' | 'landing_item' | 'organization' | 'exam_session' | 'exam_response' | 'roleplay_scenario' | 'topic_group' | 'survey_profile';
+  resource?: 'script' | 'practice' | 'invite' | 'connection' | 'user' | 'student' | 'teacher' | 'question' | 'notification' | 'audio' | 'class' | 'topic' | 'subscription' | 'plan' | 'landing_section' | 'landing_item' | 'organization' | 'exam_session' | 'exam_response' | 'roleplay_scenario' | 'topic_group' | 'survey_profile' | 'message';
   field?: string;
   apiType?: 'whisper' | 'tts' | 'claude' | 'push';
 }
@@ -305,6 +310,7 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
 
   // EXAM
   EXAM_RATE_LIMIT: '시험 횟수가 제한을 초과했습니다 (시간당 2회)',
+  EXAM_MONTHLY_LIMIT: '이번 달 모의고사 횟수를 모두 사용했습니다',
   EXAM_INSUFFICIENT_QUOTA: 'AI 분석 잔여 횟수가 부족합니다',
   EXAM_PROCESSING_FAILED: '시험 결과 처리에 실패했습니다',
   EXAM_PARTIAL_STT: '일부 답변의 음성 인식에 실패했습니다',
@@ -312,6 +318,10 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   EXAM_ALREADY_COMPLETED: '이미 완료된 시험입니다',
   EXAM_ALREADY_PROCESSING: '시험 결과를 처리 중입니다',
   EXAM_NO_RECORDINGS: '녹음된 답변이 없습니다',
+
+  // MESSAGE
+  MSG_BODY_REQUIRED: '메시지 내용을 입력해주세요',
+  MSG_INVALID_TARGET_TYPE: '올바르지 않은 발송 대상입니다',
 
   // SERVER
   SVR_WHISPER_API: '음성 변환에 실패했습니다. 다시 시도해주세요',
@@ -409,6 +419,7 @@ const ERROR_CODE_CATEGORY: Record<ErrorCode, ErrorCategory> = {
   ORG_NAME_REQUIRED: 'validation',
   ORG_NAME_TOO_LONG: 'validation',
   EXAM_RATE_LIMIT: 'rate_limit',
+  EXAM_MONTHLY_LIMIT: 'rate_limit',
   EXAM_INSUFFICIENT_QUOTA: 'rate_limit',
   EXAM_PROCESSING_FAILED: 'server',
   EXAM_PARTIAL_STT: 'server',
@@ -416,6 +427,8 @@ const ERROR_CODE_CATEGORY: Record<ErrorCode, ErrorCategory> = {
   EXAM_ALREADY_COMPLETED: 'conflict',
   EXAM_ALREADY_PROCESSING: 'conflict',
   EXAM_NO_RECORDINGS: 'validation',
+  MSG_BODY_REQUIRED: 'validation',
+  MSG_INVALID_TARGET_TYPE: 'validation',
   SVR_WHISPER_API: 'server',
   SVR_TTS_API: 'server',
   SVR_CLAUDE_API: 'server',
@@ -535,12 +548,16 @@ const RPC_ERROR_MAP: Record<string, ErrorCode> = {
   'NOT_MEMBER': ERROR_CODES.ORG_NO_MEMBERSHIP,
   // Exam RPC errors
   'EXAM_RATE_LIMIT': ERROR_CODES.EXAM_RATE_LIMIT,
+  'EXAM_MONTHLY_LIMIT': ERROR_CODES.EXAM_MONTHLY_LIMIT,
   'EXAM_INSUFFICIENT_QUOTA': ERROR_CODES.EXAM_INSUFFICIENT_QUOTA,
   'EXAM_PROCESSING_FAILED': ERROR_CODES.EXAM_PROCESSING_FAILED,
   'EXAM_SESSION_NOT_FOUND': ERROR_CODES.EXAM_SESSION_NOT_FOUND,
   'EXAM_ALREADY_COMPLETED': ERROR_CODES.EXAM_ALREADY_COMPLETED,
   'EXAM_ALREADY_PROCESSING': ERROR_CODES.EXAM_ALREADY_PROCESSING,
   'EXAM_NO_RECORDINGS': ERROR_CODES.EXAM_NO_RECORDINGS,
+  // Message RPC errors
+  'MSG_BODY_REQUIRED': ERROR_CODES.MSG_BODY_REQUIRED,
+  'MSG_INVALID_TARGET_TYPE': ERROR_CODES.MSG_INVALID_TARGET_TYPE,
   // Subscription / Feature gating
   'FEATURE_NOT_AVAILABLE': ERROR_CODES.BILLING_FEATURE_NOT_AVAILABLE,
   'FREE_PLAN': ERROR_CODES.BILLING_FEATURE_NOT_AVAILABLE,

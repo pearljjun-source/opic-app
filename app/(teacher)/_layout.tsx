@@ -12,6 +12,7 @@ export default function TeacherLayout() {
       <Stack.Screen name="class" />
       <Stack.Screen name="manage" />
       <Stack.Screen name="exam" />
+      <Stack.Screen name="messages" />
       <Stack.Screen
         name="notifications"
         options={{

@@ -181,4 +181,10 @@ function handleNotificationNavigation(data: Record<string, unknown>) {
     router.push('/(teacher)' as any);
     return;
   }
+
+  // message_id → 학생 메시지 수신함으로
+  if (data.message_id && typeof data.message_id === 'string') {
+    router.push('/(student)/messages' as any);
+    return;
+  }
 }

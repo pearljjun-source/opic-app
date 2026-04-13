@@ -89,6 +89,13 @@ export const NOTIFICATION_TYPES: Record<string, NotificationType> = {
   NEW_SCRIPT: 'new_script',
   STUDENT_CONNECTED: 'student_connected',
   PAYMENT_FAILED: 'payment_failed',
+  NEW_MESSAGE: 'new_message',
+} as const;
+
+/** 메시지 대상 유형 */
+export const MESSAGE_TARGET_TYPES = {
+  CLASS: 'class',
+  INDIVIDUAL: 'individual',
 } as const;
 
 /** 취소 사유 목록 */

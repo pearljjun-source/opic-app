@@ -8,6 +8,7 @@ import { useThemeColors } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { on } from '@/lib/events';
 import { getUnreadCount } from '@/services/notifications';
+import { getUnreadMessageCount } from '@/services/messages';
 
 function HeaderLogo() {
   const { currentOrg } = useAuth();
@@ -53,6 +54,47 @@ function useNotificationBadge() {
   return badge;
 }
 
+function useMessageBadge() {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    getUnreadMessageCount().then(setCount);
+
+    const off = on('message-sent', () => {
+      getUnreadMessageCount().then(setCount);
+    });
+    return off;
+  }, []);
+
+  return count;
+}
+
+function HeaderRight() {
+  const colors = useThemeColors();
+  const msgBadge = useMessageBadge();
+
+  return (
+    <Pressable
+      onPress={() => router.push('/(teacher)/messages/' as any)}
+      style={{ paddingRight: 16, position: 'relative' }}
+    >
+      <Ionicons name="chatbubbles-outline" size={24} color={colors.textPrimary} />
+      {msgBadge > 0 && (
+        <View style={{
+          position: 'absolute', top: -4, right: 10,
+          backgroundColor: COLORS.PRIMARY, borderRadius: 8,
+          minWidth: 16, height: 16, justifyContent: 'center', alignItems: 'center',
+          paddingHorizontal: 4,
+        }}>
+          <Text style={{ color: '#fff', fontSize: 10, fontFamily: 'Pretendard-Bold' }}>
+            {msgBadge > 99 ? '99+' : msgBadge}
+          </Text>
+        </View>
+      )}
+    </Pressable>
+  );
+}
+
 export default function TeacherTabsLayout() {
   const colors = useThemeColors();
   const badge = useNotificationBadge();
@@ -82,6 +124,7 @@ export default function TeacherTabsLayout() {
         },
         headerTitle: '',
         headerLeft: () => <HeaderLogo />,
+        headerRight: () => <HeaderRight />,
       }}
     >
       <Tabs.Screen

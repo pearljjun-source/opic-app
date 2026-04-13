@@ -295,7 +295,7 @@ const STATS = [
   { value: 6, suffix: '종', label: 'OPIc 질문 유형 지원' },
   { value: 4, suffix: '차원', label: 'ACTFL 기반 AI 채점' },
   { value: 40, suffix: '분', label: '실전 모의고사' },
-  { value: 14, suffix: '일', label: '무료 체험 기간' },
+  { value: 30, suffix: '일', label: '무료 체험 기간' },
 ];
 
 const PAIN_POINTS = [
@@ -321,7 +321,7 @@ const FEATURES_SOON = [
 ];
 
 const STEPS = [
-  { num: '01', Icon: UserPlus, title: '학원 등록', desc: '14일 무료 체험 시작' },
+  { num: '01', Icon: UserPlus, title: '학원 등록', desc: '30일 무료 체험 시작' },
   { num: '02', Icon: LinkIcon, title: '학생 초대', desc: 'QR코드·링크로 간편 연결' },
   { num: '03', Icon: PencilLine, title: '스크립트 + 토픽 배정', desc: '반별 맞춤 학습 관리' },
   { num: '04', Icon: ChartBar, title: 'AI 리포트 확인', desc: 'ACTFL 기반 성장 추적' },
@@ -337,22 +337,22 @@ const ROADMAP = [
 const PRICING = [
   {
     name: 'Free', price: '₩0', period: '영구 무료', desc: '소규모 시작용',
-    features: ['학생 3명', '스크립트 5개', '녹음 연습 + AI 피드백', '학습 기록 확인'],
+    features: ['학생 3명', '스크립트 5개', '녹음 연습', 'AI 피드백 월 5회 체험', '모의고사 월 2회'],
     cta: '무료로 시작', highlighted: false,
   },
   {
-    name: 'Solo', price: '₩29,900', period: '/월', desc: '개인 OPIc 강사용',
-    features: ['학생 10명', '스크립트 50개', 'AI 피드백 + TTS 음성', '모의고사 + ACTFL 채점', '한→영 번역 연습'],
-    cta: '14일 무료 체험', highlighted: false,
+    name: 'Solo', price: '₩49,900', period: '/월', desc: '개인 OPIc 강사용',
+    features: ['학생 10명', '스크립트 30개', 'AI 피드백 무제한', 'TTS 음성 + 한→영 번역', '모의고사 무제한'],
+    cta: '30일 무료 체험', highlighted: false,
   },
   {
-    name: 'Pro', price: '₩69,900', period: '/월', desc: '전문 강사·소규모 학원용',
-    features: ['학생 50명', '스크립트 500개', 'Solo 전체 기능', '반 관리 + 멀티 강사', '우선 지원'],
+    name: 'Pro', price: '₩99,900', period: '/월', desc: '전문 강사·소규모 학원용',
+    features: ['학생 30명', '스크립트 무제한', 'Solo 전체 기능', '반 관리 + 멀티 강사', '우선 지원'],
     cta: '프로 시작하기', highlighted: true,
   },
   {
-    name: 'Academy', price: '₩199,000', period: '/월', desc: '대형 학원·기관 맞춤',
-    features: ['학생 무제한', '스크립트 무제한', 'Pro 전체 기능', '전담 매니저', '연간 결제 할인'],
+    name: 'Academy', price: '₩299,000', period: '/월', desc: '대형 학원·기관 맞춤',
+    features: ['학생 100명', '스크립트 무제한', 'Pro 전체 기능', '전담 매니저', '연간 결제 25% 할인'],
     cta: '도입 문의', highlighted: false,
   },
 ];
@@ -361,7 +361,7 @@ const FAQ = [
   { q: 'Speaky는 어떤 서비스인가요?', a: 'OPIc 강사와 학원을 위한 AI 학습 관리 플랫폼입니다. 스크립트 연습, 한→영 번역 연습, 40분 실전 모의고사, 3콤보 롤플레이까지 — 강사가 관리하고 AI가 ACTFL 기준으로 피드백합니다.' },
   { q: '학생은 어떻게 가입하나요?', a: '강사가 반별로 발급한 초대 코드, QR코드, 또는 링크를 통해 자동으로 연결됩니다. 학생은 별도 결제 없이 바로 연습을 시작할 수 있어요.' },
   { q: 'AI 피드백은 어떤 방식인가요?', a: '스크립트 연습은 음성 인식(Whisper) 후 AI가 원본과 비교해 문법, 발음, 유창성을 분석합니다. 모의고사는 ACTFL 4차원(정확성·담화관리·이해력·어휘) 기준으로 등급(NL~AL)을 예측합니다.' },
-  { q: '무료 체험은 어떻게 하나요?', a: '가입 시 14일간 Solo 플랜을 무료로 체험할 수 있습니다. 카드 등록 없이 시작하고, 체험 종료 후 무료 플랜(학생 3명, 스크립트 5개)으로 자동 전환됩니다.' },
+  { q: '무료 체험은 어떻게 하나요?', a: '가입 시 30일간 Solo 플랜을 무료로 체험할 수 있습니다. 카드 등록 없이 시작하고, 체험 종료 후 무료 플랜(학생 3명, 스크립트 5개)으로 자동 전환됩니다.' },
   { q: '학원 단위로 도입할 수 있나요?', a: 'Pro 또는 Academy 플랜으로 여러 강사가 반별로 학생을 관리할 수 있습니다. 결제 수단 변경, 플랜 업/다운그레이드, 연간 결제 할인도 지원합니다.' },
   { q: '모의고사는 어떻게 진행되나요?', a: '실전과 동일한 40분 12~15문항 모의고사, 난이도 적응형 레벨테스트, 3콤보 롤플레이(질문·문제해결·경험) 중 선택할 수 있습니다. 결과는 ACTFL 4차원으로 즉시 분석됩니다.' },
   { q: '한→영 번역 연습이 뭔가요?', a: '영어 스크립트를 AI가 한국어로 번역하고, 학생이 한국어를 보며 영어로 말하는 연습입니다. 스크립트 암기와 영작 능력을 동시에 키울 수 있습니다.' },
@@ -853,7 +853,7 @@ export default function LandingPage() {
         <FadeInView>
           <Text style={s.secLabel}>PRICING</Text>
           <Text style={s.secTitle}>합리적인 요금제</Text>
-          <Text style={s.secSub}>14일 무료 체험으로 시작하고, 연간 결제 시 추가 할인</Text>
+          <Text style={s.secSub}>30일 무료 체험으로 시작하고, 연간 결제 시 25% 할인</Text>
         </FadeInView>
         <View style={[s.priceGrid, mob && s.priceGridM]}>
           {pricingData.map((p, i) => (
@@ -907,7 +907,7 @@ export default function LandingPage() {
           <Text style={[s.ctaTitle, mob && s.ctaTitleM]}>
             OPIc 수업의 새로운 기준,{'\n'}Speaky와 시작하세요
           </Text>
-          <Text style={s.ctaSub}>카드 등록 없이 14일 무료 체험, 지금 바로 시작하세요</Text>
+          <Text style={s.ctaSub}>카드 등록 없이 30일 무료 체험, 지금 바로 시작하세요</Text>
           <View style={s.ctaButtons}>
             <Pressable style={s.ctaBtn} onPress={go('/(auth)/signup')}>
               <Text style={s.ctaBtnText}>무료로 시작하기</Text>
