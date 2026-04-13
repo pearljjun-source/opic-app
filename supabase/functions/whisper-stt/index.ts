@@ -45,9 +45,20 @@ serve(async (req) => {
       throw new Error('audioPath is required');
     }
 
-    // 소유권 검증: audioPath가 반드시 본인 ID로 시작해야 함
+    // 소유권 검증: 디코딩 + 정규화 후 검증 (URL 인코딩/백슬래시/null byte 우회 차단)
     // Storage 구조: {user_id}/{filename}
-    if (!audioPath.startsWith(`${user.id}/`) || audioPath.includes('..')) {
+    let safePath: string;
+    try {
+      safePath = decodeURIComponent(audioPath);
+    } catch {
+      throw new Error('Unauthorized: invalid audio path');
+    }
+    safePath = safePath
+      .replace(/\\/g, '/')
+      .split('/')
+      .filter((seg: string) => seg !== '' && seg !== '.' && seg !== '..')
+      .join('/');
+    if (!safePath.startsWith(`${user.id}/`) || safePath.includes('\0')) {
       throw new Error('Unauthorized: invalid audio path');
     }
 
@@ -67,7 +78,7 @@ serve(async (req) => {
       }),
       supabaseAdmin.storage
         .from('practice-recordings')
-        .download(audioPath),
+        .download(safePath),
     ]);
 
     if (rateLimit && !rateLimit.allowed) {
