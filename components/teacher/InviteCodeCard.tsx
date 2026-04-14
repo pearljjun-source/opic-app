@@ -124,6 +124,7 @@ export function InviteCodeCard({ invite, isLoading, onDelete, onShowQR, targetRo
     const diffMs = date.getTime() - now.getTime();
     const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 
+    if (diffDays > 36500) return null; // 100년 이상 = 영구 코드, 표시 안 함
     if (diffDays <= 0) return '만료됨';
     if (diffDays === 1) return '내일 만료';
     return `${diffDays}일 후 만료`;
@@ -176,12 +177,14 @@ export function InviteCodeCard({ invite, isLoading, onDelete, onShowQR, targetRo
         </View>
       )}
 
-      {/* 만료일 */}
-      <View style={styles.infoRow}>
-        <Text style={[styles.expiryText, { color: colors.warning }]}>
-          {formatExpiryDate(invite.expires_at)}
-        </Text>
-      </View>
+      {/* 만료일 (영구 코드는 표시 안 함) */}
+      {formatExpiryDate(invite.expires_at) && (
+        <View style={styles.infoRow}>
+          <Text style={[styles.expiryText, { color: colors.warning }]}>
+            {formatExpiryDate(invite.expires_at)}
+          </Text>
+        </View>
+      )}
 
       {/* 공유 버튼 3개 */}
       <View style={styles.shareRow}>

@@ -313,8 +313,9 @@ describe('unauthenticated redirect on web', () => {
     const signOutBody = signOutSection![1];
 
     // window.location.href is inside a Platform.OS === 'web' check
+    // localStorage cleanup code may appear before window.location.href
     expect(signOutBody).toMatch(
-      /if\s*\(Platform\.OS\s*===\s*'web'\)\s*\{\s*window\.location\.href/
+      /if\s*\(Platform\.OS\s*===\s*'web'\)\s*\{[\s\S]*?window\.location\.href/
     );
   });
 });
