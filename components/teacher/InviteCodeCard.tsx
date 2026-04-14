@@ -100,18 +100,15 @@ export function InviteCodeCard({ invite, isLoading, onDelete, onShowQR, targetRo
       : `Speaky에 참여하세요!\n초대 코드: ${invite.code}\n링크: ${inviteLink}`;
 
     try {
+      if (__DEV__) console.warn('[InviteCodeCard] handleShare called, Platform.OS:', Platform.OS);
       if (Platform.OS === 'web') {
-        if (typeof navigator !== 'undefined' && navigator.share) {
-          await navigator.share({ title: 'Speaky 초대', text: message, url: inviteLink });
-        } else {
-          await copyToClipboard(message);
-          showToast('초대 메시지가 복사되었습니다', 'success');
-        }
+        await copyToClipboard(message);
+        if (__DEV__) console.warn('[InviteCodeCard] clipboard copy succeeded');
+        showToast('초대 메시지가 복사되었습니다', 'success');
       } else {
         await Share.share({ message, url: inviteLink });
       }
     } catch (e) {
-      // 사용자가 공유 취소하면 AbortError — 무시
       if (e instanceof Error && e.name === 'AbortError') return;
       if (__DEV__) console.warn('[InviteCodeCard] share error:', e);
       showToast('공유에 실패했습니다', 'error');

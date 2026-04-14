@@ -1,16 +1,44 @@
-import { View, Text, StyleSheet, Pressable, Modal, Platform } from 'react-native';
-import { Component, type ReactNode } from 'react';
+import { View, Text, StyleSheet, Pressable, Modal, Platform, Image } from 'react-native';
+import { Component, useState, useEffect, type ReactNode } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useThemeColors, type ThemeColors } from '@/hooks/useTheme';
 import { getInviteLink } from '@/services/invites';
 
-// react-native-qrcode-svg가 웹에서 실패할 수 있으므로 동적 import
-let QRCode: React.ComponentType<{ value: string; size: number; backgroundColor: string; color: string }> | null = null;
-try {
-  QRCode = require('react-native-qrcode-svg').default;
-} catch {
-  // 웹에서 로드 실패 시 null
+// react-native-qrcode-svg: 네이티브 전용
+let QRCodeSvg: React.ComponentType<{ value: string; size: number; backgroundColor: string; color: string }> | null = null;
+if (Platform.OS !== 'web') {
+  try {
+    QRCodeSvg = require('react-native-qrcode-svg').default;
+  } catch {
+    // 네이티브에서도 로드 실패 시 null
+  }
+}
+
+// 웹용 QR: qrcode 패키지로 Data URL 생성
+let qrcodeLib: { toDataURL: (text: string, opts: Record<string, unknown>) => Promise<string> } | null = null;
+if (Platform.OS === 'web') {
+  try {
+    qrcodeLib = require('qrcode');
+  } catch {
+    // qrcode 패키지 미설치 시 null
+  }
+}
+
+/** 웹용 QR 이미지 컴포넌트 */
+function WebQRCode({ value, size }: { value: string; size: number }) {
+  const [dataUrl, setDataUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!qrcodeLib) return;
+    qrcodeLib.toDataURL(value, { width: size, margin: 1, color: { dark: '#000000', light: '#ffffff' } })
+      .then(setDataUrl)
+      .catch(() => setDataUrl(null));
+  }, [value, size]);
+
+  if (!dataUrl) return null;
+
+  return <Image source={{ uri: dataUrl }} style={{ width: size, height: size }} />;
 }
 
 /** QR 렌더링 에러 바운더리 */
@@ -104,9 +132,17 @@ function renderModalContent(
       )}
 
       <View style={styles.qrContainer}>
-        {QRCode ? (
+        {Platform.OS === 'web' ? (
+          qrcodeLib ? (
+            <QRErrorBoundary fallback={qrFallback}>
+              <WebQRCode value={inviteLink} size={200} />
+            </QRErrorBoundary>
+          ) : (
+            qrFallback
+          )
+        ) : QRCodeSvg ? (
           <QRErrorBoundary fallback={qrFallback}>
-            <QRCode
+            <QRCodeSvg
               value={inviteLink}
               size={200}
               backgroundColor="white"
