@@ -10,7 +10,7 @@ export const TOSS_API_BASE = 'https://api.tosspayments.com/v1';
 
 /** Claude (Anthropic) API */
 export const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
-export const CLAUDE_API_VERSION = '2023-06-01';
+export const CLAUDE_API_VERSION = '2025-02-19';
 
 /** OpenAI TTS API */
 export const OPENAI_TTS_URL = 'https://api.openai.com/v1/audio/speech';

@@ -40,6 +40,24 @@ import { VoiceConsentModal } from '@/components/ui/VoiceConsentModal';
 
 type PracticeState = 'loading' | 'ready' | 'playing' | 'recording' | 'processing';
 
+/** 녹음 중 시간 가이드 바 — 초록(적절)→노랑(길어짐)→빨강(너무 길음) */
+function RecordingTimeGuide({ seconds }: { seconds: number }) {
+  const colors = useThemeColors();
+  // 90초를 기준으로 진행률 계산
+  const progress = Math.min(1, seconds / 90);
+  const barColor = seconds < 30 ? '#F59E0B' : seconds <= 90 ? '#10B981' : '#EF4444';
+  const label = seconds < 15 ? '더 말해보세요' : seconds < 30 ? '조금 더!' : seconds <= 90 ? '좋아요' : '충분해요';
+
+  return (
+    <View style={styles.timeGuide}>
+      <View style={styles.timeGuideBarBg}>
+        <View style={[styles.timeGuideBarFill, { backgroundColor: barColor, width: `${progress * 100}%` }]} />
+      </View>
+      <Text style={[styles.timeGuideLabel, { color: barColor }]}>{label}</Text>
+    </View>
+  );
+}
+
 const STEP_LABELS = PRACTICE_STEP_LABELS;
 
 export default function PracticeScreen() {
@@ -443,6 +461,10 @@ export default function PracticeScreen() {
 
       {/* 녹음 섹션 */}
       <View style={styles.recordSection}>
+        {/* 녹음 중 시간 가이드 바 */}
+        {practiceState === 'recording' && (
+          <RecordingTimeGuide seconds={recTimer.seconds} />
+        )}
         <Text style={[styles.timer, { color: colors.textPrimary }]}>{formatDuration(recTimer.seconds)}</Text>
 
         {practiceState === 'recording' ? (
@@ -681,5 +703,27 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: 16,
+  },
+  timeGuide: {
+    width: '100%',
+    paddingHorizontal: 24,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  timeGuideBarBg: {
+    width: '100%',
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#E5E7EB',
+    overflow: 'hidden',
+  },
+  timeGuideBarFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  timeGuideLabel: {
+    marginTop: 4,
+    fontSize: 12,
+    fontFamily: 'Pretendard-SemiBold',
   },
 });

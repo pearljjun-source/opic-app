@@ -13,8 +13,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '@/hooks/useTheme';
 import { getPracticeResult, PracticeResult } from '@/services/practices';
 import { getUserMessage } from '@/lib/errors';
+import { formatDuration } from '@/lib/helpers';
 import { diffScript } from '@/lib/diff';
 import FeedbackSection from '@/components/student/FeedbackSection';
+import { FluencyMetricsCard } from '@/components/ui/FluencyMetricsCard';
+import { RecordingTimeAssessment } from '@/components/student/RecordingTimeAssessment';
 
 export default function ResultScreen() {
   const colors = useThemeColors();
@@ -124,6 +127,20 @@ export default function ResultScreen() {
           </Text>
         </View>
       </View>
+
+      {/* 답변 시간 평가 */}
+      {result.duration != null && result.duration > 0 && (
+        <View style={styles.section}>
+          <RecordingTimeAssessment durationSeconds={result.duration} />
+        </View>
+      )}
+
+      {/* 유창성 분석 (필러, 발화량, WPM 등) */}
+      {feedback?.fluency_metrics && (
+        <View style={styles.section}>
+          <FluencyMetricsCard metrics={feedback.fluency_metrics} />
+        </View>
+      )}
 
       {/* AI 피드백 */}
       {feedback && (

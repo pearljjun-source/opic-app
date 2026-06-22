@@ -336,6 +336,73 @@ export async function getMyStreak(): Promise<{
 }
 
 // ============================================================================
+// 일일 목표 함수
+// ============================================================================
+
+export interface DailyProgress {
+  daily_target: number;
+  today_count: number;
+  completed: boolean;
+}
+
+/**
+ * 오늘의 연습 달성도 조회
+ */
+export async function getDailyProgress(): Promise<{
+  data: DailyProgress | null;
+  error: Error | null;
+}> {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { data: null, error: new AppError('AUTH_REQUIRED') };
+  }
+
+  // 076 마이그레이션 적용 후 supabase gen types로 타입 재생성 필요
+  const { data, error } = await (supabase.rpc as any)('get_daily_progress');
+
+  if (error) {
+    return { data: null, error: classifyError(error, { resource: 'practice' }) };
+  }
+
+  const result = data as unknown as DailyProgress & { error?: string };
+  if (result?.error) {
+    return { data: null, error: classifyRpcError(result.error, { resource: 'practice' }) };
+  }
+
+  return { data: result, error: null };
+}
+
+/**
+ * 일일 목표 설정/변경
+ */
+export async function setDailyGoal(dailyTarget: number): Promise<{
+  error: Error | null;
+}> {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: new AppError('AUTH_REQUIRED') };
+  }
+
+  // 076 마이그레이션 적용 후 supabase gen types로 타입 재생성 필요
+  const { data, error } = await (supabase.rpc as any)('set_daily_goal', {
+    p_daily_target: dailyTarget,
+  });
+
+  if (error) {
+    return { error: classifyError(error, { resource: 'practice' }) };
+  }
+
+  const result = data as unknown as { error?: string };
+  if (result?.error) {
+    return { error: classifyRpcError(result.error, { resource: 'practice' }) };
+  }
+
+  return { error: null };
+}
+
+// ============================================================================
 // 강사용 함수
 // ============================================================================
 

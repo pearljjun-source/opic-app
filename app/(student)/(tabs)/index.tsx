@@ -6,9 +6,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '@/hooks/useTheme';
 import { getMyTeacher, ConnectedTeacher } from '@/services/connection';
 import { getMyTopicsWithProgress } from '@/services/topics';
-import { getMyPracticeStats, getMyStreak } from '@/services/practices';
+import { getMyPracticeStats, getMyStreak, getDailyProgress, setDailyGoal, DailyProgress } from '@/services/practices';
 import { TopicCard } from '@/components/student/TopicCard';
 import { CompactStatsStrip } from '@/components/student/CompactStatsStrip';
+import { DailyGoalCard } from '@/components/student/DailyGoalCard';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SkeletonDashboard } from '@/components/ui/Loading';
 import { getUserMessage } from '@/lib/errors';
@@ -21,6 +22,7 @@ export default function StudentDashboard() {
   const [topics, setTopics] = useState<StudentTopicWithProgress[]>([]);
   const [practiceStats, setPracticeStats] = useState<StudentPracticeStats | null>(null);
   const [currentStreak, setCurrentStreak] = useState(0);
+  const [dailyProgress, setDailyProgress] = useState<DailyProgress | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,10 +40,11 @@ export default function StudentDashboard() {
 
     // 연결된 경우 병렬 데이터 조회
     if (teacherData) {
-      const [topicsResult, statsResult, streakResult] = await Promise.all([
+      const [topicsResult, statsResult, streakResult, dailyResult] = await Promise.all([
         getMyTopicsWithProgress(),
         getMyPracticeStats(),
         getMyStreak(),
+        getDailyProgress(),
       ]);
 
       if (!topicsResult.error && topicsResult.data) {
@@ -54,6 +57,10 @@ export default function StudentDashboard() {
 
       if (!streakResult.error && streakResult.data) {
         setCurrentStreak(streakResult.data.current_streak);
+      }
+
+      if (!dailyResult.error && dailyResult.data) {
+        setDailyProgress(dailyResult.data);
       }
     }
 
@@ -146,6 +153,20 @@ export default function StudentDashboard() {
           </View>
           <Ionicons name="checkmark-circle" size={24} color={colors.success} />
         </View>
+
+        {/* 일일 목표 & 스트릭 */}
+        {dailyProgress && (
+          <DailyGoalCard
+            progress={dailyProgress}
+            currentStreak={currentStreak}
+            onChangeGoal={async (newTarget) => {
+              const { error: goalError } = await setDailyGoal(newTarget);
+              if (!goalError) {
+                setDailyProgress(prev => prev ? { ...prev, daily_target: newTarget, completed: prev.today_count >= newTarget } : prev);
+              }
+            }}
+          />
+        )}
 
         {/* 컴팩트 통계 스트립 (탭하면 상세 펼침) */}
         {practiceStats && (

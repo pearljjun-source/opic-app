@@ -242,7 +242,7 @@ describe('handleStopRecording 에러 처리', () => {
 
   it('모든 에러 경로에서 xAlert을 호출한다', () => {
     const funcMatch = content.match(
-      /const handleStopRecording = async[\s\S]*?(?=\n\n\n  if \(practiceState)/
+      /const handleStopRecording = async[\s\S]*?(?=\r?\n\r?\n\r?\n\s+if \(practiceState)/
     );
     expect(funcMatch).not.toBeNull();
     const funcBody = funcMatch![0];
@@ -254,7 +254,7 @@ describe('handleStopRecording 에러 처리', () => {
 
   it('모든 에러 경로에서 setPracticeState("ready")를 호출한다', () => {
     const funcMatch = content.match(
-      /const handleStopRecording = async[\s\S]*?(?=\n\n\n  if \(practiceState)/
+      /const handleStopRecording = async[\s\S]*?(?=\r?\n\r?\n\r?\n\s+if \(practiceState)/
     );
     expect(funcMatch).not.toBeNull();
     const funcBody = funcMatch![0];
