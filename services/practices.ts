@@ -336,6 +336,65 @@ export async function getMyStreak(): Promise<{
 }
 
 // ============================================================================
+// 약점 토픽 추천
+// ============================================================================
+
+export interface WeakTopic {
+  topic_id: string;
+  topic_name_ko: string;
+  topic_name_en: string;
+  avg_score: number;
+  practice_count: number;
+  last_practice_at: string | null;
+}
+
+export interface WeakQuestionType {
+  question_type: string;
+  avg_score: number;
+  practice_count: number;
+}
+
+export interface UnpracticedTopic {
+  topic_id: string;
+  topic_name_ko: string;
+  topic_name_en: string;
+}
+
+export interface WeakAreas {
+  weak_topics: WeakTopic[];
+  weak_question_types: WeakQuestionType[];
+  unpracticed_topics: UnpracticedTopic[];
+}
+
+/**
+ * 약점 토픽/질문 유형 분석 (학생용)
+ */
+export async function getWeakAreas(): Promise<{
+  data: WeakAreas | null;
+  error: Error | null;
+}> {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { data: null, error: new AppError('AUTH_REQUIRED') };
+  }
+
+  // 077 마이그레이션 적용 후 supabase gen types로 타입 재생성 필요
+  const { data, error } = await (supabase.rpc as any)('get_weak_areas');
+
+  if (error) {
+    return { data: null, error: classifyError(error, { resource: 'practice' }) };
+  }
+
+  const result = data as unknown as WeakAreas & { error?: string };
+  if (result?.error) {
+    return { data: null, error: classifyRpcError(result.error, { resource: 'practice' }) };
+  }
+
+  return { data: result, error: null };
+}
+
+// ============================================================================
 // 일일 목표 함수
 // ============================================================================
 

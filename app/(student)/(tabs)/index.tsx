@@ -6,10 +6,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '@/hooks/useTheme';
 import { getMyTeacher, ConnectedTeacher } from '@/services/connection';
 import { getMyTopicsWithProgress } from '@/services/topics';
-import { getMyPracticeStats, getMyStreak, getDailyProgress, setDailyGoal, DailyProgress } from '@/services/practices';
+import { getMyPracticeStats, getMyStreak, getDailyProgress, setDailyGoal, getWeakAreas, DailyProgress, WeakAreas } from '@/services/practices';
 import { TopicCard } from '@/components/student/TopicCard';
 import { CompactStatsStrip } from '@/components/student/CompactStatsStrip';
 import { DailyGoalCard } from '@/components/student/DailyGoalCard';
+import { WeakAreasCard } from '@/components/student/WeakAreasCard';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SkeletonDashboard } from '@/components/ui/Loading';
 import { getUserMessage } from '@/lib/errors';
@@ -23,6 +24,7 @@ export default function StudentDashboard() {
   const [practiceStats, setPracticeStats] = useState<StudentPracticeStats | null>(null);
   const [currentStreak, setCurrentStreak] = useState(0);
   const [dailyProgress, setDailyProgress] = useState<DailyProgress | null>(null);
+  const [weakAreas, setWeakAreas] = useState<WeakAreas | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,11 +42,12 @@ export default function StudentDashboard() {
 
     // 연결된 경우 병렬 데이터 조회
     if (teacherData) {
-      const [topicsResult, statsResult, streakResult, dailyResult] = await Promise.all([
+      const [topicsResult, statsResult, streakResult, dailyResult, weakResult] = await Promise.all([
         getMyTopicsWithProgress(),
         getMyPracticeStats(),
         getMyStreak(),
         getDailyProgress(),
+        getWeakAreas(),
       ]);
 
       if (!topicsResult.error && topicsResult.data) {
@@ -61,6 +64,10 @@ export default function StudentDashboard() {
 
       if (!dailyResult.error && dailyResult.data) {
         setDailyProgress(dailyResult.data);
+      }
+
+      if (!weakResult.error && weakResult.data) {
+        setWeakAreas(weakResult.data);
       }
     }
 
@@ -172,6 +179,9 @@ export default function StudentDashboard() {
         {practiceStats && (
           <CompactStatsStrip stats={practiceStats} currentStreak={currentStreak} />
         )}
+
+        {/* 약점 토픽 추천 */}
+        {weakAreas && <WeakAreasCard weakAreas={weakAreas} />}
 
         {/* 토픽 목록 */}
         <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>내 토픽</Text>
