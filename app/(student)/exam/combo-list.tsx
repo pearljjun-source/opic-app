@@ -81,14 +81,14 @@ export default function ComboListScreen() {
         return;
       }
 
-      // 5. 시험 시작
+      // 5. 오리엔테이션 → 시험 시작
       const sessionParams = new URLSearchParams({
         sessionId: sessionData.sessionId,
         examType: 'combo_roleplay',
         questions: JSON.stringify(questions),
         scenarioContext: detail.scenario.scenario_context || '',
       });
-      router.push(`${routes.session}?${sessionParams.toString()}` as any);
+      router.push(`${routes.orientation}?${sessionParams.toString()}` as any);
     } catch (err) {
       xAlert('오류', getUserMessage(err));
     } finally {

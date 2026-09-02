@@ -62,13 +62,13 @@ export default function MockAssessmentScreen() {
         return;
       }
 
-      // 4. 시험 시작
+      // 4. 오리엔테이션 → 시험 시작
       const sessionParams = new URLSearchParams({
         sessionId: sessionData.sessionId,
         examType: 'mock_exam',
         questions: JSON.stringify(questionData.questions),
       });
-      router.replace(`${routes.session}?${sessionParams.toString()}` as any);
+      router.replace(`${routes.orientation}?${sessionParams.toString()}` as any);
     } catch (err) {
       xAlert('오류', getUserMessage(err));
     } finally {

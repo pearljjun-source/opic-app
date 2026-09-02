@@ -27,6 +27,8 @@ export default function ExamLayout() {
       <Stack.Screen name="mock-survey" options={{ title: '토픽 선택' }} />
       <Stack.Screen name="mock-assessment" options={{ title: '자기평가' }} />
       <Stack.Screen name="combo-list" options={{ title: '롤플레이 시나리오' }} />
+      {/* 등록하지 않으면 헤더 제목이 라우트 이름("orientation")으로 뜬다 */}
+      <Stack.Screen name="orientation" options={{ title: '시험 안내', gestureEnabled: false }} />
       <Stack.Screen name="session" options={{ title: '시험 진행', headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="processing" options={{ title: '결과 처리', headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="result" options={{ title: '시험 결과' }} />

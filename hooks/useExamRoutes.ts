@@ -20,6 +20,8 @@ export function useExamRoutes() {
     mockSurvey: `/${group}/exam/mock-survey` as const,
     /** 모의고사 시작: /(group)/exam/mock-assessment */
     mockAssessment: `/${group}/exam/mock-assessment` as const,
+    /** 시험 오리엔테이션: /(group)/exam/orientation */
+    orientation: `/${group}/exam/orientation` as const,
     /** 콤보 롤플레이 목록: /(group)/exam/combo-list */
     comboList: `/${group}/exam/combo-list` as const,
     /** 시험 세션: /(group)/exam/session */

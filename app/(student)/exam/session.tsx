@@ -25,7 +25,7 @@ import { useThemeColors } from '@/hooks/useTheme';
 import { useVoiceConsent } from '@/hooks/useVoiceConsent';
 import { useExamRoutes } from '@/hooks/useExamRoutes';
 import { useRecordingTimer } from '@/hooks/useRecordingTimer';
-import { EXAM_CONFIG, EXAM_TYPE_LABELS, QUESTION_TIME_LIMITS } from '@/lib/constants';
+import { EXAM_CONFIG, EXAM_TYPE_LABELS, QUESTION_TIME_LIMITS, QUESTION_TYPE_LABELS } from '@/lib/constants';
 import { formatDuration } from '@/lib/helpers';
 import { abandonExamSession, generateLevelTestQuestions, checkExamAvailability, createExamSession } from '@/services/exams';
 import { useAuth } from '@/hooks/useAuth';
@@ -37,7 +37,7 @@ import type { GeneratedQuestion } from '@/services/exams';
 import { VoiceConsentModal } from '@/components/ui/VoiceConsentModal';
 import { ExamTimerBar } from '@/components/ui/ExamTimerBar';
 
-type SessionState = 'loading' | 'ready' | 'playing_question' | 'recording' | 'between_questions' | 'exam_end';
+type SessionState = 'loading' | 'ready' | 'playing_question' | 'prep_countdown' | 'recording' | 'between_questions' | 'exam_end';
 
 export default function ExamSessionScreen() {
   const colors = useThemeColors();
@@ -48,12 +48,16 @@ export default function ExamSessionScreen() {
     examType,
     questions: questionsParam,
     scenarioContext,
+    autoPlay: autoPlayParam,
   } = useLocalSearchParams<{
     sessionId: string;
     examType: string;
     questions: string;
     scenarioContext?: string;
+    autoPlay?: string;
   }>();
+
+  const isAutoPlayMode = autoPlayParam === 'true';
 
   // 문항 데이터
   const [questions, setQuestions] = useState<GeneratedQuestion[]>([]);
@@ -65,6 +69,7 @@ export default function ExamSessionScreen() {
   const [totalElapsed, setTotalElapsed] = useState(0);
   const [questionTimeRemaining, setQuestionTimeRemaining] = useState(0);
   const [questionTimeUp, setQuestionTimeUp] = useState(false);
+  const [prepCountdown, setPrepCountdown] = useState(0);
 
   // 녹음 데이터 (로컬)
   const [recordings, setRecordings] = useState<ExamRecording[]>([]);
@@ -81,13 +86,15 @@ export default function ExamSessionScreen() {
   const webMimeTypeRef = useRef<string>('audio/webm');
 
   const { currentOrg } = useAuth();
-  const { requireConsent, showConsentModal, handleAgree, handleDecline } = useVoiceConsent();
+  const { consentStatus, requireConsent, showConsentModal, handleAgree, handleDecline } = useVoiceConsent();
   const [consentLoading, setConsentLoading] = useState(false);
   const sessionIdRef = useRef(sessionId);
   const isActionRef = useRef(false);
   const isInitRef = useRef(false);
   const wasAutoAdvancedRef = useRef(false);
   const currentQuestionRef = useRef<GeneratedQuestion | null>(null);
+  /** TTS 재생에 실패한 문항 index — 자동 모드에서 무한 재시도를 막는다 */
+  const ttsFailedRef = useRef<Set<number>>(new Set());
 
   // expo-audio hooks
   const player = useAudioPlayer(null);
@@ -108,12 +115,61 @@ export default function ExamSessionScreen() {
   // Ref 동기화 (stale closure 방지 — handleTimeUp에서 사용)
   useEffect(() => { currentQuestionRef.current = currentQuestion || null; }, [currentQuestion]);
 
-  // TTS 재생 완료 감지
+  // TTS 재생 완료 감지 → 자동 모드에서는 준비 카운트다운 시작
   useEffect(() => {
     if (playerStatus.didJustFinish && sessionState === 'playing_question') {
-      setSessionState('ready');
+      if (isAutoPlayMode) {
+        setSessionState('prep_countdown');
+        setPrepCountdown(3);
+      } else {
+        setSessionState('ready');
+      }
     }
   }, [playerStatus.didJustFinish]);
+
+  // 준비 카운트다운 → 0이 되면 자동 녹음 시작
+  // consentStatus 의존: 동의 조회가 늦게 끝나도 완료 시점에 녹음을 재개한다
+  useEffect(() => {
+    if (sessionState !== 'prep_countdown') return;
+    if (prepCountdown <= 0) {
+      if (consentStatus === 'loading') return;  // 조회 완료 후 재실행됨
+      handleStartRecording();
+      return;
+    }
+    const timer = setTimeout(() => setPrepCountdown(prev => prev - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [sessionState, prepCountdown, consentStatus]);
+
+  // 자동 모드: ready 상태 진입 시 자동으로 질문 재생
+  //
+  // ⚠️ 이 effect는 sessionState가 'ready'가 될 때마다 돈다. handlePlayQuestion은
+  //    실패하면 상태를 'ready'로 되돌리므로, 실패를 기록해 두지 않으면
+  //    0.5초마다 재시도하는 무한 루프가 된다 (알림 폭탄 + TTS 쿼터 소진).
+  //    한 문항당 한 번만 시도하고, 실패하면 음성 없이 답변 단계로 넘어간다.
+  useEffect(() => {
+    if (!isAutoPlayMode || sessionState !== 'ready' || !currentQuestion) return;
+
+    const goToPrep = () => {
+      setSessionState('prep_countdown');
+      setPrepCountdown(3);
+    };
+
+    // 롤플레이 질문은 TTS 불가 (question_id 없음) → 바로 준비 카운트다운
+    if (currentQuestion.source !== 'question' || !currentQuestion.question_id) {
+      goToPrep();
+      return;
+    }
+
+    // 이미 이 문항에서 재생이 실패했다면 재시도하지 않는다 — 시험은 계속되어야 한다
+    if (ttsFailedRef.current.has(currentIndex)) {
+      goToPrep();
+      return;
+    }
+
+    // 약간의 딜레이 후 자동 재생
+    const timer = setTimeout(() => handlePlayQuestion(), 500);
+    return () => clearTimeout(timer);
+  }, [sessionState, currentIndex, isAutoPlayMode]);
 
   // 현재+다음 질문 오디오 프리페치 (audio_url 없는 question만)
   useEffect(() => {
@@ -460,7 +516,10 @@ export default function ExamSessionScreen() {
         const { data: ttsData, error: ttsError } = await generateQuestionAudio(currentQuestion.question_id);
         if (ttsError) {
           if (__DEV__) console.warn('[AppError] TTS generate error:', ttsError);
-          xAlert('음성 재생 실패', getUserMessage(ttsError));
+          ttsFailedRef.current.add(currentIndex);
+          // 자동 모드에서는 알리지 않는다 — 시험 진행 중 알림이 뜨면 흐름이 끊기고,
+          // 재시도 루프였을 때 알림이 연달아 쌓인다. 음성 없이 답변 단계로 넘어간다.
+          if (!isAutoPlayMode) xAlert('음성 재생 실패', getUserMessage(ttsError));
           setSessionState('ready');
           return;
         }
@@ -475,6 +534,7 @@ export default function ExamSessionScreen() {
       }
 
       if (!audioUrl) {
+        ttsFailedRef.current.add(currentIndex);
         setSessionState('ready');
         return;
       }
@@ -483,6 +543,7 @@ export default function ExamSessionScreen() {
       player.play();
     } catch (err) {
       if (__DEV__) console.warn('[AppError] TTS playback error:', err);
+      ttsFailedRef.current.add(currentIndex);
       setSessionState('ready');
     } finally {
       isActionRef.current = false;
@@ -605,13 +666,20 @@ export default function ExamSessionScreen() {
   };
 
   // 다음 문항
-  const handleNextQuestion = () => {
+  const handleNextQuestion = useCallback(() => {
     wasAutoAdvancedRef.current = false;
     setCurrentIndex((prev) => prev + 1);
     recTimer.reset();
     setQuestionTimeRemaining(0);
     setSessionState('ready');
-  };
+  }, []);
+
+  // 자동 모드: between_questions에서 자동 다음 문항 (1.5초 후)
+  useEffect(() => {
+    if (!isAutoPlayMode || sessionState !== 'between_questions') return;
+    const timer = setTimeout(handleNextQuestion, EXAM_CONFIG.QUESTION_TRANSITION_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [sessionState, isAutoPlayMode, handleNextQuestion]);
 
   // 건너뛰기
   const handleSkip = () => {
@@ -695,6 +763,34 @@ export default function ExamSessionScreen() {
     );
   }
 
+  if (sessionState === 'prep_countdown') {
+    return (
+      <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        {/* 상단 바 유지 */}
+        <View style={[styles.topBar, { backgroundColor: colors.surface, borderBottomColor: colors.border, position: 'absolute', top: 0, left: 0, right: 0, zIndex: 1 }]}>
+          <Pressable onPress={confirmAbandon} style={styles.exitButton}>
+            <Ionicons name="close" size={24} color={colors.textPrimary} />
+          </Pressable>
+          <View style={styles.topBarCenter}>
+            <Text style={[styles.questionCounter, { color: colors.textPrimary }]}>
+              Q{currentQuestion?.question_order}/{questions.length}
+            </Text>
+          </View>
+          <View style={styles.exitButton} />
+        </View>
+
+        <Ionicons name="mic-outline" size={48} color={colors.primary} />
+        <Text style={[styles.betweenTitle, { color: colors.textPrimary }]}>답변 준비</Text>
+        <View style={[styles.countdownCircle, { borderColor: colors.primary }]}>
+          <Text style={[styles.countdownNumber, { color: colors.primary }]}>{prepCountdown}</Text>
+        </View>
+        <Text style={[styles.betweenSubtitle, { color: colors.textSecondary }]}>
+          곧 녹음이 시작됩니다
+        </Text>
+      </View>
+    );
+  }
+
   if (sessionState === 'between_questions') {
     const autoAdvanced = wasAutoAdvancedRef.current;
     return (
@@ -710,16 +806,24 @@ export default function ExamSessionScreen() {
         <Text style={[styles.betweenSubtitle, { color: colors.textSecondary }]}>
           Q{currentQuestion?.question_order}/{questions.length} 완료
         </Text>
-        <Pressable
-          style={[styles.nextButton, { backgroundColor: colors.primary }]}
-          onPress={handleNextQuestion}
-        >
-          <Text style={styles.nextButtonText}>다음 문항</Text>
-          <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
-        </Pressable>
-        <Pressable style={styles.betweenExitButton} onPress={() => setSessionState('exam_end')}>
-          <Text style={[styles.betweenExitText, { color: colors.textDisabled }]}>여기까지 제출하기</Text>
-        </Pressable>
+        {isAutoPlayMode ? (
+          <Text style={[styles.autoAdvanceHint, { color: colors.textDisabled }]}>
+            다음 문항으로 자동 이동합니다...
+          </Text>
+        ) : (
+          <>
+            <Pressable
+              style={[styles.nextButton, { backgroundColor: colors.primary }]}
+              onPress={handleNextQuestion}
+            >
+              <Text style={styles.nextButtonText}>다음 문항</Text>
+              <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+            </Pressable>
+            <Pressable style={styles.betweenExitButton} onPress={() => setSessionState('exam_end')}>
+              <Text style={[styles.betweenExitText, { color: colors.textDisabled }]}>여기까지 제출하기</Text>
+            </Pressable>
+          </>
+        )}
       </View>
     );
   }
@@ -769,16 +873,23 @@ export default function ExamSessionScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.questionCard, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.questionTypeLabel, { color: colors.textDisabled }]}>
-            {currentQuestion?.question_type}
-          </Text>
+          <View style={styles.questionMeta}>
+            <View style={[styles.questionTypeBadge, { backgroundColor: colors.primary + '12' }]}>
+              <Text style={[styles.questionTypeBadgeText, { color: colors.primary }]}>
+                {QUESTION_TYPE_LABELS[currentQuestion?.question_type as keyof typeof QUESTION_TYPE_LABELS] || currentQuestion?.question_type}
+              </Text>
+            </View>
+            {!currentQuestion?.is_scored && (
+              <Text style={[styles.unscoredLabel, { color: colors.textDisabled }]}>비채점</Text>
+            )}
+          </View>
           <Text style={[styles.questionText, { color: colors.textPrimary }]}>
             {currentQuestion?.question_text}
           </Text>
         </View>
 
-        {/* 질문 듣기 버튼 */}
-        {currentQuestion?.source === 'question' && (
+        {/* 질문 듣기 버튼 (자동 모드에서는 자동 재생되므로 숨김) */}
+        {!isAutoPlayMode && currentQuestion?.source === 'question' && (
           <Pressable
             style={[
               styles.playButton,
@@ -799,6 +910,14 @@ export default function ExamSessionScreen() {
               {sessionState === 'playing_question' ? '정지' : '질문 듣기'}
             </Text>
           </Pressable>
+        )}
+
+        {/* 자동 재생 안내 (자동 모드) */}
+        {isAutoPlayMode && sessionState === 'playing_question' && (
+          <View style={styles.autoPlayIndicator}>
+            <Ionicons name="volume-high" size={18} color={colors.primary} />
+            <Text style={[styles.autoPlayText, { color: colors.primary }]}>질문 재생 중...</Text>
+          </View>
         )}
       </ScrollView>
 
@@ -870,8 +989,8 @@ export default function ExamSessionScreen() {
           </Text>
         )}
 
-        {/* 건너뛰기 */}
-        {sessionState !== 'recording' && (
+        {/* 건너뛰기 (자동 모드에서는 숨김 — 수동으로 건너뛸 수 없음) */}
+        {!isAutoPlayMode && sessionState !== 'recording' && (
           Platform.OS === 'web' ? (
             <div
               onClick={handleSkip}
@@ -949,7 +1068,10 @@ const styles = StyleSheet.create({
     padding: 24,
     marginBottom: 16,
   },
-  questionTypeLabel: { fontSize: 12, fontFamily: 'Pretendard-Medium', marginBottom: 8, textTransform: 'uppercase' },
+  questionMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  questionTypeBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+  questionTypeBadgeText: { fontSize: 12, fontFamily: 'Pretendard-SemiBold' },
+  unscoredLabel: { fontSize: 11, fontFamily: 'Pretendard-Medium' },
   questionText: { fontSize: 17, fontFamily: 'Pretendard-SemiBold', lineHeight: 26 },
   playButton: {
     flexDirection: 'row',
@@ -961,6 +1083,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   playButtonText: { fontSize: 14, fontFamily: 'Pretendard-SemiBold' },
+  autoPlayIndicator: { flexDirection: 'row', alignItems: 'center', alignSelf: 'center', gap: 6, marginBottom: 8 },
+  autoPlayText: { fontSize: 14, fontFamily: 'Pretendard-Medium' },
 
   // 녹음
   recordArea: {
@@ -998,6 +1122,7 @@ const styles = StyleSheet.create({
   // 문항 사이
   betweenTitle: { fontSize: 22, fontFamily: 'Pretendard-Bold', marginTop: 16 },
   betweenSubtitle: { fontSize: 14, fontFamily: 'Pretendard-Regular', marginTop: 8, marginBottom: 32 },
+  autoAdvanceHint: { fontSize: 14, fontFamily: 'Pretendard-Regular', marginTop: 16 },
   betweenExitButton: { marginTop: 20, paddingVertical: 8 },
   betweenExitText: { fontSize: 14, fontFamily: 'Pretendard-Medium' },
   nextButton: {
@@ -1009,6 +1134,21 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   nextButtonText: { color: '#FFFFFF', fontSize: 16, fontFamily: 'Pretendard-SemiBold' },
+
+  // 준비 카운트다운
+  countdownCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 3,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  countdownNumber: {
+    fontSize: 36,
+    fontFamily: 'Pretendard-Bold',
+  },
 
   // 시험 종료
   endTitle: { fontSize: 22, fontFamily: 'Pretendard-Bold', marginTop: 16 },
