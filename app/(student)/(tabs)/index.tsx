@@ -183,6 +183,21 @@ export default function StudentDashboard() {
         {/* 약점 토픽 추천 */}
         {weakAreas && <WeakAreasCard weakAreas={weakAreas} />}
 
+        {/* 핵심 표현 바로가기 */}
+        <Pressable
+          style={[styles.expressionLink, { backgroundColor: colors.surface, shadowColor: colors.shadowColor }]}
+          onPress={() => router.push('/(student)/expressions' as any)}
+        >
+          <View style={[styles.expressionIcon, { backgroundColor: '#6366F1' + '15' }]}>
+            <Ionicons name="book-outline" size={20} color="#6366F1" />
+          </View>
+          <View style={styles.expressionInfo}>
+            <Text style={[styles.expressionTitle, { color: colors.textPrimary }]}>OPIc 핵심 표현</Text>
+            <Text style={[styles.expressionDesc, { color: colors.textSecondary }]}>상황별 필수 표현 학습</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.textDisabled} />
+        </Pressable>
+
         {/* 토픽 목록 */}
         <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>내 토픽</Text>
 
@@ -283,6 +298,29 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 12,
   },
+  expressionLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    padding: 14,
+    borderRadius: 14,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+    gap: 12,
+  },
+  expressionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  expressionInfo: { flex: 1 },
+  expressionTitle: { fontSize: 14, fontFamily: 'Pretendard-SemiBold' },
+  expressionDesc: { fontSize: 12, fontFamily: 'Pretendard-Regular', marginTop: 2 },
   topicsContainer: {
     paddingHorizontal: 16,
   },

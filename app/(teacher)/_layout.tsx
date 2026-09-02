@@ -14,6 +14,22 @@ export default function TeacherLayout() {
       <Stack.Screen name="exam" />
       <Stack.Screen name="messages" />
       <Stack.Screen
+        name="expressions"
+        options={{
+          headerShown: true,
+          title: 'OPIc 핵심 표현 관리',
+          headerStyle: { backgroundColor: colors.surfaceSecondary },
+          headerTitleStyle: {
+            fontFamily: 'Pretendard-Bold',
+            fontSize: 18,
+            color: colors.textPrimary,
+          },
+          headerShadowVisible: false,
+          headerBackTitle: '',
+          headerTintColor: colors.textPrimary,
+        }}
+      />
+      <Stack.Screen
         name="notifications"
         options={{
           headerShown: true,

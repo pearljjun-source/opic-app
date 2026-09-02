@@ -39,6 +39,10 @@ export default function StudentLayout() {
       <Stack.Screen name="topic" options={{ contentStyle: safeContentStyle }} />
       <Stack.Screen name="exam" options={{ contentStyle: safeContentStyle }} />
       <Stack.Screen
+        name="expressions"
+        options={{ ...headerOptions, title: 'OPIc 핵심 표현', contentStyle: safeContentStyle }}
+      />
+      <Stack.Screen
         name="messages"
         options={{ ...headerOptions, title: '메시지', contentStyle: safeContentStyle }}
       />

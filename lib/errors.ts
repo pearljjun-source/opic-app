@@ -182,7 +182,7 @@ export const ERROR_CODES = {
 export type ErrorCode = typeof ERROR_CODES[keyof typeof ERROR_CODES];
 
 export interface ErrorContext {
-  resource?: 'script' | 'practice' | 'invite' | 'connection' | 'user' | 'student' | 'teacher' | 'question' | 'notification' | 'audio' | 'class' | 'topic' | 'subscription' | 'plan' | 'landing_section' | 'landing_item' | 'organization' | 'exam_session' | 'exam_response' | 'roleplay_scenario' | 'topic_group' | 'survey_profile' | 'message';
+  resource?: 'script' | 'practice' | 'invite' | 'connection' | 'user' | 'student' | 'teacher' | 'question' | 'notification' | 'audio' | 'class' | 'topic' | 'subscription' | 'plan' | 'landing_section' | 'landing_item' | 'organization' | 'exam_session' | 'exam_response' | 'roleplay_scenario' | 'topic_group' | 'survey_profile' | 'message' | 'expression' | 'expression_category';
   field?: string;
   apiType?: 'whisper' | 'tts' | 'claude' | 'push';
 }

@@ -148,6 +148,19 @@ export default function TeacherSettings() {
         </View>
       )}
 
+      {/* 학습 콘텐츠 */}
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>학습 콘텐츠</Text>
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+          <SettingsRow
+            icon="book-outline"
+            label="OPIc 핵심 표현 관리"
+            onPress={() => router.push('/(teacher)/expressions' as any)}
+            showChevron
+          />
+        </View>
+      </View>
+
       {/* 계정 */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>계정</Text>
