@@ -127,6 +127,33 @@ export async function setStudentTopics(
   return { error: null };
 }
 
+/**
+ * 학생의 토픽별 스크립트 개수 조회 (토픽 배정 해제 전 경고용)
+ * 반환: { [topicId]: 스크립트 개수 }
+ * RPC 미배포 환경에서는 빈 객체를 반환 (경고만 생략, 저장은 정상 동작)
+ */
+export async function getStudentTopicScriptCounts(
+  studentId: string,
+): Promise<{ data: Record<string, number>; error: Error | null }> {
+  const { data, error } = await (supabase.rpc as CallableFunction)(
+    'get_student_topic_script_counts',
+    { p_student_id: studentId },
+  );
+
+  if (error) {
+    if (__DEV__) console.warn('[AppError] topic script counts:', error.message);
+    return { data: {}, error: classifyError(error, { resource: 'topic' }) };
+  }
+
+  const rows = (data as { topic_id: string; scripts_count: number }[]) || [];
+  const counts: Record<string, number> = {};
+  for (const row of rows) {
+    counts[row.topic_id] = Number(row.scripts_count) || 0;
+  }
+
+  return { data: counts, error: null };
+}
+
 // ============================================================================
 // 학생의 배정 토픽 + 진행 통계 조회
 // ============================================================================

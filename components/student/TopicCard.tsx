@@ -31,9 +31,18 @@ export function TopicCard({ topic, onPress }: TopicCardProps) {
       </View>
 
       <View style={styles.content}>
-        <Text style={[styles.topicName, { color: colors.textPrimary }]} numberOfLines={1}>
-          {topic.topic_name_ko}
-        </Text>
+        <View style={styles.titleRow}>
+          <Text style={[styles.topicName, { color: colors.textPrimary }]} numberOfLines={1}>
+            {topic.topic_name_ko}
+          </Text>
+          {/* 배정이 풀렸지만 스크립트가 남아있는 토픽 */}
+          {topic.is_assigned === false && (
+            <View style={[styles.archivedBadge, { backgroundColor: colors.borderLight }]}>
+              <Ionicons name="archive-outline" size={11} color={colors.gray400} />
+              <Text style={[styles.archivedText, { color: colors.gray400 }]}>스크립트 보관</Text>
+            </View>
+          )}
+        </View>
 
         {/* 진행률 바 */}
         <View style={[styles.progressBarBg, { backgroundColor: colors.borderLight }]}>
@@ -81,10 +90,28 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
   topicName: {
+    flexShrink: 1,
     fontSize: 15,
     fontFamily: 'Pretendard-SemiBold',
-    marginBottom: 8,
+  },
+  archivedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  archivedText: {
+    fontSize: 10,
+    fontFamily: 'Pretendard-Medium',
   },
   progressBarBg: {
     height: 4,

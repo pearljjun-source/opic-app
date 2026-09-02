@@ -18,9 +18,10 @@ import {
   getStudentTopicsWithProgress,
   getSurveyProfile,
   saveSurveyProfile,
+  getStudentTopicScriptCounts,
 } from '@/services/topics';
 import { getUserMessage } from '@/lib/errors';
-import { alert as xAlert } from '@/lib/alert';
+import { alert as xAlert, confirm } from '@/lib/alert';
 import type { TopicGroup, SurveyProfile } from '@/lib/types';
 import { useThemeColors } from '@/hooks/useTheme';
 import { emit } from '@/lib/events';
@@ -37,6 +38,7 @@ export default function AssignTopicsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [scriptCounts, setScriptCounts] = useState<Record<string, number>>({});
 
   const { toggle } = useTopicGroupToggle(groups, allTopics);
 
@@ -45,12 +47,15 @@ export default function AssignTopicsScreen() {
       if (!studentId) return;
       setIsLoading(true);
 
-      const [groupsResult, topicsResult, assignedResult, profileResult] = await Promise.all([
+      const [groupsResult, topicsResult, assignedResult, profileResult, countsResult] = await Promise.all([
         getTopicGroups(),
         getTopics(),
         getStudentTopicsWithProgress(studentId),
         getSurveyProfile(studentId),
+        getStudentTopicScriptCounts(studentId),
       ]);
+
+      setScriptCounts(countsResult.data);
 
       if (groupsResult.data) setGroups(groupsResult.data);
 
@@ -65,7 +70,13 @@ export default function AssignTopicsScreen() {
           const activeIds = new Set(activeTopics.map((t) => t.id));
           const autoIds = new Set(activeTopics.filter((t) => t.is_auto_assigned).map((t) => t.id));
           setSelectedIds(
-            new Set(assignedResult.data.map((t) => t.topic_id).filter((id) => activeIds.has(id) && !autoIds.has(id))),
+            new Set(
+              assignedResult.data
+                // is_assigned === false: 배정은 풀렸지만 스크립트가 남아 노출되는 토픽 → 선택 상태 아님
+                .filter((t) => t.is_assigned !== false)
+                .map((t) => t.topic_id)
+                .filter((id) => activeIds.has(id) && !autoIds.has(id)),
+            ),
           );
         }
       }
@@ -100,6 +111,29 @@ export default function AssignTopicsScreen() {
       );
       return;
     }
+
+    // 스크립트가 있는 토픽을 해제한 경우 경고
+    const dropped = allTopics.filter(
+      (t) => !t.is_auto_assigned && !selectedIds.has(t.id) && (scriptCounts[t.id] ?? 0) > 0,
+    );
+
+    if (dropped.length > 0) {
+      const detail = dropped
+        .map((t) => `· ${t.name_ko} (스크립트 ${scriptCounts[t.id]}개)`)
+        .join('\n');
+      confirm(
+        '선택 해제된 토픽 확인',
+        `아래 토픽에는 이미 작성된 스크립트가 있습니다.\n\n${detail}\n\n배정을 해제해도 스크립트는 학생 화면에 "스크립트 보관"으로 남지만, 학습 목록에서는 뒤로 밀립니다. 저장할까요?`,
+        () => { void doSave(); },
+      );
+      return;
+    }
+
+    await doSave();
+  };
+
+  const doSave = async () => {
+    if (!studentId) return;
 
     setIsSaving(true);
 

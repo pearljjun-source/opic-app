@@ -14,9 +14,15 @@ import { SurveyProfileSelector } from '@/components/SurveyProfileSelector';
 import { TopicGroupSelector, useTopicGroupToggle } from '@/components/TopicGroupSelector';
 import { SURVEY_CONFIG, TOPIC_CATEGORIES, DEFAULT_SURVEY_PROFILE } from '@/lib/constants';
 import { getTopics } from '@/services/scripts';
-import { getTopicGroups, setStudentTopics, getSurveyProfile, saveSurveyProfile } from '@/services/topics';
+import {
+  getTopicGroups,
+  setStudentTopics,
+  getSurveyProfile,
+  saveSurveyProfile,
+  getStudentTopicScriptCounts,
+} from '@/services/topics';
 import { getUserMessage } from '@/lib/errors';
-import { alert as xAlert } from '@/lib/alert';
+import { alert as xAlert, confirm } from '@/lib/alert';
 import { supabase } from '@/lib/supabase';
 import { showToast } from '@/lib/toast';
 import type { TopicGroup, SurveyProfile } from '@/lib/types';
@@ -30,6 +36,7 @@ export default function TopicsScreen() {
   const [profile, setProfile] = useState<SurveyProfile>(DEFAULT_SURVEY_PROFILE);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [scriptCounts, setScriptCounts] = useState<Record<string, number>>({});
 
   const { toggle } = useTopicGroupToggle(groups, allTopics);
 
@@ -38,7 +45,7 @@ export default function TopicsScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const [groupsResult, topicsResult, myTopicsResult, profileResult] = await Promise.all([
+      const [groupsResult, topicsResult, myTopicsResult, profileResult, countsResult] = await Promise.all([
         getTopicGroups(),
         getTopics(),
         supabase
@@ -46,7 +53,10 @@ export default function TopicsScreen() {
           .select('topic_id')
           .eq('student_id', user.id),
         getSurveyProfile(user.id),
+        getStudentTopicScriptCounts(user.id),
       ]);
+
+      setScriptCounts(countsResult.data);
 
       if (groupsResult.data) setGroups(groupsResult.data);
       if (topicsResult.data) setAllTopics(topicsResult.data);
@@ -91,12 +101,33 @@ export default function TopicsScreen() {
       return;
     }
 
+    // 스크립트가 있는 토픽을 해제한 경우 경고
+    const dropped = allTopics.filter(
+      (t) => !t.is_auto_assigned && !selectedIds.has(t.id) && (scriptCounts[t.id] ?? 0) > 0,
+    );
+
+    if (dropped.length > 0) {
+      const detail = dropped
+        .map((t) => `· ${t.name_ko} (스크립트 ${scriptCounts[t.id]}개)`)
+        .join('\n');
+      confirm(
+        '선택 해제된 토픽 확인',
+        `아래 토픽은 강사님이 작성한 스크립트가 있어요.\n\n${detail}\n\n해제해도 스크립트는 "스크립트 보관"으로 계속 볼 수 있지만, 학습 목록에서는 뒤로 밀립니다. 저장할까요?`,
+        () => { void doSave(user.id); },
+      );
+      return;
+    }
+
+    await doSave(user.id);
+  };
+
+  const doSave = async (userId: string) => {
     setIsSaving(true);
 
     // 프로필 + 토픽 동시 저장
     const [profileResult, topicsResult] = await Promise.all([
-      saveSurveyProfile(user.id, profile),
-      setStudentTopics(user.id, Array.from(selectedIds)),
+      saveSurveyProfile(userId, profile),
+      setStudentTopics(userId, Array.from(selectedIds)),
     ]);
 
     if (profileResult.error) {

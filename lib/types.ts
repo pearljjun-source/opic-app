@@ -550,6 +550,8 @@ export interface StudentTopicWithProgress {
   practices_count: number;
   best_avg_score: number | null;
   last_practice_at: string | null;
+  /** 현재 배정된 토픽인지 (false = 배정은 풀렸지만 스크립트가 남아있는 토픽). 079 마이그레이션 이후 제공 */
+  is_assigned?: boolean;
 }
 
 /** 토픽별 질문 + 스크립트/연습 현황 (get_topic_questions_with_scripts RPC 반환 타입) */

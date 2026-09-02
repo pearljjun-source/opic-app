@@ -15,6 +15,7 @@ import { useThemeColors } from '@/hooks/useTheme';
 import type { TopicQuestionWithScript } from '@/lib/types';
 import { getMyTopicQuestionsWithScripts } from '@/services/topics';
 import { getUserMessage } from '@/lib/errors';
+import { showToast } from '@/lib/toast';
 
 export default function StudentTopicQuestionsScreen() {
   const colors = useThemeColors();
@@ -61,6 +62,8 @@ export default function StudentTopicQuestionsScreen() {
   const handleQuestionPress = (question: TopicQuestionWithScript) => {
     if (question.script_id) {
       router.push(`/(student)/script/${question.script_id}` as any);
+    } else {
+      showToast('아직 강사님이 스크립트를 준비 중이에요', 'info');
     }
   };
 
@@ -72,11 +75,10 @@ export default function StudentTopicQuestionsScreen() {
         style={({ pressed }) => [
           styles.questionCard,
           { backgroundColor: colors.surface, shadowColor: colors.shadowColor },
-          pressed && hasScript && styles.questionCardPressed,
+          pressed && styles.questionCardPressed,
           !hasScript && styles.questionCardDisabled,
         ]}
         onPress={() => handleQuestionPress(item)}
-        disabled={!hasScript}
       >
         <View style={styles.questionHeader}>
           <View
@@ -112,9 +114,12 @@ export default function StudentTopicQuestionsScreen() {
             )}
           </View>
         ) : (
-          <View style={styles.noScriptRow}>
-            <Ionicons name="time-outline" size={14} color={colors.textDisabled} />
-            <Text style={[styles.noScriptText, { color: colors.textDisabled }]}>강사님이 준비 중이에요</Text>
+          <View style={styles.scriptInfo}>
+            <View style={[styles.scriptBadge, { backgroundColor: colors.borderLight }]}>
+              <Ionicons name="lock-closed" size={12} color={colors.textDisabled} />
+              <Text style={[styles.scriptBadgeText, { color: colors.textDisabled }]}>준비 중</Text>
+            </View>
+            <Text style={[styles.practiceInfo, { color: colors.textDisabled }]}>강사님이 준비 중이에요</Text>
           </View>
         )}
       </Pressable>
@@ -307,16 +312,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Pretendard-Medium',
   },
   practiceInfo: {
-    fontSize: 12,
-    fontFamily: 'Pretendard-Regular',
-  },
-  noScriptRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginLeft: 18,
-  },
-  noScriptText: {
     fontSize: 12,
     fontFamily: 'Pretendard-Regular',
   },
