@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  # 스키마 드리프트는 코드가 아니라 "배포 상태"를 보는 검사라 주기 실행이 맞다.
+  # 매일 09:00 KST (00:00 UTC)
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  # ==========================================================================
+  # 코드 검사 — 모든 push/PR
+  # ==========================================================================
+  test:
+    name: 타입체크 · 테스트
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 의존성 설치
+        run: npm ci
+
+      - name: 타입체크
+        run: npx tsc --noEmit
+
+      - name: 테스트
+        run: npm test
+
+  # ==========================================================================
+  # 스키마 드리프트 — 마이그레이션 파일 ↔ 실제 DB
+  #
+  # ⚠️ PR에서는 돌리지 않는다. 새 마이그레이션을 추가하는 PR은 아직 DB에 적용되기
+  #    전이라 당연히 "없음"으로 나오고, 그러면 모든 마이그레이션 PR이 빨간불이 된다.
+  #    이 검사가 잡으려는 건 "머지·배포까지 됐는데 DB에는 적용 안 된" 상태이므로
+  #    주기 실행(매일) + 수동 실행이 맞는 트리거다.
+  #
+  # ⚠️ 조회 전용(information_schema, pg_proc)이라 DB를 건드리지 않는다.
+  # ==========================================================================
+  schema-drift:
+    name: 스키마 드리프트 검사
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 토큰 확인
+        env:
+          TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::error::SUPABASE_ACCESS_TOKEN 시크릿이 없습니다."
+            echo "저장소 Settings → Secrets and variables → Actions 에서 등록하세요."
+            exit 1
+          fi
+
+      - name: 마이그레이션 ↔ DB 대조
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+        run: npm run check:schema

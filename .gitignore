@@ -61,3 +61,6 @@ nul
 
 # Batch scripts (may contain API keys in shell history)
 scripts/run-batch-tts.mjs
+
+# 테스트 커버리지 리포트
+/coverage
