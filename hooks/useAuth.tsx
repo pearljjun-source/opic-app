@@ -9,6 +9,7 @@ import type { User, OrgRole, PlatformRole, MyOrganization } from '@/lib/types';
 import { canTeach } from '@/lib/permissions';
 import { setSentryUser, clearSentryUser } from '@/lib/sentry';
 import { identify, setUserProperties, resetAnalytics } from '@/lib/analytics';
+import { purgeSupabaseAuthTokens } from '@/lib/auth-session';
 
 // ============================================================================
 // SSR-safe cache helpers
@@ -551,11 +552,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // 웹: signOut 완료 후 전체 리로드 — 네비게이션 상태 + 폼 메모리 완전 제거
     // signOut RPC 실패 시에도 localStorage 세션 토큰을 확실히 제거 (공용 PC 보안)
     if (Platform.OS === 'web') {
-      Object.keys(localStorage).forEach(key => {
-        if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
-          localStorage.removeItem(key);
-        }
-      });
+      purgeSupabaseAuthTokens();
       window.location.href = '/';
     }
   }, []);

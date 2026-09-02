@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useSubscription } from '@/hooks/useSubscription';
 import { issueBillingKey, updateBillingKey } from '@/services/billing';
 import { getUserMessage } from '@/lib/errors';
-import { cleanPaymentUrlParams } from '@/lib/toss';
+import { cleanPaymentUrlParams, parsePaymentCallbackParams, type PaymentCallbackParams } from '@/lib/toss';
 import { PAYMENT_CALLBACK } from '@/lib/constants';
 
 // ============================================================================
@@ -25,33 +25,9 @@ import { PAYMENT_CALLBACK } from '@/lib/constants';
 
 type CallbackStatus = 'loading' | 'processing' | 'success' | 'error';
 
-interface CapturedParams {
-  action: string | null;
-  authKey: string | null;
-  customerKey: string | null;
-  planKey: string | null;
-  cycle: 'monthly' | 'yearly';
-  status: string | null;
-  message: string | null;
-}
-
-/** 웹 URL에서 파라미터 추출 (마운트 시 1회) */
-function captureUrlParams(): CapturedParams {
-  if (Platform.OS !== 'web' || typeof window === 'undefined') {
-    return { action: null, authKey: null, customerKey: null, planKey: null, cycle: 'monthly', status: null, message: null };
-  }
-
-  const url = new URL(window.location.href);
-  return {
-    action: url.searchParams.get('action'),
-    authKey: url.searchParams.get('authKey'),
-    customerKey: url.searchParams.get('customerKey'),
-    planKey: url.searchParams.get('planKey'),
-    cycle: url.searchParams.get('cycle') === 'yearly' ? 'yearly' : 'monthly',
-    status: url.searchParams.get('status'),
-    message: url.searchParams.get('message'),
-  };
-}
+// URL 파싱은 lib/toss.ts로 옮겼다 — buildPaymentUrls와 같은 파일에 두어야
+// 한쪽 키만 바뀌는 사고를 막고, 화면 렌더링 없이 계약을 테스트할 수 있다.
+type CapturedParams = PaymentCallbackParams;
 
 export default function PaymentCallbackScreen() {
   const colors = useThemeColors();
@@ -70,7 +46,7 @@ export default function PaymentCallbackScreen() {
   // ── 마운트 1회 실행: 파라미터 캡처 → URL 정리 → 처리 시작 ──
   useEffect(() => {
     // 1. 파라미터 캡처 (마운트 시점의 URL)
-    const captured = captureUrlParams();
+    const captured = parsePaymentCallbackParams();
     paramsRef.current = captured;
 
     // 2. URL 즉시 정리 (새로고침 시 재처리 방지)

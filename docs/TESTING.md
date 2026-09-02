@@ -2,6 +2,20 @@
 
 > 테스트 전략, 테스트 도구, 성능 최적화 가이드
 
+> ⚠️ **아래 "테스트 피라미드"와 "테스트 도구"는 목표이며, 2026-08-28 기준 현재 상태와 다르다.**
+>
+> | 항목 | 문서상 목표 | 실제 |
+> |------|------------|------|
+> | 단위 테스트 | 70% | 865개 중 약 205개가 소스 파일 **문자열 매칭**(`readFileSync` + `toContain`) |
+> | 통합 테스트 | 20% | mock Supabase 기반 서비스 테스트 일부 (`services` 커버리지 31.8%) |
+> | E2E 테스트 | 10% | **0개** (Detox/Maestro 미도입) |
+> | `@testing-library/react-native` | 도입 | **미설치**, 컴포넌트 테스트 0개 |
+>
+> 커버리지 0% 파일: `topics.ts` `students.ts` `classes.ts` `organizations.ts` `admin.ts`
+> `notifications.ts` `landing.ts` `expressions.ts` `helpers.ts` — `practices.ts`는 1.81%.
+>
+> 개선 순서는 [CLAUDE.md의 "테스트 로드맵"](../CLAUDE.md) 참조.
+
 ## 테스트 피라미드
 
 ```

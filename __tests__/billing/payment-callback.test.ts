@@ -1,414 +1,461 @@
 /**
- * 결제 콜백 시뮬레이션 테스트
+ * 결제 콜백 플로우 테스트 (실행 검증)
+ *
+ * ⚠️ 이 파일은 원래 소스 파일을 readFileSync로 읽어 문자열을 대조했다.
+ *    그 방식은 (1) 리팩터링하면 깨지고 (2) 실제 버그는 못 잡는다 —
+ *    076·077 마이그레이션이 DB에 없는 상태에서도 전체 테스트가 통과했던 것이 그 증거다.
+ *    지금은 실제 함수를 호출해 반환값을 확인한다.
  *
  * 검증 대상:
- * 1. 토스 표준 패턴: 전용 콜백 라우트 구조
- * 2. plan-select.tsx에서 콜백 로직 완전 제거 확인
- * 3. subscription.tsx에서 콜백 로직 완전 제거 확인
- * 4. payment-callback.tsx의 마운트 1회 처리 패턴
- * 5. useSubscription.ts 의존성 안정화
- * 6. 상수 중앙 관리 (PAYMENT_CALLBACK)
- * 7. URL 빌더 표준화 (buildPaymentUrls)
+ * 1. PAYMENT_CALLBACK 상수의 실제 값 (Toss에 등록되는 리다이렉트 경로)
+ * 2. buildPaymentUrls → parsePaymentCallbackParams 왕복 (URL 계약)
+ * 3. cleanPaymentUrlParams — authKey가 주소창에 남지 않는다
+ * 4. 콜백이 호출하는 서비스: issueBillingKey / updateBillingKey / changePlan
+ *
+ * 화면(payment-callback.tsx)의 마운트 1회·중복 방지 동작은 컴포넌트 테스트 영역이다.
+ * CLAUDE.md "테스트 로드맵" 3단계에서 @testing-library/react-native 도입 후 다룬다.
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
+import { Platform } from 'react-native';
+
+import { mockSupabase } from '../mocks/supabase';
+
+const mockInvokeFunction = jest.fn();
+jest.mock('@/lib/supabase', () => ({
+  supabase: require('../mocks/supabase').mockSupabase,
+  invokeFunction: (...args: any[]) => mockInvokeFunction(...args),
+}));
+
+(global as any).__DEV__ = true;
+jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+import { PAYMENT_CALLBACK } from '@/lib/constants';
+import {
+  buildPaymentUrls,
+  parsePaymentCallbackParams,
+  cleanPaymentUrlParams,
+} from '@/lib/toss';
+import { issueBillingKey, updateBillingKey, changePlan } from '@/services/billing';
+import { ERROR_CODES } from '@/lib/errors';
 
 // ============================================================================
-// 1. 파일 구조 검증 — 전용 콜백 라우트 존재
+// 테스트 환경 — 웹 플랫폼 + window.location
 // ============================================================================
 
-describe('payment-callback route structure', () => {
-  const callbackPath = path.resolve(__dirname, '../../app/(teacher)/manage/payment-callback.tsx');
-  const layoutPath = path.resolve(__dirname, '../../app/(teacher)/manage/_layout.tsx');
+const originalOS = Platform.OS;
+const ORIGIN = 'https://speaky.co.kr';
 
-  test('payment-callback.tsx 파일이 존재한다', () => {
-    expect(fs.existsSync(callbackPath)).toBe(true);
+function mockPlatformOS(os: string) {
+  Object.defineProperty(Platform, 'OS', { get: () => os, configurable: true });
+}
+
+function mockLocation(href: string) {
+  const url = new URL(href);
+  Object.defineProperty(window, 'location', {
+    value: { origin: url.origin, href, pathname: url.pathname },
+    writable: true,
+    configurable: true,
+  });
+}
+
+const mockUser = { id: 'user-1', email: 'teacher@test.com' };
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockPlatformOS('web');
+  mockLocation(`${ORIGIN}/`);
+  mockSupabase.auth.getUser.mockResolvedValue({ data: { user: mockUser }, error: null });
+});
+
+afterEach(() => {
+  Object.defineProperty(Platform, 'OS', { get: () => originalOS, configurable: true });
+});
+
+// ============================================================================
+// 1. PAYMENT_CALLBACK 상수
+//    Toss 콘솔·URL 빌더·콜백 화면이 같은 값을 봐야 한다
+// ============================================================================
+
+describe('PAYMENT_CALLBACK 상수', () => {
+  it('콜백 경로가 전용 라우트를 가리킨다', () => {
+    expect(PAYMENT_CALLBACK.PATH).toBe('/(teacher)/manage/payment-callback');
   });
 
-  test('_layout.tsx에 payment-callback 라우트가 등록되어 있다', () => {
-    const layout = fs.readFileSync(layoutPath, 'utf8');
-    expect(layout).toContain('name="payment-callback"');
+  it('액션 값이 두 결제 진입점과 일치한다', () => {
+    expect(PAYMENT_CALLBACK.ACTIONS.NEW_SUBSCRIPTION).toBe('new-subscription');
+    expect(PAYMENT_CALLBACK.ACTIONS.UPDATE_BILLING).toBe('update-billing');
   });
 
-  test('payment-callback은 headerShown: false로 설정', () => {
-    const layout = fs.readFileSync(layoutPath, 'utf8');
-    expect(layout).toContain('headerShown: false');
+  it('상태 값 3종이 정의되어 있다', () => {
+    expect(PAYMENT_CALLBACK.STATUS.SUCCESS).toBe('success');
+    expect(PAYMENT_CALLBACK.STATUS.FAIL).toBe('fail');
+    expect(PAYMENT_CALLBACK.STATUS.PROCESSING).toBe('processing');
   });
 });
 
 // ============================================================================
-// 2. plan-select.tsx — 콜백 로직 완전 제거 확인
+// 2. URL 계약 — buildPaymentUrls가 쓴 것을 parsePaymentCallbackParams가 읽는다
+//
+//    이 왕복이 깨지면 결제는 성공했는데 앱은 "결제 정보를 찾을 수 없습니다"를
+//    띄운다. 한쪽 키만 바꾸는 사고가 가장 흔하므로 왕복으로 검증한다.
 // ============================================================================
 
-describe('plan-select.tsx — callback logic removed', () => {
-  const planSelectPath = path.resolve(__dirname, '../../app/(teacher)/manage/plan-select.tsx');
-  let code: string;
+describe('결제 URL 왕복 — 신규 구독', () => {
+  it('successUrl을 파싱하면 action·planKey가 복원된다', () => {
+    const urls = buildPaymentUrls({ action: 'new-subscription', planKey: 'pro' });
+    expect(urls).not.toBeNull();
 
-  beforeAll(() => {
-    code = fs.readFileSync(planSelectPath, 'utf8');
+    const parsed = parsePaymentCallbackParams(urls!.successUrl);
+    expect(parsed.action).toBe(PAYMENT_CALLBACK.ACTIONS.NEW_SUBSCRIPTION);
+    expect(parsed.planKey).toBe('pro');
+    expect(parsed.status).toBeNull();
   });
 
-  test('callbackProcessed ref가 제거되었다', () => {
-    expect(code).not.toContain('callbackProcessed');
+  it('successUrl이 콜백 라우트를 가리킨다', () => {
+    const urls = buildPaymentUrls({ action: 'new-subscription', planKey: 'pro' });
+    expect(new URL(urls!.successUrl).pathname).toBe(PAYMENT_CALLBACK.PATH);
+    expect(urls!.successUrl.startsWith(ORIGIN)).toBe(true);
   });
 
-  test('processPaymentCallback 함수가 제거되었다', () => {
-    expect(code).not.toContain('processPaymentCallback');
+  it('연간 결제는 cycle=yearly로 왕복된다', () => {
+    const urls = buildPaymentUrls({ action: 'new-subscription', planKey: 'pro', cycle: 'yearly' });
+    expect(parsePaymentCallbackParams(urls!.successUrl).cycle).toBe('yearly');
   });
 
-  test('cleanUrlParams 함수가 제거되었다', () => {
-    expect(code).not.toContain('cleanUrlParams');
+  it('월간은 cycle 파라미터 없이도 monthly로 읽힌다 (기본값)', () => {
+    const urls = buildPaymentUrls({ action: 'new-subscription', planKey: 'solo', cycle: 'monthly' });
+    expect(urls!.successUrl).not.toContain('cycle=');
+    expect(parsePaymentCallbackParams(urls!.successUrl).cycle).toBe('monthly');
+  });
+});
+
+describe('결제 URL 왕복 — 결제수단 변경', () => {
+  it('action이 update-billing으로 복원되고 planKey는 없다', () => {
+    const urls = buildPaymentUrls({ action: 'update-billing' });
+    const parsed = parsePaymentCallbackParams(urls!.successUrl);
+
+    expect(parsed.action).toBe(PAYMENT_CALLBACK.ACTIONS.UPDATE_BILLING);
+    expect(parsed.planKey).toBeNull();
+  });
+});
+
+describe('결제 URL 왕복 — 실패 콜백', () => {
+  it('failUrl은 status=fail로 파싱되어 에러 분기로 간다', () => {
+    const urls = buildPaymentUrls({ action: 'new-subscription', planKey: 'pro' });
+    const parsed = parsePaymentCallbackParams(urls!.failUrl);
+
+    expect(parsed.status).toBe(PAYMENT_CALLBACK.STATUS.FAIL);
+    expect(parsed.action).toBe(PAYMENT_CALLBACK.ACTIONS.NEW_SUBSCRIPTION);
   });
 
-  test('authKey 파라미터 의존 useEffect가 제거되었다', () => {
-    expect(code).not.toContain('params.authKey');
+  it('Toss가 붙여 보내는 message를 읽는다', () => {
+    const parsed = parsePaymentCallbackParams(
+      `${ORIGIN}${PAYMENT_CALLBACK.PATH}?status=fail&action=new-subscription&message=${encodeURIComponent('사용자가 취소했습니다')}`,
+    );
+    expect(parsed.message).toBe('사용자가 취소했습니다');
+  });
+});
+
+describe('parsePaymentCallbackParams — 비정상 입력', () => {
+  it('Toss가 붙여주는 authKey·customerKey를 읽는다', () => {
+    const parsed = parsePaymentCallbackParams(
+      `${ORIGIN}${PAYMENT_CALLBACK.PATH}?action=new-subscription&planKey=pro&authKey=auth_abc&customerKey=user-1`,
+    );
+    expect(parsed.authKey).toBe('auth_abc');
+    expect(parsed.customerKey).toBe('user-1');
   });
 
-  test('success 상태가 제거되었다', () => {
-    expect(code).not.toContain('setSuccess(');
-    expect(code).not.toContain('success &&');
+  it('파라미터가 없으면 전부 null이다 (새로고침 → 에러 화면)', () => {
+    const parsed = parsePaymentCallbackParams(`${ORIGIN}${PAYMENT_CALLBACK.PATH}`);
+    expect(parsed.action).toBeNull();
+    expect(parsed.authKey).toBeNull();
   });
 
-  test('issueBillingKey import가 제거되었다', () => {
-    expect(code).not.toContain('issueBillingKey');
+  it('URL이 깨져 있어도 던지지 않는다', () => {
+    expect(() => parsePaymentCallbackParams('not-a-url')).not.toThrow();
+    expect(parsePaymentCallbackParams('not-a-url').action).toBeNull();
   });
 
-  test('useLocalSearchParams가 제거되었다', () => {
-    expect(code).not.toContain('useLocalSearchParams');
+  it('네이티브에서는 window 없이도 빈 값을 돌려준다', () => {
+    mockPlatformOS('ios');
+    expect(parsePaymentCallbackParams().action).toBeNull();
+    expect(parsePaymentCallbackParams().cycle).toBe('monthly');
   });
 
-  test('buildPaymentUrls를 새 시그니처로 호출한다', () => {
-    expect(code).toContain("action: 'new-subscription'");
-    expect(code).toContain('planKey: plan.plan_key');
+  it('cycle에 이상한 값이 와도 monthly로 떨어진다', () => {
+    const parsed = parsePaymentCallbackParams(
+      `${ORIGIN}${PAYMENT_CALLBACK.PATH}?action=new-subscription&cycle=weekly`,
+    );
+    expect(parsed.cycle).toBe('monthly');
   });
+});
 
-  test('billingCycle 상태는 유지된다 (플랜 선택 UI용)', () => {
-    expect(code).toContain('billingCycle');
-    expect(code).toContain('setBillingCycle');
+describe('buildPaymentUrls — 네이티브', () => {
+  it('웹이 아니면 null을 돌려준다', () => {
+    mockPlatformOS('ios');
+    expect(buildPaymentUrls({ action: 'new-subscription', planKey: 'pro' })).toBeNull();
   });
 });
 
 // ============================================================================
-// 3. subscription.tsx — 콜백 로직 완전 제거 확인
+// 3. URL 정리 — authKey가 주소창에 남으면 안 된다
+//    (CLAUDE.md 보안 원칙: "URL 토큰 잔존 → 토큰 추출 즉시 제거")
 // ============================================================================
 
-describe('subscription.tsx — callback logic removed', () => {
-  const subPath = path.resolve(__dirname, '../../app/(teacher)/manage/subscription.tsx');
-  let code: string;
+describe('cleanPaymentUrlParams', () => {
+  it('웹에서 쿼리스트링을 제거한다 — authKey가 주소에 남지 않는다', () => {
+    const replaceState = jest.fn();
+    Object.defineProperty(window, 'history', {
+      value: { replaceState },
+      writable: true,
+      configurable: true,
+    });
+    mockLocation(`${ORIGIN}${PAYMENT_CALLBACK.PATH}?action=new-subscription&authKey=auth_secret`);
 
-  beforeAll(() => {
-    code = fs.readFileSync(subPath, 'utf8');
+    cleanPaymentUrlParams();
+
+    expect(replaceState).toHaveBeenCalledTimes(1);
+    const newUrl = replaceState.mock.calls[0][2] as string;
+    expect(newUrl).toBe(PAYMENT_CALLBACK.PATH);
+    expect(newUrl).not.toContain('authKey');
   });
 
-  test('인라인 콜백 useEffect가 제거되었다', () => {
-    // 이전: useEffect 안에서 window.location.href로 authKey 추출
-    expect(code).not.toContain('url.searchParams.get(\'authKey\')');
-    expect(code).not.toContain('window.history.replaceState');
-  });
+  it('네이티브에서는 아무것도 하지 않는다', () => {
+    const replaceState = jest.fn();
+    Object.defineProperty(window, 'history', {
+      value: { replaceState },
+      writable: true,
+      configurable: true,
+    });
+    mockPlatformOS('ios');
 
-  test('updateBillingKey import가 제거되었다', () => {
-    expect(code).not.toContain('updateBillingKey');
-  });
+    cleanPaymentUrlParams();
 
-  test('buildPaymentUrls를 새 시그니처로 호출한다', () => {
-    expect(code).toContain("action: 'update-billing'");
-  });
-
-  test('콜백 처리를 payment-callback 라우트에 위임한다', () => {
-    // 코멘트에서 명시
-    expect(code).toContain('payment-callback');
+    expect(replaceState).not.toHaveBeenCalled();
   });
 });
 
 // ============================================================================
-// 4. payment-callback.tsx — 마운트 1회 처리 패턴 검증
+// 4. 콜백이 호출하는 서비스 — 실제 호출/에러 경로
 // ============================================================================
 
-describe('payment-callback.tsx — mount-once pattern', () => {
-  const callbackPath = path.resolve(__dirname, '../../app/(teacher)/manage/payment-callback.tsx');
-  let code: string;
+describe('issueBillingKey — 신규 구독 경로', () => {
+  // 시그니처: issueBillingKey(planKey, authKey, orgId, billingCycle)
+  it('billing-key Edge Function에 planKey·authKey·orgId·주기를 넘긴다', async () => {
+    mockInvokeFunction.mockResolvedValueOnce({ data: { subscriptionId: 'sub-1' }, error: null });
 
-  beforeAll(() => {
-    code = fs.readFileSync(callbackPath, 'utf8');
+    await issueBillingKey('pro', 'auth_abc', 'org-1', 'yearly');
+
+    expect(mockInvokeFunction).toHaveBeenCalledTimes(1);
+    const [fnName, payload] = mockInvokeFunction.mock.calls[0];
+    expect(fnName).toBe('billing-key');
+    expect(payload).toMatchObject({
+      planKey: 'pro',
+      authKey: 'auth_abc',
+      orgId: 'org-1',
+      billingCycle: 'yearly',
+    });
   });
 
-  test('useEffect 의존성 배열이 비어있다 (마운트 1회)', () => {
-    // useEffect(() => { ... }, []); 패턴
-    expect(code).toMatch(/useEffect\(\(\)\s*=>\s*\{[\s\S]*?\},\s*\[\]\)/);
+  it('주기를 생략하면 monthly로 나간다', async () => {
+    mockInvokeFunction.mockResolvedValueOnce({ data: { subscriptionId: 'sub-1' }, error: null });
+
+    await issueBillingKey('solo', 'auth_abc', 'org-1');
+
+    expect(mockInvokeFunction.mock.calls[0][1]).toMatchObject({ billingCycle: 'monthly' });
   });
 
-  test('URL 파라미터를 ref에 캡처한다', () => {
-    expect(code).toContain('paramsRef');
-    expect(code).toContain('captureUrlParams');
+  it('authKey가 비면 Edge Function을 부르지 않는다 (결제 요청 낭비 방지)', async () => {
+    const { error } = await issueBillingKey('pro', '', 'org-1');
+
+    expect(error).not.toBeNull();
+    expect(mockInvokeFunction).not.toHaveBeenCalled();
   });
 
-  test('URL 즉시 정리한다 (cleanPaymentUrlParams)', () => {
-    expect(code).toContain('cleanPaymentUrlParams()');
+  it('무료 플랜 키는 결제 대상이 아니므로 거부한다', async () => {
+    const { error } = await issueBillingKey('free', 'auth_abc', 'org-1');
+
+    expect((error as any)?.code).toBe(ERROR_CODES.VAL_FAILED);
+    expect(mockInvokeFunction).not.toHaveBeenCalled();
   });
 
-  test('processedRef로 중복 실행을 방지한다', () => {
-    expect(code).toContain('processedRef');
-    expect(code).toContain('processedRef.current = true');
+  it('orgId가 비면 부르지 않는다', async () => {
+    const { error } = await issueBillingKey('pro', 'auth_abc', '');
+
+    expect((error as any)?.code).toBe(ERROR_CODES.VAL_FAILED);
+    expect(mockInvokeFunction).not.toHaveBeenCalled();
   });
 
-  test('processedRef는 에러 시 리셋되지 않는다 (재시도는 명시적 handleRetry)', () => {
-    // processCallback 함수 내부에서 processedRef를 false로 설정하면 안 됨
-    // handleRetry에서만 리셋
-    const processCallbackMatch = code.match(/const processCallback = async[\s\S]*?(?=\n\s*\/\*\*|\n\s*const handle)/);
-    if (processCallbackMatch) {
-      const processBody = processCallbackMatch[0];
-      // processCallback 내부에서 processedRef.current = false가 없어야 함
-      expect(processBody).not.toContain('processedRef.current = false');
+  it('로그인이 없으면 AUTH_REQUIRED', async () => {
+    mockSupabase.auth.getUser.mockResolvedValue({ data: { user: null }, error: null });
+
+    const { data, error } = await issueBillingKey('pro', 'auth_abc', 'org-1');
+
+    expect(data).toBeNull();
+    expect((error as any)?.code).toBe(ERROR_CODES.AUTH_REQUIRED);
+    expect(mockInvokeFunction).not.toHaveBeenCalled();
+  });
+
+  it('Edge Function 실패를 그대로 삼키지 않는다', async () => {
+    mockInvokeFunction.mockResolvedValueOnce({ data: null, error: new Error('카드 등록 실패') });
+
+    const { data, error } = await issueBillingKey('pro', 'auth_abc', 'org-1');
+
+    expect(data).toBeNull();
+    expect(error).not.toBeNull();
+  });
+
+  it('타임아웃은 NETWORK_TIMEOUT으로 구분한다 — 결제가 성공했을 수 있어 안내가 달라야 한다', async () => {
+    mockInvokeFunction.mockResolvedValueOnce({ data: null, error: new Error('request timeout') });
+
+    const { error } = await issueBillingKey('pro', 'auth_abc', 'org-1');
+
+    expect((error as any)?.code).toBe(ERROR_CODES.NETWORK_TIMEOUT);
+  });
+});
+
+describe('updateBillingKey — 결제수단 변경 경로', () => {
+  it('update-billing-key Edge Function에 authKey·orgId를 넘긴다', async () => {
+    mockInvokeFunction.mockResolvedValueOnce({ data: { success: true }, error: null });
+
+    const { data, error } = await updateBillingKey('auth_new', 'org-1');
+
+    expect(error).toBeNull();
+    expect(data).toEqual({ success: true });
+    expect(mockInvokeFunction).toHaveBeenCalledWith('update-billing-key', {
+      authKey: 'auth_new',
+      orgId: 'org-1',
+    });
+  });
+
+  it('orgId가 비면 호출하지 않는다', async () => {
+    const { error } = await updateBillingKey('auth_new', '');
+
+    expect(error).not.toBeNull();
+    expect(mockInvokeFunction).not.toHaveBeenCalled();
+  });
+
+  it('로그인이 없으면 AUTH_REQUIRED', async () => {
+    mockSupabase.auth.getUser.mockResolvedValue({ data: { user: null }, error: null });
+
+    const { error } = await updateBillingKey('auth_new', 'org-1');
+
+    expect((error as any)?.code).toBe(ERROR_CODES.AUTH_REQUIRED);
+    expect(mockInvokeFunction).not.toHaveBeenCalled();
+  });
+
+  it('Edge Function 실패 시 success를 돌려주지 않는다', async () => {
+    mockInvokeFunction.mockResolvedValueOnce({ data: null, error: new Error('빌링키 재발급 실패') });
+
+    const { data, error } = await updateBillingKey('auth_new', 'org-1');
+
+    expect(data).toBeNull();
+    expect(error).not.toBeNull();
+  });
+});
+
+describe('changePlan — Toss 리다이렉트 없이 직접 처리되는 경로', () => {
+  it('change-plan Edge Function에 newPlanKey·orgId를 넘긴다', async () => {
+    mockInvokeFunction.mockResolvedValueOnce({
+      data: { success: true, type: 'upgrade', proratedAmount: 30000 },
+      error: null,
+    });
+
+    const { data, error } = await changePlan('academy', 'org-1');
+
+    expect(error).toBeNull();
+    expect(data).toMatchObject({ type: 'upgrade', proratedAmount: 30000 });
+    expect(mockInvokeFunction).toHaveBeenCalledWith('change-plan', {
+      newPlanKey: 'academy',
+      orgId: 'org-1',
+    });
+  });
+
+  it('다운그레이드 응답을 그대로 전달한다', async () => {
+    mockInvokeFunction.mockResolvedValueOnce({
+      data: { success: true, type: 'downgrade' },
+      error: null,
+    });
+
+    const { data } = await changePlan('solo', 'org-1');
+
+    expect(data?.type).toBe('downgrade');
+  });
+
+  it('플랜 키가 비면 호출하지 않는다', async () => {
+    const { error } = await changePlan('', 'org-1');
+
+    expect(error).not.toBeNull();
+    expect(mockInvokeFunction).not.toHaveBeenCalled();
+  });
+
+  it('Edge Function 실패를 전달한다', async () => {
+    mockInvokeFunction.mockResolvedValueOnce({ data: null, error: new Error('사용량 초과') });
+
+    const { data, error } = await changePlan('solo', 'org-1');
+
+    expect(data).toBeNull();
+    expect(error).not.toBeNull();
+  });
+});
+
+// ============================================================================
+// 5. 시나리오 — 진입점에서 만든 URL이 콜백에서 올바른 서비스로 이어지는가
+// ============================================================================
+
+describe('시나리오: 신규 구독 (plan-select → Toss → 콜백)', () => {
+  it('URL을 만들고 파싱한 값으로 issueBillingKey가 호출된다', async () => {
+    // ① plan-select가 URL을 만든다
+    const urls = buildPaymentUrls({ action: 'new-subscription', planKey: 'pro', cycle: 'yearly' });
+
+    // ② Toss가 authKey를 붙여 successUrl로 되돌려보낸다
+    const returned = `${urls!.successUrl}&authKey=auth_from_toss&customerKey=user-1`;
+
+    // ③ 콜백이 파싱한다
+    const p = parsePaymentCallbackParams(returned);
+    expect(p.action).toBe(PAYMENT_CALLBACK.ACTIONS.NEW_SUBSCRIPTION);
+
+    // ④ 파싱한 값으로 서비스를 부른다
+    mockInvokeFunction.mockResolvedValueOnce({ data: { subscriptionId: 'sub-1' }, error: null });
+    await issueBillingKey(p.planKey!, p.authKey!, 'org-1', p.cycle);
+
+    expect(mockInvokeFunction).toHaveBeenCalledWith('billing-key', expect.objectContaining({
+      authKey: 'auth_from_toss',
+      planKey: 'pro',
+      billingCycle: 'yearly',
+    }));
+  });
+});
+
+describe('시나리오: 결제수단 변경 (subscription → Toss → 콜백)', () => {
+  it('URL을 만들고 파싱한 값으로 updateBillingKey가 호출된다', async () => {
+    const urls = buildPaymentUrls({ action: 'update-billing' });
+    const returned = `${urls!.successUrl}&authKey=auth_update&customerKey=user-1`;
+
+    const p = parsePaymentCallbackParams(returned);
+    expect(p.action).toBe(PAYMENT_CALLBACK.ACTIONS.UPDATE_BILLING);
+
+    mockInvokeFunction.mockResolvedValueOnce({ data: { success: true }, error: null });
+    await updateBillingKey(p.authKey!, 'org-1');
+
+    expect(mockInvokeFunction).toHaveBeenCalledWith('update-billing-key', {
+      authKey: 'auth_update',
+      orgId: 'org-1',
+    });
+  });
+});
+
+describe('시나리오: 새로고침 — URL이 정리된 뒤 재진입', () => {
+  it('파라미터가 사라져 authKey가 없으므로 결제가 재실행되지 않는다', async () => {
+    const p = parsePaymentCallbackParams(`${ORIGIN}${PAYMENT_CALLBACK.PATH}`);
+
+    expect(p.authKey).toBeNull();
+    expect(p.action).toBeNull();
+
+    // 콜백 화면은 이 상태에서 서비스를 부르지 않고 에러를 표시한다
+    if (p.action && p.authKey) {
+      await issueBillingKey(p.planKey!, p.authKey, 'org-1');
     }
-  });
-
-  test('상태 머신: loading → processing → success | error', () => {
-    expect(code).toContain("'loading'");
-    expect(code).toContain("'processing'");
-    expect(code).toContain("'success'");
-    expect(code).toContain("'error'");
-  });
-
-  test('PAYMENT_CALLBACK 상수를 사용한다', () => {
-    expect(code).toContain('PAYMENT_CALLBACK.STATUS.FAIL');
-    expect(code).toContain('PAYMENT_CALLBACK.ACTIONS.NEW_SUBSCRIPTION');
-    expect(code).toContain('PAYMENT_CALLBACK.ACTIONS.UPDATE_BILLING');
-  });
-
-  test('auth 대기를 polling으로 처리한다 (의존성 아님)', () => {
-    expect(code).toContain('waitForAuthAndProcess');
-    expect(code).toContain('supabase.auth.getUser()');
-  });
-
-  test('에러 시 재시도 버튼이 있다', () => {
-    expect(code).toContain('handleRetry');
-    expect(code).toContain('재시도');
-  });
-
-  test('성공 시 적절한 화면으로 이동한다', () => {
-    expect(code).toContain('navigateBack');
-    expect(code).toContain('/(teacher)/manage/subscription');
-    expect(code).toContain('/(teacher)/manage/plan-select');
-  });
-});
-
-// ============================================================================
-// 5. useSubscription.ts — 의존성 안정화 검증
-// ============================================================================
-
-describe('useSubscription — dependency stabilization', () => {
-  const hookPath = path.resolve(__dirname, '../../hooks/useSubscription.ts');
-  let code: string;
-
-  beforeAll(() => {
-    code = fs.readFileSync(hookPath, 'utf8');
-  });
-
-  test('useEffect 의존성에 currentOrg 객체가 없다', () => {
-    // 의존성 배열에서 currentOrg 대신 orgId(문자열)를 사용
-    const effectMatch = code.match(/useEffect\([\s\S]*?\[([^\]]*)\]/);
-    expect(effectMatch).not.toBeNull();
-    const deps = effectMatch![1];
-    expect(deps).not.toContain('currentOrg');
-    expect(deps).toContain('orgId');
-  });
-
-  test('refresh useCallback 의존성에 currentOrg 객체가 없다', () => {
-    const refreshMatch = code.match(/refresh = useCallback[\s\S]*?\[([^\]]*)\]/);
-    expect(refreshMatch).not.toBeNull();
-    const deps = refreshMatch![1];
-    expect(deps).not.toContain('currentOrg');
-    expect(deps).toContain('orgId');
-  });
-
-  test('orgId를 문자열로 추출한다', () => {
-    expect(code).toContain('const orgId = currentOrg?.id');
-  });
-});
-
-// ============================================================================
-// 6. 상수 중앙 관리 검증
-// ============================================================================
-
-describe('PAYMENT_CALLBACK constants', () => {
-  const constantsPath = path.resolve(__dirname, '../../lib/constants.ts');
-  let code: string;
-
-  beforeAll(() => {
-    code = fs.readFileSync(constantsPath, 'utf8');
-  });
-
-  test('PAYMENT_CALLBACK 상수가 정의되어 있다', () => {
-    expect(code).toContain('PAYMENT_CALLBACK');
-  });
-
-  test('PATH가 payment-callback 라우트를 가리킨다', () => {
-    expect(code).toContain('/(teacher)/manage/payment-callback');
-  });
-
-  test('ACTIONS에 NEW_SUBSCRIPTION과 UPDATE_BILLING이 있다', () => {
-    expect(code).toContain('NEW_SUBSCRIPTION');
-    expect(code).toContain('UPDATE_BILLING');
-  });
-
-  test('STATUS에 SUCCESS, FAIL, PROCESSING이 있다', () => {
-    expect(code).toContain('SUCCESS');
-    expect(code).toContain('FAIL');
-    expect(code).toContain('PROCESSING');
-  });
-});
-
-// ============================================================================
-// 7. URL 빌더 검증
-// ============================================================================
-
-describe('buildPaymentUrls — new signature', () => {
-  const tossPath = path.resolve(__dirname, '../../lib/toss.ts');
-  let code: string;
-
-  beforeAll(() => {
-    code = fs.readFileSync(tossPath, 'utf8');
-  });
-
-  test('action 파라미터를 받는다', () => {
-    expect(code).toContain("action: 'new-subscription' | 'update-billing'");
-  });
-
-  test('PAYMENT_CALLBACK.PATH를 사용한다', () => {
-    expect(code).toContain('PAYMENT_CALLBACK.PATH');
-  });
-
-  test('cleanPaymentUrlParams 유틸이 export된다', () => {
-    expect(code).toContain('export function cleanPaymentUrlParams');
-  });
-
-  test('이전 plan-select 하드코딩 경로가 없다', () => {
-    expect(code).not.toContain("'/(teacher)/manage/plan-select'");
-  });
-});
-
-// ============================================================================
-// 8. 무한루프 방지 시뮬레이션
-// ============================================================================
-
-describe('infinite loop prevention simulation', () => {
-  test('plan-select에 콜백 useEffect가 없으므로 루프 불가', () => {
-    const planSelectPath = path.resolve(__dirname, '../../app/(teacher)/manage/plan-select.tsx');
-    const code = fs.readFileSync(planSelectPath, 'utf8');
-
-    // useEffect 의존성에 isProcessing, currentOrg, isAuthenticated가 없어야 함
-    // (플랜 로드용 useEffect만 남아있어야 함)
-    const effectMatches = code.match(/useEffect\([\s\S]*?\[([^\]]*)\]\)/g) || [];
-
-    // 오직 1개의 useEffect만 있어야 함 (플랜 목록 로드)
-    expect(effectMatches.length).toBe(1);
-
-    // 그 useEffect는 빈 의존성
-    expect(effectMatches[0]).toContain('[]');
-  });
-
-  test('subscription.tsx에 콜백 useEffect가 없다', () => {
-    const subPath = path.resolve(__dirname, '../../app/(teacher)/manage/subscription.tsx');
-    const code = fs.readFileSync(subPath, 'utf8');
-
-    // currentOrg 의존 useEffect 검색
-    const effectMatches = code.match(/useEffect\([\s\S]*?\[([^\]]*currentOrg[^\]]*)\]\)/g) || [];
-
-    // currentOrg를 의존성으로 가진 useEffect가 없어야 함
-    expect(effectMatches.length).toBe(0);
-  });
-
-  test('payment-callback에 빈 의존성 useEffect만 있다', () => {
-    const callbackPath = path.resolve(__dirname, '../../app/(teacher)/manage/payment-callback.tsx');
-    const code = fs.readFileSync(callbackPath, 'utf8');
-
-    // 실제 useEffect 호출만 카운트 (import/코멘트 제외)
-    const lines = code.split('\n');
-    const effectCallLines = lines.filter(l =>
-      l.trim().startsWith('useEffect(') || l.trim().startsWith('}, [')
-    );
-
-    // useEffect 호출이 1개만 존재
-    const callLines = lines.filter(l => l.trim().startsWith('useEffect('));
-    expect(callLines.length).toBe(1);
-
-    // 의존성 배열이 비어있음
-    expect(code).toMatch(/useEffect\(\(\)\s*=>\s*\{[\s\S]*?\},\s*\[\]\)/);
-  });
-
-  test('useSubscription의 의존성에 객체 참조가 없다', () => {
-    const hookPath = path.resolve(__dirname, '../../hooks/useSubscription.ts');
-    const code = fs.readFileSync(hookPath, 'utf8');
-
-    const effectMatches = code.match(/useEffect\([\s\S]*?\[([^\]]*)\]\)/g) || [];
-    for (const match of effectMatches) {
-      // 객체 참조 (currentOrg, subscription 등) 대신 원시값 (orgId, isAuthenticated) 사용
-      expect(match).not.toContain('currentOrg]');
-      expect(match).not.toContain('currentOrg,');
-    }
-  });
-});
-
-// ============================================================================
-// 9. 결제 플로우 시나리오 시뮬레이션
-// ============================================================================
-
-describe('payment flow scenarios', () => {
-  test('시나리오 1: 신규 구독 — plan-select → Toss → payment-callback → 성공', () => {
-    // plan-select에서 buildPaymentUrls 호출
-    const planCode = fs.readFileSync(
-      path.resolve(__dirname, '../../app/(teacher)/manage/plan-select.tsx'), 'utf8'
-    );
-    expect(planCode).toContain("action: 'new-subscription'");
-    expect(planCode).toContain('requestTossBillingAuth');
-
-    // payment-callback에서 issueBillingKey 호출
-    const callbackCode = fs.readFileSync(
-      path.resolve(__dirname, '../../app/(teacher)/manage/payment-callback.tsx'), 'utf8'
-    );
-    expect(callbackCode).toContain('issueBillingKey');
-    expect(callbackCode).toContain('refreshSubscription');
-  });
-
-  test('시나리오 2: 결제 수단 변경 — subscription → Toss → payment-callback → 성공', () => {
-    // subscription에서 buildPaymentUrls 호출
-    const subCode = fs.readFileSync(
-      path.resolve(__dirname, '../../app/(teacher)/manage/subscription.tsx'), 'utf8'
-    );
-    expect(subCode).toContain("action: 'update-billing'");
-    expect(subCode).toContain('requestTossBillingAuth');
-
-    // payment-callback에서 updateBillingKey 호출
-    const callbackCode = fs.readFileSync(
-      path.resolve(__dirname, '../../app/(teacher)/manage/payment-callback.tsx'), 'utf8'
-    );
-    expect(callbackCode).toContain('updateBillingKey');
-  });
-
-  test('시나리오 3: 결제 실패 — Toss → payment-callback?status=fail → 에러 표시', () => {
-    const callbackCode = fs.readFileSync(
-      path.resolve(__dirname, '../../app/(teacher)/manage/payment-callback.tsx'), 'utf8'
-    );
-    expect(callbackCode).toContain('PAYMENT_CALLBACK.STATUS.FAIL');
-    expect(callbackCode).toContain('결제가 취소되었습니다');
-  });
-
-  test('시나리오 4: 브라우저 새로고침 — URL 정리됨 → 에러 메시지', () => {
-    const callbackCode = fs.readFileSync(
-      path.resolve(__dirname, '../../app/(teacher)/manage/payment-callback.tsx'), 'utf8'
-    );
-    // authKey 없으면 에러 표시
-    expect(callbackCode).toContain('결제 정보를 찾을 수 없습니다');
-  });
-
-  test('시나리오 5: 플랜 변경 (change-plan) — plan-select 내에서 직접 처리', () => {
-    const planCode = fs.readFileSync(
-      path.resolve(__dirname, '../../app/(teacher)/manage/plan-select.tsx'), 'utf8'
-    );
-    // change-plan은 Toss 리다이렉트 없이 직접 처리
-    expect(planCode).toContain('changePlan');
-    expect(planCode).toContain('플랜 업그레이드');
-    expect(planCode).toContain('플랜 다운그레이드');
+    expect(mockInvokeFunction).not.toHaveBeenCalled();
   });
 });

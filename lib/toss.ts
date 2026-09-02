@@ -118,3 +118,58 @@ export function cleanPaymentUrlParams(): void {
     window.history.replaceState({}, '', window.location.pathname);
   }
 }
+
+/** 콜백 라우트가 URL에서 읽어들이는 파라미터 */
+export interface PaymentCallbackParams {
+  action: string | null;
+  authKey: string | null;
+  customerKey: string | null;
+  planKey: string | null;
+  cycle: 'monthly' | 'yearly';
+  status: string | null;
+  message: string | null;
+}
+
+const EMPTY_CALLBACK_PARAMS: PaymentCallbackParams = {
+  action: null,
+  authKey: null,
+  customerKey: null,
+  planKey: null,
+  cycle: 'monthly',
+  status: null,
+  message: null,
+};
+
+/**
+ * 결제 콜백 URL 파싱 (마운트 시 1회 호출)
+ *
+ * `buildPaymentUrls`가 쓰는 키와 여기서 읽는 키가 한 파일 안에 함께 있어야
+ * 한쪽만 바뀌는 사고를 막을 수 있다. 화면에 두면 테스트가 화면을 렌더링해야만
+ * 검증할 수 있어서, URL 계약을 실행으로 확인할 방법이 없어진다.
+ *
+ * @param href 파싱할 URL. 생략하면 현재 브라우저 주소를 쓴다
+ */
+export function parsePaymentCallbackParams(href?: string): PaymentCallbackParams {
+  const target = href ?? (Platform.OS === 'web' && typeof window !== 'undefined'
+    ? window.location.href
+    : null);
+
+  if (!target) return { ...EMPTY_CALLBACK_PARAMS };
+
+  let url: URL;
+  try {
+    url = new URL(target);
+  } catch {
+    return { ...EMPTY_CALLBACK_PARAMS };
+  }
+
+  return {
+    action: url.searchParams.get('action'),
+    authKey: url.searchParams.get('authKey'),
+    customerKey: url.searchParams.get('customerKey'),
+    planKey: url.searchParams.get('planKey'),
+    cycle: url.searchParams.get('cycle') === 'yearly' ? 'yearly' : 'monthly',
+    status: url.searchParams.get('status'),
+    message: url.searchParams.get('message'),
+  };
+}

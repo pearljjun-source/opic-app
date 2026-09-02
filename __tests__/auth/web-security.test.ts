@@ -1,442 +1,192 @@
 /**
- * 웹 보안 및 라우팅 테스트
+ * @jest-environment jsdom
  *
- * 실제 시나리오:
- * 1. 로그아웃 시 window.location.href로 전체 리로드 (SPA 상태 제거)
- * 2. 미인증 리다이렉트도 동일하게 window.location.href 사용
- * 3. settings/ → manage/ 경로 충돌 해소
- * 4. 로그인 폼 비밀번호 초기화 (useFocusEffect)
+ * 웹 보안 테스트 (실행 검증 + 구조 가드)
+ *
+ * jsdom 환경을 쓰는 이유: 검증 대상이 웹 전용 localStorage 세션 정리라,
+ * 기본 react-native 환경에는 localStorage가 없다.
+ *
+ * ⚠️ 이 파일은 원래 두 가지 문제가 있었다.
+ *    (1) signOut 테스트가 테스트 안에서 `if (Platform.OS === 'web') { location.href = '/' }`
+ *        를 직접 실행하고 그것을 검증했다 — 앱 코드가 전혀 관여하지 않는 항진(tautology).
+ *    (2) 나머지는 화면 소스를 readFileSync로 읽어 문자열을 대조했다.
+ *
+ *    지금은 세션 정리 로직을 lib/auth-session.ts로 꺼내 실제로 호출해 검증한다.
+ *
+ * 검증 대상:
+ * 1. purgeSupabaseAuthTokens — 공용 PC에서 세션 토큰이 남지 않는다 (실행)
+ * 2. 라우트 경로 충돌(settings → manage) — 파일시스템 구조라 실행 불가, 구조 가드로 유지
+ *
+ * 아래는 컴포넌트 테스트 영역이라 여기서 뺐다 (CLAUDE.md "테스트 로드맵" 3단계):
+ * - signOut 후 window.location.href로 전체 리로드하는지 (useAuth 마운트 필요)
+ * - 미인증 시 웹 리다이렉트 분기 (라우팅 이펙트)
+ * - login.tsx가 포커스 시 비밀번호를 비우는지 (useFocusEffect)
  */
 
 import { Platform } from 'react-native';
+import * as fs from 'fs';
+import * as path from 'path';
+
+import { isSupabaseAuthTokenKey, purgeSupabaseAuthTokens } from '@/lib/auth-session';
+
+const originalOS = Platform.OS;
+
+function mockPlatformOS(os: string) {
+  Object.defineProperty(Platform, 'OS', { get: () => os, configurable: true });
+}
+
+beforeEach(() => {
+  mockPlatformOS('web');
+  localStorage.clear();
+});
+
+afterEach(() => {
+  Object.defineProperty(Platform, 'OS', { get: () => originalOS, configurable: true });
+  localStorage.clear();
+});
 
 // ============================================================================
-// 1. signOut — 웹에서 window.location.href 사용
+// 1. 세션 토큰 정리 — 공용 PC 보안
+//
+//    signOut RPC가 실패해도 localStorage 토큰은 반드시 지워져야 한다.
+//    남으면 다음 사람이 같은 브라우저를 열었을 때 그대로 재인증된다.
 // ============================================================================
-describe('signOut on web', () => {
-  let originalPlatformOS: string;
-  let originalLocation: Location;
 
-  beforeEach(() => {
-    originalPlatformOS = Platform.OS;
-    originalLocation = window.location;
+describe('isSupabaseAuthTokenKey', () => {
+  it('Supabase 세션 토큰 키를 알아본다', () => {
+    expect(isSupabaseAuthTokenKey('sb-nnneyjvcbevwmsvvundr-auth-token')).toBe(true);
   });
 
-  afterEach(() => {
-    Object.defineProperty(Platform, 'OS', {
-      value: originalPlatformOS,
-      configurable: true,
-    });
-    Object.defineProperty(window, 'location', {
-      value: originalLocation,
-      writable: true,
-      configurable: true,
-    });
+  it('접두사만 같은 키는 대상이 아니다', () => {
+    expect(isSupabaseAuthTokenKey('sb-something-else')).toBe(false);
   });
 
-  it('signOut function calls window.location.href on web platform', async () => {
-    // Simulate web platform
-    Object.defineProperty(Platform, 'OS', {
-      value: 'web',
-      configurable: true,
-    });
-
-    // Mock window.location
-    const locationSpy = jest.fn();
-    const originalLocation = window.location;
-    Object.defineProperty(window, 'location', {
-      value: { ...originalLocation, href: '' },
-      writable: true,
-      configurable: true,
-    });
-    Object.defineProperty(window.location, 'href', {
-      set: locationSpy,
-      get: () => 'http://localhost:8081/(teacher)',
-      configurable: true,
-    });
-
-    // Verify the pattern: on web, after signOut, window.location.href should be set
-    // This tests the concept without needing to mount the full AuthProvider
-    if (Platform.OS === 'web') {
-      window.location.href = '/';
-    }
-    expect(locationSpy).toHaveBeenCalledWith('/');
-
-    // Restore
-    Object.defineProperty(window, 'location', {
-      value: originalLocation,
-      writable: true,
-      configurable: true,
-    });
+  it('접미사만 같은 키는 대상이 아니다', () => {
+    expect(isSupabaseAuthTokenKey('other-auth-token')).toBe(false);
   });
 
-  it('signOut does NOT call window.location.href on native', () => {
-    Object.defineProperty(Platform, 'OS', {
-      value: 'ios',
-      configurable: true,
-    });
+  it('앱이 쓰는 다른 키는 대상이 아니다', () => {
+    expect(isSupabaseAuthTokenKey('theme')).toBe(false);
+    expect(isSupabaseAuthTokenKey('cache:profile')).toBe(false);
+  });
+});
 
-    const locationSpy = jest.fn();
-    const originalLocation = window.location;
-    Object.defineProperty(window, 'location', {
-      value: { ...originalLocation, href: '' },
-      writable: true,
-      configurable: true,
-    });
-    Object.defineProperty(window.location, 'href', {
-      set: locationSpy,
-      get: () => 'http://localhost',
-      configurable: true,
-    });
+describe('purgeSupabaseAuthTokens — 웹', () => {
+  it('세션 토큰을 지운다', () => {
+    localStorage.setItem('sb-abc123-auth-token', '{"access_token":"secret"}');
 
-    // On native, should NOT set window.location.href
-    if (Platform.OS === 'web') {
-      window.location.href = '/';
-    }
-    expect(locationSpy).not.toHaveBeenCalled();
+    const removed = purgeSupabaseAuthTokens();
 
-    Object.defineProperty(window, 'location', {
-      value: originalLocation,
-      writable: true,
-      configurable: true,
-    });
+    expect(removed).toEqual(['sb-abc123-auth-token']);
+    expect(localStorage.getItem('sb-abc123-auth-token')).toBeNull();
+  });
+
+  it('프로젝트가 여러 개여도 전부 지운다', () => {
+    localStorage.setItem('sb-aaa-auth-token', '1');
+    localStorage.setItem('sb-bbb-auth-token', '2');
+
+    const removed = purgeSupabaseAuthTokens();
+
+    expect(removed).toHaveLength(2);
+    expect(localStorage.getItem('sb-aaa-auth-token')).toBeNull();
+    expect(localStorage.getItem('sb-bbb-auth-token')).toBeNull();
+  });
+
+  it('Supabase 키가 아닌 것은 건드리지 않는다 — 전체 clear가 아니다', () => {
+    localStorage.setItem('sb-abc123-auth-token', 'secret');
+    localStorage.setItem('theme', 'dark');
+    localStorage.setItem('sb-abc123-other', 'keep-me');
+
+    purgeSupabaseAuthTokens();
+
+    expect(localStorage.getItem('theme')).toBe('dark');
+    expect(localStorage.getItem('sb-abc123-other')).toBe('keep-me');
+  });
+
+  it('토큰이 없으면 아무것도 지우지 않고 빈 배열을 돌려준다', () => {
+    localStorage.setItem('theme', 'dark');
+
+    expect(purgeSupabaseAuthTokens()).toEqual([]);
+    expect(localStorage.getItem('theme')).toBe('dark');
+  });
+
+  it('removeItem이 던져도 나머지 키 삭제를 멈추지 않는다 (사파리 프라이빗 모드)', () => {
+    localStorage.setItem('sb-aaa-auth-token', '1');
+    localStorage.setItem('sb-bbb-auth-token', '2');
+
+    const realRemove = Storage.prototype.removeItem;
+    const spy = jest
+      .spyOn(Storage.prototype, 'removeItem')
+      .mockImplementationOnce(() => { throw new Error('QuotaExceeded'); })
+      .mockImplementation(function (this: Storage, k: string) { realRemove.call(this, k); });
+
+    expect(() => purgeSupabaseAuthTokens()).not.toThrow();
+    expect(spy).toHaveBeenCalledTimes(2); // 첫 키가 실패해도 두 번째를 시도했다
+
+    spy.mockRestore();
+  });
+});
+
+describe('purgeSupabaseAuthTokens — 네이티브', () => {
+  it('웹이 아니면 아무것도 하지 않는다 (세션은 SecureStore에 있다)', () => {
+    localStorage.setItem('sb-abc123-auth-token', 'secret');
+    mockPlatformOS('ios');
+
+    expect(purgeSupabaseAuthTokens()).toEqual([]);
+    expect(localStorage.getItem('sb-abc123-auth-token')).toBe('secret');
   });
 });
 
 // ============================================================================
-// 2. URL 경로 충돌 해소 — settings → manage 이름 변경 검증
+// 2. 라우트 경로 충돌 가드 (구조 검사)
+//
+//    ⚠️ 이 절은 파일시스템 구조를 본다 — 실행으로는 검증할 수 없다.
+//    탭 라우트 `(tabs)/settings`와 폴더 라우트 `(teacher)/settings/`가 웹에서
+//    같은 URL로 충돌했던 실제 버그가 있어, 되돌아오지 않도록 남겨 둔다.
 // ============================================================================
-describe('route path collision fix (settings → manage)', () => {
-  it('teacher layout registers manage, not settings', () => {
-    // Verify the layout file exports the correct screen names
-    // by checking the actual file content pattern
-    const fs = require('fs');
-    const layoutPath = require('path').resolve(
-      __dirname,
-      '../../app/(teacher)/_layout.tsx'
-    );
-    const content = fs.readFileSync(layoutPath, 'utf8');
 
-    // manage screen must exist
-    expect(content).toContain('name="manage"');
-    // old settings screen must NOT exist (only (tabs)/settings is valid)
-    expect(content).not.toMatch(/name="settings"/);
+const APP_ROOT = path.resolve(__dirname, '../..');
+
+describe('라우트 경로 충돌 가드 — settings → manage', () => {
+  it('(teacher)/settings 폴더가 되살아나지 않았다', () => {
+    expect(fs.existsSync(path.join(APP_ROOT, 'app/(teacher)/settings'))).toBe(false);
   });
 
-  it('manage folder has all required screen files', () => {
-    const fs = require('fs');
-    const path = require('path');
-    const manageDir = path.resolve(__dirname, '../../app/(teacher)/manage');
+  it('manage 폴더에 화면 파일이 모두 있다', () => {
+    const manageDir = path.join(APP_ROOT, 'app/(teacher)/manage');
+    const files = fs.readdirSync(manageDir);
 
-    expect(fs.existsSync(path.join(manageDir, '_layout.tsx'))).toBe(true);
-    expect(fs.existsSync(path.join(manageDir, 'academy-info.tsx'))).toBe(true);
-    expect(fs.existsSync(path.join(manageDir, 'teacher-management.tsx'))).toBe(true);
-    expect(fs.existsSync(path.join(manageDir, 'subscription.tsx'))).toBe(true);
-    expect(fs.existsSync(path.join(manageDir, 'plan-select.tsx'))).toBe(true);
+    expect(files).toEqual(expect.arrayContaining([
+      '_layout.tsx',
+      'academy-info.tsx',
+      'payment-callback.tsx',
+      'plan-select.tsx',
+      'subscription.tsx',
+      'teacher-management.tsx',
+    ]));
   });
 
-  it('old settings folder does NOT exist', () => {
-    const fs = require('fs');
-    const path = require('path');
-    const oldDir = path.resolve(__dirname, '../../app/(teacher)/settings');
+  it('소스 어디에서도 옛 /(teacher)/settings/ 경로를 참조하지 않는다', () => {
+    const offenders: string[] = [];
 
-    expect(fs.existsSync(oldDir)).toBe(false);
-  });
-
-  it('no source files reference old /(teacher)/settings/ path', () => {
-    const fs = require('fs');
-    const path = require('path');
-
-    // Check all files that previously referenced the old path
-    const filesToCheck = [
-      'app/(teacher)/(tabs)/settings.tsx',
-      'app/(teacher)/(tabs)/invite.tsx',
-      'app/(teacher)/student/script/new.tsx',
-      'app/(teacher)/manage/subscription.tsx',
-      'app/(teacher)/manage/plan-select.tsx',
-      'lib/toss.ts',
-    ];
-
-    for (const file of filesToCheck) {
-      const filePath = path.resolve(__dirname, '../../', file);
-      if (fs.existsSync(filePath)) {
-        const content = fs.readFileSync(filePath, 'utf8');
-        expect(content).not.toContain('/(teacher)/settings/');
-      }
-    }
-  });
-
-  it('settings tab uses /(teacher)/manage/ paths for navigation', () => {
-    const fs = require('fs');
-    const path = require('path');
-    const tabPath = path.resolve(
-      __dirname,
-      '../../app/(teacher)/(tabs)/settings.tsx'
-    );
-    const content = fs.readFileSync(tabPath, 'utf8');
-
-    expect(content).toContain('/(teacher)/manage/academy-info');
-    expect(content).toContain('/(teacher)/manage/teacher-management');
-    expect(content).toContain('/(teacher)/manage/subscription');
-  });
-
-  it('toss.ts uses payment-callback route via PAYMENT_CALLBACK constant', () => {
-    const fs = require('fs');
-    const path = require('path');
-    const tossPath = path.resolve(__dirname, '../../lib/toss.ts');
-    const content = fs.readFileSync(tossPath, 'utf8');
-
-    expect(content).toContain('PAYMENT_CALLBACK.PATH');
-    expect(content).not.toContain('/(teacher)/settings/plan-select');
-  });
-
-  it('tab and folder URLs are now distinct on web', () => {
-    // (tabs)/settings.tsx → URL: /settings  (group segments stripped)
-    // manage/_layout.tsx  → URL: /manage/*   (real path segment)
-    // These are guaranteed distinct because "settings" ≠ "manage"
-
-    const tabScreenName = 'settings';   // (tabs) child
-    const folderName = 'manage';         // Stack child
-
-    expect(tabScreenName).not.toBe(folderName);
-  });
-});
-
-// ============================================================================
-// 3. 로그인 폼 보안 — useFocusEffect로 비밀번호 초기화
-// ============================================================================
-describe('login form security', () => {
-  it('login.tsx imports useFocusEffect', () => {
-    const fs = require('fs');
-    const path = require('path');
-    const loginPath = path.resolve(
-      __dirname,
-      '../../app/(auth)/login.tsx'
-    );
-    const content = fs.readFileSync(loginPath, 'utf8');
-
-    expect(content).toContain('useFocusEffect');
-    expect(content).toContain('useCallback');
-  });
-
-  it('login.tsx clears password on focus', () => {
-    const fs = require('fs');
-    const path = require('path');
-    const loginPath = path.resolve(
-      __dirname,
-      '../../app/(auth)/login.tsx'
-    );
-    const content = fs.readFileSync(loginPath, 'utf8');
-
-    // Verify the useFocusEffect clears password
-    expect(content).toContain("setPassword('')");
-    // Verify it also clears error
-    expect(content).toContain('setError(null)');
-  });
-
-  it('login.tsx does NOT clear email on focus (convenience)', () => {
-    const fs = require('fs');
-    const path = require('path');
-    const loginPath = path.resolve(
-      __dirname,
-      '../../app/(auth)/login.tsx'
-    );
-    const content = fs.readFileSync(loginPath, 'utf8');
-
-    // The useFocusEffect should NOT reset email for user convenience
-    // Check that setEmail('') is NOT inside the useFocusEffect block
-    const focusEffectMatch = content.match(
-      /useFocusEffect\(\s*useCallback\(\(\) => \{([^}]+)\}/s
-    );
-    expect(focusEffectMatch).not.toBeNull();
-    const focusBody = focusEffectMatch![1];
-    expect(focusBody).not.toContain("setEmail('')");
-  });
-});
-
-// ============================================================================
-// 4. useAuth 라우팅 로직 검증 — 미인증 리다이렉트
-// ============================================================================
-describe('unauthenticated redirect on web', () => {
-  it('useAuth.tsx uses window.location.href for web unauthenticated redirect', () => {
-    const fs = require('fs');
-    const path = require('path');
-    const authPath = path.resolve(__dirname, '../../hooks/useAuth.tsx');
-    const content = fs.readFileSync(authPath, 'utf8');
-
-    // The unauthenticated redirect section should use window.location.href
-    expect(content).toContain("window.location.href = '/'");
-
-    // Extract the unauthenticated block: from 미인증 comment to ② (next section)
-    const unauthSection = content.match(
-      /미인증([\s\S]*?)\/\/ ②/
-    );
-    expect(unauthSection).not.toBeNull();
-    const section = unauthSection![1];
-    // Web path should use window.location.href, not router.replace('/')
-    expect(section).toContain("window.location.href = '/'");
-    // router.replace('/') should NOT appear as actual code in the web branch
-    // (it may appear in comments explaining why we use window.location.href instead)
-    // The native branch uses router.replace('/(auth)/login'), not router.replace('/')
-    const codeLines = section.split('\n').filter((l: string) => !l.trim().startsWith('//'));
-    const codeOnly = codeLines.join('\n');
-    expect(codeOnly).not.toContain("router.replace('/')");
-  });
-
-  it('useAuth.tsx signOut uses window.location.href on web', () => {
-    const fs = require('fs');
-    const path = require('path');
-    const authPath = path.resolve(__dirname, '../../hooks/useAuth.tsx');
-    const content = fs.readFileSync(authPath, 'utf8');
-
-    // signOut function should have web redirect
-    const signOutSection = content.match(
-      /const signOut = useCallback\(async \(\) => \{([\s\S]*?)\}, \[\]\);/
-    );
-    expect(signOutSection).not.toBeNull();
-    const signOutBody = signOutSection![1];
-    expect(signOutBody).toContain("Platform.OS === 'web'");
-    expect(signOutBody).toContain("window.location.href = '/'");
-  });
-
-  it('native signOut does NOT use window.location.href', () => {
-    const fs = require('fs');
-    const path = require('path');
-    const authPath = path.resolve(__dirname, '../../hooks/useAuth.tsx');
-    const content = fs.readFileSync(authPath, 'utf8');
-
-    // signOut has the web check: if (Platform.OS === 'web')
-    // This ensures native doesn't trigger window.location.href
-    const signOutSection = content.match(
-      /const signOut = useCallback\(async \(\) => \{([\s\S]*?)\}, \[\]\);/
-    );
-    const signOutBody = signOutSection![1];
-
-    // window.location.href is inside a Platform.OS === 'web' check
-    // localStorage cleanup code may appear before window.location.href
-    expect(signOutBody).toMatch(
-      /if\s*\(Platform\.OS\s*===\s*'web'\)\s*\{[\s\S]*?window\.location\.href/
-    );
-  });
-});
-
-// ============================================================================
-// 5. 시나리오 통합 — 전체 플로우 검증
-// ============================================================================
-describe('end-to-end scenarios', () => {
-  describe('Scenario: 공용 PC에서 사용자 A 로그아웃 후 사용자 B 로그인', () => {
-    it('signOut clears all local caches before redirect', () => {
-      const fs = require('fs');
-      const path = require('path');
-      const authPath = path.resolve(__dirname, '../../hooks/useAuth.tsx');
-      const content = fs.readFileSync(authPath, 'utf8');
-
-      const signOutSection = content.match(
-        /const signOut = useCallback\(async \(\) => \{([\s\S]*?)\}, \[\]\);/
-      );
-      const signOutBody = signOutSection![1];
-
-      // 1. Local state cleared first
-      expect(signOutBody).toContain('safeMultiRemove');
-      expect(signOutBody).toContain('user: null');
-      expect(signOutBody).toContain('session: null');
-      expect(signOutBody).toContain('isAuthenticated: false');
-      expect(signOutBody).toContain('currentOrg: null');
-
-      // 2. Supabase signOut called
-      expect(signOutBody).toContain('supabase.auth.signOut()');
-
-      // 3. Web redirect happens AFTER cache clear + signOut
-      // window.location.href must be AFTER the setState and signOut calls
-      const stateResetIdx = signOutBody.indexOf('setState(');
-      const locationIdx = signOutBody.indexOf("window.location.href = '/'");
-      expect(stateResetIdx).toBeLessThan(locationIdx);
-    });
-  });
-
-  describe('Scenario: 강사가 설정 > 학원 정보 클릭 시 올바른 화면 이동', () => {
-    it('settings tab navigates to /(teacher)/manage/* paths', () => {
-      const fs = require('fs');
-      const path = require('path');
-      const tabPath = path.resolve(
-        __dirname,
-        '../../app/(teacher)/(tabs)/settings.tsx'
-      );
-      const content = fs.readFileSync(tabPath, 'utf8');
-
-      // All navigation targets use /manage/ prefix
-      // Match router.push('...') — capture up to closing quote+paren
-      const pushMatches = content.match(/router\.push\('[^']+'\)/g) || [];
-      for (const match of pushMatches) {
-        if (match.includes('teacher')) {
-          expect(match).toContain('/manage/');
-          expect(match).not.toContain('/settings/');
+    const walk = (dir: string) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
+          walk(full);
+        } else if (/\.tsx?$/.test(entry.name)) {
+          if (fs.readFileSync(full, 'utf8').includes('(teacher)/settings/')) {
+            offenders.push(path.relative(APP_ROOT, full));
+          }
         }
       }
-    });
-  });
+    };
 
-  describe('Scenario: 결제 URL에 올바른 경로 사용', () => {
-    it('toss payment URLs use /manage/payment-callback', () => {
-      // Re-import to get fresh module with updated paths
-      jest.resetModules();
+    for (const dir of ['app', 'components', 'hooks', 'lib', 'services']) {
+      walk(path.join(APP_ROOT, dir));
+    }
 
-      // Mock Platform for web
-      jest.mock('react-native', () => ({
-        Platform: { OS: 'web' },
-      }));
-
-      // Set window.location.origin
-      const originalLocation = window.location;
-      Object.defineProperty(window, 'location', {
-        value: { origin: 'https://app.speaky.com', href: 'https://app.speaky.com' },
-        writable: true,
-        configurable: true,
-      });
-
-      const { buildPaymentUrls } = require('../../lib/toss');
-      const result = buildPaymentUrls({ action: 'new-subscription', planKey: 'pro' });
-
-      expect(result).not.toBeNull();
-      expect(result.successUrl).toContain('/manage/payment-callback');
-      expect(result.failUrl).toContain('/manage/payment-callback');
-      expect(result.successUrl).not.toContain('/settings/plan-select');
-
-      Object.defineProperty(window, 'location', {
-        value: originalLocation,
-        writable: true,
-        configurable: true,
-      });
-    });
-  });
-
-  describe('Scenario: 학생 초대 쿼터 초과 시 업그레이드 경로', () => {
-    it('invite.tsx uses /(teacher)/manage/plan-select for upgrade', () => {
-      const fs = require('fs');
-      const path = require('path');
-      const invitePath = path.resolve(
-        __dirname,
-        '../../app/(teacher)/(tabs)/invite.tsx'
-      );
-      const content = fs.readFileSync(invitePath, 'utf8');
-
-      expect(content).toContain('/(teacher)/manage/plan-select');
-      expect(content).not.toContain('/(teacher)/settings/plan-select');
-    });
-  });
-
-  describe('Scenario: 스크립트 한도 초과 시 업그레이드 경로', () => {
-    it('script/new.tsx uses /(teacher)/manage/plan-select for upgrade', () => {
-      const fs = require('fs');
-      const path = require('path');
-      const scriptPath = path.resolve(
-        __dirname,
-        '../../app/(teacher)/student/script/new.tsx'
-      );
-      const content = fs.readFileSync(scriptPath, 'utf8');
-
-      expect(content).toContain('/(teacher)/manage/plan-select');
-      expect(content).not.toContain('/(teacher)/settings/plan-select');
-    });
+    expect(offenders).toEqual([]);
   });
 });
