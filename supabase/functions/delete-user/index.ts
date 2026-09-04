@@ -45,6 +45,38 @@ serve(async (req) => {
 
     const userId = user.id;
 
+    // 0. 활성 구독 확인 — 결제가 살아 있는 채로 탈퇴하면 "탈퇴했는데 카드에서
+    //    돈이 나가는" 상황이 된다. 클라이언트도 확인하지만 우회 가능하므로
+    //    서버가 다시 막는다 (권한 있는 작업은 서버에서 결정).
+    //
+    //    ⚠️ Storage 삭제보다 먼저 해야 한다. 뒤에 두면 녹음만 지워지고
+    //       계정은 남는 중간 상태가 된다.
+    const { data: ownedOrgs } = await supabaseAdmin
+      .from('organizations')
+      .select('id, name')
+      .eq('owner_id', userId)
+      .is('deleted_at', null);
+
+    if (ownedOrgs && ownedOrgs.length > 0) {
+      const orgIds = ownedOrgs.map((o: { id: string }) => o.id);
+      const { data: activeSubs } = await supabaseAdmin
+        .from('subscriptions')
+        .select('id')
+        .in('organization_id', orgIds)
+        .in('status', ['active', 'trialing', 'past_due'])
+        .limit(1);
+
+      if (activeSubs && activeSubs.length > 0) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'SUBSCRIPTION_ACTIVE' }),
+          {
+            headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+            status: 409,
+          }
+        );
+      }
+    }
+
     // 1. Storage 녹음 파일 삭제 (페이지네이션: 1000개씩)
     // — DB 데이터는 auth.users CASCADE로 자동 삭제되지만 Storage 파일은 별도 삭제 필요
     try {

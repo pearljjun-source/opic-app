@@ -8,7 +8,9 @@ import { COLORS, ORG_ROLE_LABELS } from '@/lib/constants';
 import { useThemeColors, useThemeControl, loadThemePreference, ThemePreference } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { canManageOrg } from '@/lib/permissions';
-import { confirm as xConfirm } from '@/lib/alert';
+import { confirm as xConfirm, alert as xAlert } from '@/lib/alert';
+import { getUserMessage } from '@/lib/errors';
+import { deleteAccount, checkAccountDeletable } from '@/services/account';
 import { on } from '@/lib/events';
 import { getUnreadCount } from '@/services/notifications';
 
@@ -62,6 +64,7 @@ export default function TeacherSettings() {
   const colors = useThemeColors();
   const { setThemePreference } = useThemeControl();
   const [themePref, setThemePref] = useState<ThemePreference>('system');
+  const [isDeleting, setIsDeleting] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
@@ -97,6 +100,72 @@ export default function TeacherSettings() {
         await signOut();
       },
       { confirmText: '로그아웃' },
+    );
+  };
+
+  /**
+   * 회원 탈퇴.
+   *
+   * 되돌릴 수 없으므로 무엇이 지워지는지 알린 뒤 두 번 확인받는다.
+   * 원장은 결제 주체이므로 활성 구독이 있으면 해지가 먼저다. 결제가 살아 있는 채로
+   * 탈퇴하면 "탈퇴했는데 카드에서 돈이 나가는" 상황이 된다.
+   */
+  const handleDeleteAccount = async () => {
+    if (isDeleting) return;
+
+    const check = await checkAccountDeletable();
+
+    if (!check.deletable) {
+      if (check.reason === 'SUBSCRIPTION_ACTIVE') {
+        xConfirm(
+          '구독 해지가 먼저입니다',
+          `'${check.orgName ?? '학원'}'의 구독이 아직 이용 중입니다.\n\n`
+            + '구독을 해지하지 않고 탈퇴하면 결제가 계속될 수 있어, 해지 후에 탈퇴할 수 있습니다.\n\n'
+            + '구독 화면으로 이동할까요?',
+          () => router.push('/(teacher)/manage/subscription'),
+          { confirmText: '구독 화면으로' },
+        );
+        return;
+      }
+      xAlert('탈퇴할 수 없습니다', '잠시 후 다시 시도해 주세요.');
+      return;
+    }
+
+    // 원장이면 학원이 함께 닫힌다는 것을 먼저 알린다
+    const ownerWarning = check.isOwner
+      ? `'${check.orgName ?? '학원'}'이 함께 폐원됩니다.\n`
+        + (check.memberCount > 0
+          ? `소속된 강사·학생 ${check.memberCount}명이 학원 연결을 잃습니다.\n\n`
+          : '\n')
+      : '';
+
+    xConfirm(
+      '회원 탈퇴',
+      ownerWarning
+        + '탈퇴하면 아래 데이터가 모두 삭제되며 복구할 수 없습니다.\n\n'
+        + '· 내가 작성한 스크립트와 피드백\n'
+        + '· 담당 학생 연결 정보\n'
+        + '· 발송한 메시지와 초대 코드\n\n'
+        + '학생들이 보던 내 스크립트도 함께 사라집니다.',
+      () => {
+        xConfirm(
+          '정말 탈퇴하시겠습니까?',
+          '이 작업은 되돌릴 수 없습니다.',
+          async () => {
+            setIsDeleting(true);
+            const { error } = await deleteAccount();
+            setIsDeleting(false);
+
+            if (error) {
+              xAlert('탈퇴 실패', getUserMessage(error));
+              return;
+            }
+            await signOut();
+          },
+          { confirmText: '탈퇴' },
+        );
+      },
+      { confirmText: '계속' },
     );
   };
 
@@ -257,6 +326,21 @@ export default function TeacherSettings() {
         <Ionicons name="log-out-outline" size={20} color={colors.error} />
         <Text style={[styles.logoutText, { color: colors.error }]}>로그아웃</Text>
       </Pressable>
+
+      {/* 회원 탈퇴 — 개인정보처리방침 제6조가 "서비스 내 설정에서 직접 처리 가능"으로
+          고지하고 있고, 앱스토어 심사도 계정 삭제 경로를 요구한다 */}
+      <Pressable
+        style={styles.deleteAccountButton}
+        onPress={handleDeleteAccount}
+        disabled={isDeleting}
+        accessibilityRole="button"
+        accessibilityLabel="회원 탈퇴"
+        accessibilityHint="계정과 모든 데이터를 삭제합니다"
+      >
+        <Text style={[styles.deleteAccountText, { color: colors.textDisabled }]}>
+          {isDeleting ? '탈퇴 처리 중...' : '회원 탈퇴'}
+        </Text>
+      </Pressable>
     </ScrollView>
   );
 }
@@ -324,5 +408,18 @@ const styles = StyleSheet.create({
   logoutText: {
     fontFamily: 'Pretendard-SemiBold',
     fontSize: 16,
+  },
+  deleteAccountButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    // WCAG 2.5.8 최소 터치 영역
+    minHeight: 44,
+    paddingHorizontal: 16,
+  },
+  deleteAccountText: {
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 13,
+    textDecorationLine: 'underline',
   },
 });

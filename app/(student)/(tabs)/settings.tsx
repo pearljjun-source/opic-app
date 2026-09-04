@@ -7,7 +7,9 @@ import Constants from 'expo-constants';
 import { COLORS } from '@/lib/constants';
 import { useThemeColors, useThemeControl, loadThemePreference, ThemePreference } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
-import { confirm as xConfirm } from '@/lib/alert';
+import { confirm as xConfirm, alert as xAlert } from '@/lib/alert';
+import { getUserMessage } from '@/lib/errors';
+import { deleteAccount, checkAccountDeletable } from '@/services/account';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -54,6 +56,7 @@ export default function StudentSettings() {
   const colors = useThemeColors();
   const { setThemePreference } = useThemeControl();
   const [themePref, setThemePref] = useState<ThemePreference>('system');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     loadThemePreference().then(setThemePref);
@@ -78,6 +81,55 @@ export default function StudentSettings() {
         await signOut();
       },
       { confirmText: '로그아웃' },
+    );
+  };
+
+  /**
+   * 회원 탈퇴.
+   *
+   * 되돌릴 수 없으므로 무엇이 지워지는지 알린 뒤 두 번 확인받는다.
+   */
+  const handleDeleteAccount = async () => {
+    if (isDeleting) return;
+
+    const check = await checkAccountDeletable();
+    if (!check.deletable) {
+      xAlert(
+        '탈퇴할 수 없습니다',
+        check.reason === 'SUBSCRIPTION_ACTIVE'
+          ? '구독을 먼저 해지해 주세요.'
+          : '잠시 후 다시 시도해 주세요.',
+      );
+      return;
+    }
+
+    xConfirm(
+      '회원 탈퇴',
+      '탈퇴하면 아래 데이터가 모두 삭제되며 복구할 수 없습니다.\n\n'
+        + '· 녹음 파일과 연습 기록\n'
+        + '· 강사가 작성한 내 스크립트\n'
+        + '· 모의고사 응시 기록과 결과\n'
+        + '· 학원 연결 정보',
+      () => {
+        xConfirm(
+          '정말 탈퇴하시겠습니까?',
+          '이 작업은 되돌릴 수 없습니다.',
+          async () => {
+            setIsDeleting(true);
+            const { error } = await deleteAccount();
+            setIsDeleting(false);
+
+            if (error) {
+              xAlert('탈퇴 실패', getUserMessage(error));
+              return;
+            }
+            // 세션 정리 + 랜딩으로 이동
+            await signOut();
+          },
+          { confirmText: '탈퇴' },
+        );
+      },
+      { confirmText: '계속' },
     );
   };
 
@@ -179,6 +231,21 @@ export default function StudentSettings() {
         <Ionicons name="log-out-outline" size={20} color={colors.error} />
         <Text style={[styles.logoutText, { color: colors.error }]}>로그아웃</Text>
       </Pressable>
+
+      {/* 회원 탈퇴 — 개인정보처리방침 제6조가 "서비스 내 설정에서 직접 처리 가능"으로
+          고지하고 있고, 앱스토어 심사도 계정 삭제 경로를 요구한다 */}
+      <Pressable
+        style={styles.deleteAccountButton}
+        onPress={handleDeleteAccount}
+        disabled={isDeleting}
+        accessibilityRole="button"
+        accessibilityLabel="회원 탈퇴"
+        accessibilityHint="계정과 모든 학습 데이터를 삭제합니다"
+      >
+        <Text style={[styles.deleteAccountText, { color: colors.textDisabled }]}>
+          {isDeleting ? '탈퇴 처리 중...' : '회원 탈퇴'}
+        </Text>
+      </Pressable>
     </ScrollView>
   );
 }
@@ -246,5 +313,18 @@ const styles = StyleSheet.create({
   logoutText: {
     fontFamily: 'Pretendard-SemiBold',
     fontSize: 16,
+  },
+  deleteAccountButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    // WCAG 2.5.8 최소 터치 영역
+    minHeight: 44,
+    paddingHorizontal: 16,
+  },
+  deleteAccountText: {
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 13,
+    textDecorationLine: 'underline',
   },
 });
