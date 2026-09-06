@@ -45,10 +45,10 @@
 
 | 단계 | 내용 | 근거 |
 |------|------|------|
-| 1 | 텍스트 매칭 테스트 → mock Supabase 기반 **서비스 실행 테스트**로 교체 | 076/077 마이그레이션 미적용 상태에서도 865개 전부 통과했음 |
+| 1 | 텍스트 매칭 테스트 → mock Supabase 기반 **서비스 실행 테스트**로 교체 | ✅ 완료 — 6개 파일, 텍스트 단언 약 375개 제거 |
 | 1.5 | **스키마 드리프트 검사** (`npm run check:schema`) | ✅ 완료 — 아래 참조 |
-| 2 | `practices.ts`(1.81% → 43.6% 완료) · `topics.ts`(0%) 서비스 테스트 | 실제 장애가 발생한 영역 |
-| 3 | `@testing-library/react-native` 도입 → 상태 전이 화면부터 컴포넌트 테스트 | `exam/session.tsx` 데드락은 1회 렌더링으로 검출 가능했음 |
+| 2 | 커버리지 0% 서비스 | ✅ `practices.ts` 47.8% · `topics.ts` 93.2% · `classes.ts` 88.9% · `students.ts` 90.9%. 남은 0%: `organizations` `admin` `notifications` `landing` `expressions` |
+| 3 | `@testing-library/react-native` 도입 → 상태 전이 화면부터 컴포넌트 테스트 | 🔄 진행 중 — `exam/orientation.tsx` 완료. 동의 게이트를 제거하면 2개가 실패하는 것을 확인했다 |
 | 4 | Maestro E2E — 로그인 → 토픽 → 스크립트 → 녹음 1개 플로우 | 회귀 안전망 |
 
 ### 스키마 드리프트 검사
@@ -85,6 +85,14 @@ SUPABASE_ACCESS_TOKEN=sbp_xxx npm run check:schema
   059를 재실행했다면 트라이얼이 14일로 회귀했을 것이다.
 - 재적용 전 확인: `scripts/schema-drift.js` 의 `origin` 이 그 객체를 **어느 파일로** 가리키는지
   본다. 자기 파일이 아니면 그 블록은 빼고 적용한다.
+
+### 컴포넌트 테스트 작성 시
+
+- `__tests__/setup.ts` 가 AsyncStorage 를 모킹한다. 화면을 그리면 `useTheme` 이 걸린다.
+- 카운트다운처럼 **매 초 새 타이머를 거는** 화면은 `advanceTimersByTime(3000)` 한 번으로는
+  안 된다. effect 가 다음 타이머를 걸 틈이 없다. 1초씩 나눠 `act()` 로 감싼다.
+- 훅을 모킹할 때 상태 값을 바꿔 재렌더링하려면 **초기값을 다르게** 두어야 한다.
+  같은 값으로 바꾸면 의존성이 변하지 않아 effect 가 재실행되지 않는다.
 
 **테스트 작성 규칙** (가이드라인 A15):
 - 테스트 데이터는 `zz-` 접두사로 직접 만들고 끝나면 지운다. 실제 데이터를 잡아 쓰지 않는다.

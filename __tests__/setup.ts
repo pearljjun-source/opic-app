@@ -4,6 +4,12 @@ import { Alert } from 'react-native';
 // Mock Alert.alert
 jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 
+// AsyncStorage 는 네이티브 모듈이라 테스트 환경에 없다.
+// 화면을 렌더링하는 테스트에서 useTheme -> AsyncStorage 경로로 걸린다.
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+);
+
 // Mock __DEV__
 (global as any).__DEV__ = true;
 
