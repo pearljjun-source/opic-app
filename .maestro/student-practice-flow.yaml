@@ -1,0 +1,130 @@
+appId: com.opic.app
+name: 학생 연습 플로우 (로그인 → 토픽 → 스크립트 → 녹음 → 결과 → 정리)
+env:
+  EMAIL: ""
+  PASSWORD: ""
+---
+# ============================================================================
+# 핵심 유저 플로우 회귀 테스트
+#
+# 이 앱이 파는 것은 "녹음하고 AI 피드백을 받는 것" 이다. 그 한 줄기가 끝까지
+# 이어지는지 본다. 화면 하나하나의 세부 동작은 컴포넌트/서비스 테스트가 덮는다.
+#
+# ⚠️ 실행 전 준비 (docs/TESTING.md 참조)
+#   · zz- 접두사 전용 계정과 전용 학원
+#   · 강사가 미리 스크립트를 1개 이상 작성해둔 상태
+#   · maestro test -e EMAIL=... -e PASSWORD=... .maestro/student-practice-flow.yaml
+#
+# ⚠️ 이 플로우는 Whisper STT 와 Claude 피드백을 **실제로** 호출한다. 1회 실행에
+#    몇십 원이 나가고 시간당 호출 한도(whisper 30, claude 30)를 소비한다.
+#    전용 계정이므로 실사용자 한도에는 영향이 없다.
+#
+# ⚠️ 개발/프로덕션이 같은 Supabase 프로젝트다. 그래서 마지막에 만든 연습 기록을
+#    지운다 — 정리이면서 동시에 삭제 플로우 검증이다.
+# ============================================================================
+
+- launchApp:
+    clearState: true
+
+# ── 로그인 ──────────────────────────────────────────────────────────────────
+- assertVisible:
+    id: "login-email"
+- tapOn:
+    id: "login-email"
+- inputText: ${EMAIL}
+
+- tapOn:
+    id: "login-password"
+- inputText: ${PASSWORD}
+
+- tapOn:
+    id: "login-submit"
+
+# 로그인 후 학생 홈. 토픽 카드가 뜰 때까지 기다린다(네트워크 조회가 있다)
+- extendedWaitUntil:
+    visible:
+      id: "topic-card"
+    timeout: 20000
+
+# ── 토픽 → 스크립트가 있는 질문 ─────────────────────────────────────────────
+- tapOn:
+    id: "topic-card"
+    index: 0
+
+# 스크립트가 없는 질문은 연습으로 이어지지 않으므로 있는 것만 고른다
+- extendedWaitUntil:
+    visible:
+      id: "question-card-with-script"
+    timeout: 15000
+- tapOn:
+    id: "question-card-with-script"
+    index: 0
+
+# ── 스크립트 상세 → 실전 연습 ───────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      id: "script-practice-button"
+    timeout: 15000
+- tapOn:
+    id: "script-practice-button"
+
+# ── 녹음 ────────────────────────────────────────────────────────────────────
+# 처음 녹음하는 계정이면 음성 동의 모달이 뜬다. 있으면 누르고, 없으면 넘어간다.
+- runFlow:
+    when:
+      visible: "동의"
+    commands:
+      - tapOn: "동의"
+
+# 마이크 권한 (안드로이드)
+- runFlow:
+    when:
+      visible: "허용"
+    commands:
+      - tapOn: "허용"
+
+- extendedWaitUntil:
+    visible:
+      id: "practice-record-button"
+    timeout: 15000
+- tapOn:
+    id: "practice-record-button"
+
+# 실제로 소리를 낼 수는 없다. 무음 5초를 녹음한다 —
+# Whisper 가 빈 전사를 돌려줘도 플로우 자체는 끝까지 간다.
+- waitForAnimationToEnd:
+    timeout: 5000
+
+- tapOn:
+    id: "practice-stop-button"
+
+# ── 결과 ────────────────────────────────────────────────────────────────────
+# 업로드 → STT → AI 피드백. 외부 API 두 번이라 넉넉히 기다린다.
+- extendedWaitUntil:
+    visible:
+      id: "practice-result-score"
+    timeout: 90000
+
+- assertVisible:
+    id: "practice-result-score"
+
+# ── 정리 — 만든 연습 기록을 지운다 ──────────────────────────────────────────
+# 프로덕션 DB 를 쓰므로 테스트 데이터를 남기지 않는다.
+# 동시에 삭제 플로우(녹음 파일까지 삭제)도 검증된다.
+- back
+- back
+
+- tapOn: "기록"
+
+- extendedWaitUntil:
+    visible:
+      id: "history-card"
+    timeout: 15000
+
+- tapOn:
+    id: "history-delete-button"
+    index: 0
+
+- tapOn: "삭제"
+
+- assertVisible: "삭제되었습니다."

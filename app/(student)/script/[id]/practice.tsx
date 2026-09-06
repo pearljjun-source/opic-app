@@ -35,6 +35,7 @@ import {
 } from '@/services/practices';
 import { notifyAction, deliverNotification } from '@/services/notifications';
 import { getUserMessage } from '@/lib/errors';
+import { TEST_IDS } from '@/lib/testIds';
 import { alert as xAlert } from '@/lib/alert';
 import { VoiceConsentModal } from '@/components/ui/VoiceConsentModal';
 
@@ -487,7 +488,11 @@ export default function PracticeScreen() {
                 <Ionicons name="stop" size={32} color="#FFFFFF" />
               </div>
             ) : (
-              <Pressable style={[styles.stopButton, { backgroundColor: colors.gray600 }]} onPress={handleStopRecording}>
+              <Pressable
+                testID={TEST_IDS.PRACTICE_STOP_BUTTON}
+                style={[styles.stopButton, { backgroundColor: colors.gray600 }]}
+                onPress={handleStopRecording}
+              >
                 <Ionicons name="stop" size={32} color="#FFFFFF" />
               </Pressable>
             )}
@@ -510,6 +515,7 @@ export default function PracticeScreen() {
               </div>
             ) : (
               <Pressable
+                testID={TEST_IDS.PRACTICE_RECORD_BUTTON}
                 style={[styles.recordButton, { backgroundColor: colors.error, shadowColor: colors.error }]}
                 onPress={handleStartRecording}
                 disabled={practiceState !== 'ready'}

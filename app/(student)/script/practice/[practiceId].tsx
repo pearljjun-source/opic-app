@@ -18,6 +18,7 @@ import { getPracticeResult, PracticeResult } from '@/services/practices';
 import { getUserMessage } from '@/lib/errors';
 import { diffScript } from '@/lib/diff';
 import { RECORDING_RETENTION_MONTHS } from '@/lib/constants';
+import { TEST_IDS } from '@/lib/testIds';
 import FeedbackSection from '@/components/student/FeedbackSection';
 
 export default function PracticeDetailScreen() {
@@ -127,7 +128,7 @@ export default function PracticeDetailScreen() {
       <View style={styles.scoreSection}>
         <View style={[styles.scoreBox, { backgroundColor: colors.primary + '15' }]}>
           <Text style={[styles.scoreLabel, { color: colors.textSecondary }]}>점수</Text>
-          <Text style={[styles.scoreValue, { color: colors.primary }]}>{result.score ?? '-'}</Text>
+          <Text testID={TEST_IDS.PRACTICE_RESULT_SCORE} style={[styles.scoreValue, { color: colors.primary }]}>{result.score ?? '-'}</Text>
         </View>
         <View style={[styles.scoreBox, { backgroundColor: colors.primary + '15' }]}>
           <Text style={[styles.scoreLabel, { color: colors.textSecondary }]}>재현율</Text>

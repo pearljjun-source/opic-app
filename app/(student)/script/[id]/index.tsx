@@ -7,6 +7,7 @@ import { alert as xAlert } from '@/lib/alert';
 import { useThemeColors } from '@/hooks/useTheme';
 import { getStudentScript, updateScriptAsStudent, StudentScriptDetail } from '@/services/scripts';
 import { getUserMessage } from '@/lib/errors';
+import { TEST_IDS } from '@/lib/testIds';
 
 export default function ScriptViewScreen() {
   const colors = useThemeColors();
@@ -222,7 +223,11 @@ export default function ScriptViewScreen() {
               <Text style={[styles.outlineButtonText, { color: colors.secondary }]}>한→영</Text>
             </Pressable>
           </View>
-          <Pressable style={[styles.practiceButton, { backgroundColor: colors.primary }]} onPress={handlePractice}>
+          <Pressable
+            testID={TEST_IDS.SCRIPT_PRACTICE_BUTTON}
+            style={[styles.practiceButton, { backgroundColor: colors.primary }]}
+            onPress={handlePractice}
+          >
             <Ionicons name="mic" size={20} color="#FFFFFF" />
             <Text style={styles.practiceButtonText}>실전 연습</Text>
           </Pressable>

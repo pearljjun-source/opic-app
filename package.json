@@ -11,7 +11,8 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "check:schema": "node scripts/schema-drift.js",
-    "postinstall": "node scripts/patch-phosphor.js && patch-package"
+    "postinstall": "node scripts/patch-phosphor.js && patch-package",
+    "test:e2e": "maestro test .maestro/student-practice-flow.yaml"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

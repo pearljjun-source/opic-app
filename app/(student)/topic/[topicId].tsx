@@ -16,6 +16,7 @@ import type { TopicQuestionWithScript } from '@/lib/types';
 import { getMyTopicQuestionsWithScripts } from '@/services/topics';
 import { getUserMessage } from '@/lib/errors';
 import { showToast } from '@/lib/toast';
+import { TEST_IDS } from '@/lib/testIds';
 
 export default function StudentTopicQuestionsScreen() {
   const colors = useThemeColors();
@@ -72,6 +73,7 @@ export default function StudentTopicQuestionsScreen() {
 
     return (
       <Pressable
+        testID={hasScript ? TEST_IDS.QUESTION_CARD_WITH_SCRIPT : undefined}
         style={({ pressed }) => [
           styles.questionCard,
           { backgroundColor: colors.surface, shadowColor: colors.shadowColor },

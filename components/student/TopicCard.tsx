@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useThemeColors } from '@/hooks/useTheme';
 import type { StudentTopicWithProgress } from '@/lib/types';
+import { TEST_IDS } from '@/lib/testIds';
 
 interface TopicCardProps {
   topic: StudentTopicWithProgress;
@@ -19,6 +20,7 @@ export function TopicCard({ topic, onPress }: TopicCardProps) {
 
   return (
     <Pressable
+      testID={TEST_IDS.TOPIC_CARD}
       style={({ pressed }) => [styles.card, { backgroundColor: colors.surface, shadowColor: '#000000' }, pressed && styles.cardPressed]}
       onPress={onPress}
     >

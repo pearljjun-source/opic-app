@@ -18,6 +18,7 @@ import { getUserMessage } from '@/lib/errors';
 import { useOfflineGuard } from '@/hooks/useOfflineGuard';
 import { confirm as xConfirm, alert as xAlert } from '@/lib/alert';
 import { showToast } from '@/lib/toast';
+import { TEST_IDS } from '@/lib/testIds';
 
 interface PracticeItem {
   id: string;
@@ -151,6 +152,7 @@ export default function HistoryScreen() {
           }
           renderItem={({ item }) => (
             <Pressable
+              testID={TEST_IDS.HISTORY_CARD}
               style={[styles.practiceCard, { backgroundColor: colors.surface }]}
               onPress={() =>
                 router.push({
@@ -190,6 +192,7 @@ export default function HistoryScreen() {
                 {/* 삭제 — 길게 누르기 같은 숨은 제스처 대신 보이는 버튼으로 둔다.
                     방침이 고지한 권리이고, 스크린리더로도 닿아야 한다 */}
                 <Pressable
+                  testID={TEST_IDS.HISTORY_DELETE_BUTTON}
                   onPress={() => handleDelete(item)}
                   disabled={deletingId === item.id}
                   hitSlop={12}

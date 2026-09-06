@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Link, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { TEST_IDS } from '@/lib/testIds';
 
 import { ScreenContainer } from '@/components/layout/SafeAreaView';
 import { Input } from '@/components/ui/Input';
@@ -184,6 +185,7 @@ export default function LoginScreen() {
                   이메일
                 </Text>
                 <Input
+                  testID={TEST_IDS.LOGIN_EMAIL}
                   placeholder="example@email.com"
                   value={email}
                   onChangeText={(v) => { setEmail(v); if (fieldErrors.email) setFieldErrors((p) => ({ ...p, email: undefined })); }}
@@ -208,6 +210,7 @@ export default function LoginScreen() {
                   비밀번호
                 </Text>
                 <Input
+                  testID={TEST_IDS.LOGIN_PASSWORD}
                   placeholder="비밀번호를 입력하세요"
                   value={password}
                   onChangeText={(v) => { setPassword(v); if (fieldErrors.password) setFieldErrors((p) => ({ ...p, password: undefined })); }}
@@ -230,6 +233,7 @@ export default function LoginScreen() {
               </Link>
 
               <Button
+                testID={TEST_IDS.LOGIN_SUBMIT}
                 onPress={handleLogin}
                 loading={isSubmitting}
                 disabled={isSubmitting}

@@ -1,0 +1,15 @@
+# Maestro 설정
+#
+# 실행:
+#   maestro test .maestro/student-practice-flow.yaml
+#
+# ⚠️ 계정 정보는 여기 넣지 않는다. 환경변수로 넘긴다.
+#   maestro test -e EMAIL=... -e PASSWORD=... .maestro/student-practice-flow.yaml
+#
+# 앱 ID 는 app.config.js 의 android.package / ios.bundleIdentifier 와 같아야 한다.
+
+flows:
+  - "*.yaml"
+
+executionOrder:
+  continueOnFailure: false
