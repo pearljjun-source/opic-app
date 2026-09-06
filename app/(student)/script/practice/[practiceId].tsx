@@ -17,6 +17,7 @@ import { SkeletonDetail } from '@/components/ui/Loading';
 import { getPracticeResult, PracticeResult } from '@/services/practices';
 import { getUserMessage } from '@/lib/errors';
 import { diffScript } from '@/lib/diff';
+import { RECORDING_RETENTION_MONTHS } from '@/lib/constants';
 import FeedbackSection from '@/components/student/FeedbackSection';
 
 export default function PracticeDetailScreen() {
@@ -157,6 +158,18 @@ export default function PracticeDetailScreen() {
         </Pressable>
       )}
 
+      {/* 보관 기간이 지나 녹음이 삭제된 경우 — 왜 재생 버튼이 없는지 알려준다.
+          점수·피드백은 그대로 남아 있으므로 "기록이 사라졌다"고 오해하지 않게 한다 */}
+      {!result.audio_url && (
+        <View style={[styles.audioExpiredNote, { backgroundColor: colors.surfaceSecondary }]}>
+          <Ionicons name="time-outline" size={16} color={colors.textDisabled} />
+          <Text style={[styles.audioExpiredText, { color: colors.textDisabled }]}>
+            보관 기간({RECORDING_RETENTION_MONTHS}개월)이 지나 녹음 파일은 삭제되었습니다.
+            아래 평가 내용은 그대로 남아 있습니다.
+          </Text>
+        </View>
+      )}
+
       {/* 질문 */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>질문</Text>
@@ -267,6 +280,20 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 20,
     gap: 8,
+  },
+  audioExpiredNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 16,
+  },
+  audioExpiredText: {
+    flex: 1,
+    fontSize: 12,
+    fontFamily: 'Pretendard-Regular',
+    lineHeight: 18,
   },
   playButtonText: {
     fontSize: 15,

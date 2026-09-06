@@ -349,6 +349,19 @@ export const STORAGE_BUCKETS = {
   LANDING_ASSETS: 'landing-assets',
 } as const;
 
+/**
+ * 연습 녹음 파일 보관 기간(일).
+ *
+ * ⚠️ 이 숫자를 바꾸면 세 곳을 함께 고쳐야 한다. 어긋나면 고지한 것과 실제가 달라진다.
+ *   1. 여기 (화면 안내 문구)
+ *   2. supabase/functions/purge-recordings/index.ts 의 RETENTION_DAYS (실제 집행)
+ *   3. app/privacy.tsx 제4조 ③ (이용자에게 고지하는 값)
+ *
+ * 기간이 지나면 음성 파일만 삭제되고 점수·재현율·AI 피드백은 남는다.
+ */
+export const RECORDING_RETENTION_DAYS = 180;
+export const RECORDING_RETENTION_MONTHS = 6;
+
 // ============================================================================
 // 시험 설정 (모의고사 / 콤보 롤플레이 / 레벨 테스트)
 // ============================================================================
