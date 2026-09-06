@@ -1,279 +1,17 @@
 /**
- * 메시징 시스템 테스트
+ * 메시징 서비스 테스트 (실행 검증)
  *
- * 검증 항목:
- * P1: 074 마이그레이션 SQL 구조 (테이블, RPC, RLS, 인덱스)
- * P2: 서비스 레이어 (sendMessage, getMyMessages, getSentMessages, markMessageRead, getUnreadMessageCount)
- * P3: 에러 코드/상수/타입 통합
- * P4: UI 레이아웃 연동 (탭 헤더, 네비게이션, 푸시)
+ * ⚠️ 이 파일은 원래 074 마이그레이션 SQL 과 화면 소스를 readFileSync 로 읽어
+ *    "CREATE TABLE public.messages 가 적혀 있나" 를 대조했다. 파일 문자열은
+ *    DB 에 실제로 적용됐는지 말해주지 않는다 — 076/077 이 DB 에 없는 채로
+ *    테스트가 전부 통과했던 것이 그 증거다.
+ *
+ *    마이그레이션 구조는 이제 `npm run check:schema` 가 실제 DB 와 대조한다.
+ *    여기서는 services/messages.ts 를 실제로 호출해 확인한다.
+ *
+ * 화면 연동(탭 헤더 뱃지, 푸시 네비게이션)은 컴포넌트 테스트 영역이라 뺐다.
+ * CLAUDE.md "테스트 로드맵" 3단계에서 다룬다.
  */
-
-import * as fs from 'fs';
-import * as path from 'path';
-
-// ============================================================================
-// P1: 074 마이그레이션 SQL 구조 검증
-// ============================================================================
-
-describe('074: messages 테이블', () => {
-  const migrationPath = path.resolve(__dirname, '../../supabase/migrations/074_messaging.sql');
-  let sql: string;
-
-  beforeAll(() => {
-    sql = fs.readFileSync(migrationPath, 'utf8');
-  });
-
-  it('message_target_type ENUM이 정의된다', () => {
-    expect(sql).toContain("CREATE TYPE public.message_target_type AS ENUM ('class', 'individual')");
-  });
-
-  it('messages 테이블이 생성된다', () => {
-    expect(sql).toContain('CREATE TABLE public.messages');
-  });
-
-  it('messages 테이블에 필수 컬럼이 있다', () => {
-    expect(sql).toContain('organization_id uuid NOT NULL REFERENCES public.organizations(id)');
-    expect(sql).toContain('sender_id     uuid NOT NULL REFERENCES public.users(id)');
-    expect(sql).toContain('target_type   message_target_type NOT NULL');
-    expect(sql).toContain('target_id     uuid NOT NULL');
-    expect(sql).toContain('body          text NOT NULL');
-    expect(sql).toContain('deleted_at    timestamptz');
-  });
-
-  it('messages 인덱스가 생성된다', () => {
-    expect(sql).toContain('idx_messages_org');
-    expect(sql).toContain('idx_messages_sender');
-  });
-
-  it('message_recipients 테이블이 생성된다', () => {
-    expect(sql).toContain('CREATE TABLE public.message_recipients');
-  });
-
-  it('message_recipients에 read_at 컬럼이 있다 (읽음 추적)', () => {
-    expect(sql).toContain('read_at       timestamptz');
-  });
-
-  it('message_recipients에 중복 방지 UNIQUE 인덱스가 있다', () => {
-    expect(sql).toContain('idx_message_recipients_unique');
-    expect(sql).toContain('(message_id, recipient_id)');
-  });
-
-  it('ON DELETE CASCADE로 메시지 삭제 시 수신자도 삭제된다', () => {
-    expect(sql).toContain('ON DELETE CASCADE');
-  });
-});
-
-describe('074: RLS 정책', () => {
-  const migrationPath = path.resolve(__dirname, '../../supabase/migrations/074_messaging.sql');
-  let sql: string;
-
-  beforeAll(() => {
-    sql = fs.readFileSync(migrationPath, 'utf8');
-  });
-
-  it('messages RLS가 활성화된다', () => {
-    expect(sql).toContain('ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY');
-  });
-
-  it('message_recipients RLS가 활성화된다', () => {
-    expect(sql).toContain('ALTER TABLE public.message_recipients ENABLE ROW LEVEL SECURITY');
-  });
-
-  it('발신자만 messages를 조회할 수 있다', () => {
-    expect(sql).toContain('messages_select_sender');
-    expect(sql).toContain('sender_id = auth.uid()');
-  });
-
-  it('수신자만 message_recipients를 조회할 수 있다', () => {
-    expect(sql).toContain('message_recipients_select_recipient');
-    expect(sql).toContain('recipient_id = auth.uid()');
-  });
-
-  it('수신자만 read_at을 업데이트할 수 있다', () => {
-    expect(sql).toContain('message_recipients_update_read');
-    expect(sql).toContain('FOR UPDATE');
-  });
-});
-
-describe('074: send_message RPC', () => {
-  const migrationPath = path.resolve(__dirname, '../../supabase/migrations/074_messaging.sql');
-  let sql: string;
-
-  beforeAll(() => {
-    sql = fs.readFileSync(migrationPath, 'utf8');
-  });
-
-  it('send_message 함수가 SECURITY DEFINER로 정의된다', () => {
-    expect(sql).toContain('CREATE OR REPLACE FUNCTION public.send_message');
-    expect(sql).toContain('SECURITY DEFINER');
-  });
-
-  it('auth.uid()로 인증을 확인한다', () => {
-    expect(sql).toContain('v_user_id := auth.uid()');
-    expect(sql).toContain("'error', 'NOT_AUTHENTICATED'");
-  });
-
-  it('teacher 또는 owner만 발송할 수 있다', () => {
-    expect(sql).toContain("v_role NOT IN ('owner', 'teacher')");
-    expect(sql).toContain("'error', 'PERM_NOT_TEACHER'");
-  });
-
-  it('빈 본문을 거부한다', () => {
-    expect(sql).toContain("'error', 'MSG_BODY_REQUIRED'");
-  });
-
-  it('class 타입: 반 소유권을 검증한다', () => {
-    expect(sql).toContain('FROM public.classes c');
-    expect(sql).toContain('c.teacher_id = v_user_id OR v_role = \'owner\'');
-  });
-
-  it('class 타입: class_members에서 수신자 팬아웃한다', () => {
-    expect(sql).toContain('FROM public.class_members cm');
-    expect(sql).toContain('cm.class_id = p_target_id');
-  });
-
-  it('individual 타입: 조직 내 학생 여부를 확인한다', () => {
-    expect(sql).toContain("om.role = 'student'");
-    expect(sql).toContain("'error', 'ORG_STUDENT_NOT_IN_ORG'");
-  });
-
-  it('individual 타입: 강사-학생 연결을 확인한다', () => {
-    expect(sql).toContain('FROM public.teacher_student ts');
-    expect(sql).toContain("'error', 'PERM_NOT_CONNECTED'");
-  });
-
-  it('notification_logs에 알림을 생성한다', () => {
-    expect(sql).toContain('INSERT INTO public.notification_logs');
-    expect(sql).toContain("'new_message'");
-  });
-
-  it('응답에 message_id와 recipient_count를 반환한다', () => {
-    expect(sql).toContain("'message_id', v_message_id");
-    expect(sql).toContain("'recipient_count', v_count");
-  });
-
-  it('잘못된 target_type을 거부한다', () => {
-    expect(sql).toContain("'error', 'MSG_INVALID_TARGET_TYPE'");
-  });
-});
-
-describe('074: get_my_messages RPC (학생 수신함)', () => {
-  const migrationPath = path.resolve(__dirname, '../../supabase/migrations/074_messaging.sql');
-  let sql: string;
-
-  beforeAll(() => {
-    sql = fs.readFileSync(migrationPath, 'utf8');
-  });
-
-  it('get_my_messages 함수가 정의된다', () => {
-    expect(sql).toContain('CREATE OR REPLACE FUNCTION public.get_my_messages');
-  });
-
-  it('SECURITY DEFINER + STABLE로 정의된다', () => {
-    const funcMatch = sql.match(/get_my_messages[\s\S]*?AS \$\$/);
-    expect(funcMatch).not.toBeNull();
-    expect(funcMatch![0]).toContain('STABLE');
-    expect(funcMatch![0]).toContain('SECURITY DEFINER');
-  });
-
-  it('message_recipients와 messages를 JOIN한다', () => {
-    expect(sql).toContain('FROM public.message_recipients mr');
-    expect(sql).toContain('JOIN public.messages m ON m.id = mr.message_id');
-  });
-
-  it('발신자 이름을 포함한다', () => {
-    expect(sql).toContain('u.name AS sender_name');
-  });
-
-  it('반 이름을 포함한다 (class 타입일 때)', () => {
-    expect(sql).toContain('class_name');
-  });
-
-  it('read_at을 포함한다', () => {
-    expect(sql).toContain('mr.read_at');
-  });
-
-  it('p_limit과 p_offset을 지원한다', () => {
-    expect(sql).toContain('p_limit  int DEFAULT 20');
-    expect(sql).toContain('p_offset int DEFAULT 0');
-  });
-});
-
-describe('074: get_sent_messages RPC (강사 발송 이력)', () => {
-  const migrationPath = path.resolve(__dirname, '../../supabase/migrations/074_messaging.sql');
-  let sql: string;
-
-  beforeAll(() => {
-    sql = fs.readFileSync(migrationPath, 'utf8');
-  });
-
-  it('get_sent_messages 함수가 정의된다', () => {
-    expect(sql).toContain('CREATE OR REPLACE FUNCTION public.get_sent_messages');
-  });
-
-  it('recipient_count (전체 수)를 반환한다', () => {
-    expect(sql).toContain('recipient_count');
-  });
-
-  it('read_count (읽음 수)를 반환한다', () => {
-    expect(sql).toContain('read_count');
-    expect(sql).toContain('mr.read_at IS NOT NULL');
-  });
-
-  it('대상 이름을 반환한다 (class: 반이름, individual: 학생이름)', () => {
-    expect(sql).toContain('target_name');
-  });
-});
-
-describe('074: mark_message_read RPC', () => {
-  const migrationPath = path.resolve(__dirname, '../../supabase/migrations/074_messaging.sql');
-  let sql: string;
-
-  beforeAll(() => {
-    sql = fs.readFileSync(migrationPath, 'utf8');
-  });
-
-  it('mark_message_read 함수가 정의된다', () => {
-    expect(sql).toContain('CREATE OR REPLACE FUNCTION public.mark_message_read');
-  });
-
-  it('본인 수신 메시지만 읽음 처리한다', () => {
-    expect(sql).toContain('recipient_id = v_user_id');
-    expect(sql).toContain('read_at IS NULL');
-  });
-
-  it('SECURITY DEFINER로 정의된다', () => {
-    const funcMatch = sql.match(/mark_message_read[\s\S]*?AS \$\$/);
-    expect(funcMatch).not.toBeNull();
-    expect(funcMatch![0]).toContain('SECURITY DEFINER');
-  });
-});
-
-describe('074: get_unread_message_count RPC', () => {
-  const migrationPath = path.resolve(__dirname, '../../supabase/migrations/074_messaging.sql');
-  let sql: string;
-
-  beforeAll(() => {
-    sql = fs.readFileSync(migrationPath, 'utf8');
-  });
-
-  it('get_unread_message_count 함수가 정의된다', () => {
-    expect(sql).toContain('CREATE OR REPLACE FUNCTION public.get_unread_message_count');
-  });
-
-  it('int를 반환한다', () => {
-    expect(sql).toContain('RETURNS int');
-  });
-
-  it('read_at IS NULL인 수신 메시지만 카운트한다', () => {
-    expect(sql).toContain('mr.read_at IS NULL');
-    expect(sql).toContain('mr.recipient_id = auth.uid()');
-  });
-});
-
-// ============================================================================
-// P2: 서비스 레이어 mock 테스트
-// ============================================================================
 
 import { mockSupabase } from '../mocks/supabase';
 
@@ -288,6 +26,8 @@ import {
   markMessageRead,
   getUnreadMessageCount,
 } from '@/services/messages';
+import { ERROR_CODES, ERROR_MESSAGES, classifyRpcError } from '@/lib/errors';
+import { NOTIFICATION_TYPES, MESSAGE_TARGET_TYPES } from '@/lib/constants';
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -492,315 +232,127 @@ describe('getUnreadMessageCount()', () => {
 });
 
 // ============================================================================
-// P3: 에러 코드 / 상수 / 타입 통합
+// 페이지네이션 · 예외 경로 (커버되지 않던 구간)
 // ============================================================================
 
-describe('에러 코드 통합', () => {
-  const errorsPath = path.resolve(__dirname, '../../lib/errors.ts');
-  let errorsSource: string;
+describe('페이지네이션', () => {
+  it('getMyMessages 기본값은 20건, offset 0', async () => {
+    mockSupabase.rpc.mockResolvedValueOnce({ data: { messages: [] }, error: null });
 
-  beforeAll(() => {
-    errorsSource = fs.readFileSync(errorsPath, 'utf8');
+    await getMyMessages();
+
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('get_my_messages', {
+      p_limit: 20,
+      p_offset: 0,
+    });
   });
 
-  it('MSG_BODY_REQUIRED 에러 코드가 정의된다', () => {
-    expect(errorsSource).toContain("MSG_BODY_REQUIRED: 'MSG_BODY_REQUIRED'");
+  it('getMyMessages 는 넘긴 limit/offset 을 그대로 보낸다', async () => {
+    mockSupabase.rpc.mockResolvedValueOnce({ data: { messages: [] }, error: null });
+
+    await getMyMessages(50, 100);
+
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('get_my_messages', {
+      p_limit: 50,
+      p_offset: 100,
+    });
   });
 
-  it('MSG_INVALID_TARGET_TYPE 에러 코드가 정의된다', () => {
-    expect(errorsSource).toContain("MSG_INVALID_TARGET_TYPE: 'MSG_INVALID_TARGET_TYPE'");
-  });
+  it('getSentMessages 도 같은 규칙을 따른다', async () => {
+    mockSupabase.rpc.mockResolvedValueOnce({ data: { messages: [] }, error: null });
 
-  it('MSG 에러 코드에 한국어 메시지가 있다', () => {
-    expect(errorsSource).toContain('메시지 내용을 입력해주세요');
-    expect(errorsSource).toContain('올바르지 않은 발송 대상입니다');
-  });
+    await getSentMessages(5, 10);
 
-  it('MSG 에러 코드가 카테고리에 매핑된다', () => {
-    expect(errorsSource).toContain("MSG_BODY_REQUIRED: 'validation'");
-    expect(errorsSource).toContain("MSG_INVALID_TARGET_TYPE: 'validation'");
-  });
-
-  it('MSG 에러 코드가 RPC_ERROR_MAP에 매핑된다', () => {
-    expect(errorsSource).toContain("'MSG_BODY_REQUIRED': ERROR_CODES.MSG_BODY_REQUIRED");
-    expect(errorsSource).toContain("'MSG_INVALID_TARGET_TYPE': ERROR_CODES.MSG_INVALID_TARGET_TYPE");
-  });
-
-  it('resource 타입에 message가 포함된다', () => {
-    expect(errorsSource).toContain("'message'");
-  });
-});
-
-describe('상수/타입 통합', () => {
-  const constantsPath = path.resolve(__dirname, '../../lib/constants.ts');
-  const typesPath = path.resolve(__dirname, '../../lib/types.ts');
-  let constantsSource: string;
-  let typesSource: string;
-
-  beforeAll(() => {
-    constantsSource = fs.readFileSync(constantsPath, 'utf8');
-    typesSource = fs.readFileSync(typesPath, 'utf8');
-  });
-
-  it('NOTIFICATION_TYPES에 NEW_MESSAGE가 있다', () => {
-    expect(constantsSource).toContain("NEW_MESSAGE: 'new_message'");
-  });
-
-  it('MESSAGE_TARGET_TYPES 상수가 정의된다', () => {
-    expect(constantsSource).toContain("CLASS: 'class'");
-    expect(constantsSource).toContain("INDIVIDUAL: 'individual'");
-  });
-
-  it('NotificationType에 new_message가 포함된다', () => {
-    expect(typesSource).toContain("'new_message'");
-  });
-
-  it('MessageTargetType 타입이 정의된다', () => {
-    expect(typesSource).toContain("export type MessageTargetType = 'class' | 'individual'");
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('get_sent_messages', {
+      p_limit: 5,
+      p_offset: 10,
+    });
   });
 });
 
-// ============================================================================
-// P4: UI 레이아웃 연동 검증
-// ============================================================================
+describe('예외를 밖으로 내보내지 않는다', () => {
+  it('sendMessage — RPC 가 던져도 에러 문자열로 돌려준다', async () => {
+    mockSupabase.rpc.mockRejectedValueOnce(new Error('network down'));
 
-describe('강사 레이아웃 연동', () => {
-  const teacherLayoutPath = path.resolve(__dirname, '../../app/(teacher)/_layout.tsx');
-  const teacherTabsPath = path.resolve(__dirname, '../../app/(teacher)/(tabs)/_layout.tsx');
-  let teacherLayout: string;
-  let teacherTabs: string;
+    const { data, error } = await sendMessage({
+      targetType: 'class',
+      targetId: 'class-1',
+      body: 'test',
+    });
 
-  beforeAll(() => {
-    teacherLayout = fs.readFileSync(teacherLayoutPath, 'utf8');
-    teacherTabs = fs.readFileSync(teacherTabsPath, 'utf8');
+    expect(data).toBeNull();
+    expect(typeof error).toBe('string');
   });
 
-  it('(teacher)/_layout.tsx에 messages Stack.Screen이 등록된다', () => {
-    expect(teacherLayout).toContain('name="messages"');
+  it('getMyMessages — RPC 가 던져도 화면이 죽지 않는다', async () => {
+    mockSupabase.rpc.mockRejectedValueOnce(new Error('boom'));
+
+    const { data, error } = await getMyMessages();
+
+    expect(data).toBeNull();
+    expect(error).toBeTruthy();
   });
 
-  it('강사 탭 헤더에 getUnreadMessageCount import가 있다', () => {
-    expect(teacherTabs).toContain("from '@/services/messages'");
-    expect(teacherTabs).toContain('getUnreadMessageCount');
+  it('getSentMessages — RPC 비즈니스 에러를 전달한다', async () => {
+    mockSupabase.rpc.mockResolvedValueOnce({
+      data: { error: 'PERM_NOT_TEACHER' },
+      error: null,
+    });
+
+    const { data, error } = await getSentMessages();
+
+    expect(data).toBeNull();
+    expect(error).toBeTruthy();
   });
 
-  it('강사 탭 헤더에 메시지 아이콘이 있다', () => {
-    expect(teacherTabs).toContain('chatbubbles-outline');
+  it('markMessageRead — Supabase 에러를 전달한다', async () => {
+    mockSupabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: '42501', message: 'denied' },
+    });
+
+    const { error } = await markMessageRead('msg-1');
+
+    expect(error).toBeTruthy();
   });
 
-  it('강사 탭 헤더에 메시지 뱃지가 있다', () => {
-    expect(teacherTabs).toContain('msgBadge');
-    expect(teacherTabs).toContain("msgBadge > 0");
-  });
+  it('getUnreadMessageCount — 던져도 0을 돌려준다 (뱃지가 화면을 깨지 않는다)', async () => {
+    mockSupabase.rpc.mockRejectedValueOnce(new Error('boom'));
 
-  it('헤더에서 메시지 화면으로 이동한다', () => {
-    expect(teacherTabs).toContain("/(teacher)/messages/");
-  });
-});
-
-describe('학생 레이아웃 연동', () => {
-  const studentLayoutPath = path.resolve(__dirname, '../../app/(student)/_layout.tsx');
-  const studentTabsPath = path.resolve(__dirname, '../../app/(student)/(tabs)/_layout.tsx');
-  let studentLayout: string;
-  let studentTabs: string;
-
-  beforeAll(() => {
-    studentLayout = fs.readFileSync(studentLayoutPath, 'utf8');
-    studentTabs = fs.readFileSync(studentTabsPath, 'utf8');
-  });
-
-  it('(student)/_layout.tsx에 messages Stack.Screen이 등록된다', () => {
-    expect(studentLayout).toContain('name="messages"');
-  });
-
-  it('학생 탭 헤더에 getUnreadMessageCount import가 있다', () => {
-    expect(studentTabs).toContain("from '@/services/messages'");
-  });
-
-  it('학생 탭 헤더에 메시지 아이콘이 있다', () => {
-    expect(studentTabs).toContain('mail-outline');
-  });
-
-  it('학생 탭 헤더에 메시지 뱃지가 있다', () => {
-    expect(studentTabs).toContain('msgBadge');
-  });
-
-  it('헤더에서 메시지 화면으로 이동한다', () => {
-    expect(studentTabs).toContain("/(student)/messages");
-  });
-});
-
-describe('푸시 알림 네비게이션', () => {
-  const pushPath = path.resolve(__dirname, '../../hooks/usePushNotifications.ts');
-  let pushSource: string;
-
-  beforeAll(() => {
-    pushSource = fs.readFileSync(pushPath, 'utf8');
-  });
-
-  it('message_id로 메시지 화면으로 이동한다', () => {
-    expect(pushSource).toContain('data.message_id');
-    expect(pushSource).toContain("/(student)/messages");
+    expect(await getUnreadMessageCount()).toBe(0);
   });
 });
 
 // ============================================================================
-// P5: 서비스 파일 구조 검증
+// 에러 코드 · 상수 — 소스 문자열이 아니라 실제 값을 확인한다
 // ============================================================================
 
-describe('services/messages.ts 구조', () => {
-  const servicePath = path.resolve(__dirname, '../../services/messages.ts');
-  let source: string;
-
-  beforeAll(() => {
-    source = fs.readFileSync(servicePath, 'utf8');
+describe('메시징 에러 코드', () => {
+  it('RPC 가 돌려주는 문자열이 에러 코드로 매핑된다', () => {
+    expect(classifyRpcError('MSG_BODY_REQUIRED', { resource: 'message' }).code)
+      .toBe(ERROR_CODES.MSG_BODY_REQUIRED);
+    expect(classifyRpcError('MSG_INVALID_TARGET_TYPE', { resource: 'message' }).code)
+      .toBe(ERROR_CODES.MSG_INVALID_TARGET_TYPE);
   });
 
-  it('supabase import가 있다', () => {
-    expect(source).toContain("from '@/lib/supabase'");
+  it('사용자에게 보여줄 한국어 문구가 있다', () => {
+    expect(ERROR_MESSAGES[ERROR_CODES.MSG_BODY_REQUIRED]).toBeTruthy();
+    expect(ERROR_MESSAGES[ERROR_CODES.MSG_INVALID_TARGET_TYPE]).toBeTruthy();
   });
 
-  it('MessageTargetType import가 있다', () => {
-    expect(source).toContain("from '@/lib/types'");
-    expect(source).toContain('MessageTargetType');
-  });
-
-  it('classifyError와 classifyRpcError import가 있다', () => {
-    expect(source).toContain("from '@/lib/errors'");
-    expect(source).toContain('classifyError');
-    expect(source).toContain('classifyRpcError');
-  });
-
-  it('ReceivedMessage 인터페이스가 정의된다', () => {
-    expect(source).toContain('export interface ReceivedMessage');
-    expect(source).toContain('sender_name: string');
-    expect(source).toContain('read_at: string | null');
-    expect(source).toContain('class_name: string | null');
-  });
-
-  it('SentMessage 인터페이스가 정의된다', () => {
-    expect(source).toContain('export interface SentMessage');
-    expect(source).toContain('recipient_count: number');
-    expect(source).toContain('read_count: number');
-    expect(source).toContain('target_name: string');
-  });
-
-  it('5개 함수가 export된다', () => {
-    expect(source).toContain('export async function sendMessage');
-    expect(source).toContain('export async function getMyMessages');
-    expect(source).toContain('export async function getSentMessages');
-    expect(source).toContain('export async function markMessageRead');
-    expect(source).toContain('export async function getUnreadMessageCount');
+  it('모르는 코드는 알 수 없는 오류로 떨어진다 (문구가 비지 않는다)', () => {
+    const err = classifyRpcError('SOMETHING_NEW', { resource: 'message' });
+    expect(err.userMessage).toBeTruthy();
   });
 });
 
-// ============================================================================
-// P6: 강사 메시지 화면 검증
-// ============================================================================
-
-describe('강사 메시지 화면', () => {
-  const indexPath = path.resolve(__dirname, '../../app/(teacher)/messages/index.tsx');
-  const composePath = path.resolve(__dirname, '../../app/(teacher)/messages/compose.tsx');
-  let indexSource: string;
-  let composeSource: string;
-
-  beforeAll(() => {
-    indexSource = fs.readFileSync(indexPath, 'utf8');
-    composeSource = fs.readFileSync(composePath, 'utf8');
+describe('메시징 상수', () => {
+  it('발송 대상 타입이 RPC 파라미터와 같은 값이다', () => {
+    expect(MESSAGE_TARGET_TYPES.CLASS).toBe('class');
+    expect(MESSAGE_TARGET_TYPES.INDIVIDUAL).toBe('individual');
   });
 
-  it('index.tsx: getSentMessages를 호출한다', () => {
-    expect(indexSource).toContain('getSentMessages');
-  });
-
-  it('index.tsx: 읽음 수/전체 수를 표시한다', () => {
-    expect(indexSource).toContain('read_count');
-    expect(indexSource).toContain('recipient_count');
-    expect(indexSource).toContain('명 읽음');
-  });
-
-  it('index.tsx: FAB 버튼으로 compose로 이동한다', () => {
-    expect(indexSource).toContain('compose');
-    expect(indexSource).toContain('create-outline');
-  });
-
-  it('index.tsx: message-sent 이벤트를 구독한다', () => {
-    expect(indexSource).toContain("on('message-sent'");
-  });
-
-  it('compose.tsx: getTeacherClasses와 getConnectedStudents를 로드한다', () => {
-    expect(composeSource).toContain('getTeacherClasses');
-    expect(composeSource).toContain('getConnectedStudents');
-  });
-
-  it('compose.tsx: sendMessage를 호출한다', () => {
-    expect(composeSource).toContain('sendMessage');
-  });
-
-  it('compose.tsx: 반/학생 그룹으로 대상을 구분한다', () => {
-    expect(composeSource).toContain("type === 'class'");
-    expect(composeSource).toContain("type === 'individual'");
-  });
-
-  it('compose.tsx: message-sent 이벤트를 발행한다', () => {
-    expect(composeSource).toContain("emit('message-sent')");
-  });
-
-  it('compose.tsx: URL 파라미터로 대상 프리셋을 지원한다', () => {
-    expect(composeSource).toContain('targetType');
-    expect(composeSource).toContain('targetId');
-  });
-
-  it('compose.tsx: xAlert로 에러/성공을 표시한다', () => {
-    expect(composeSource).toContain('xAlert');
-    expect(composeSource).toContain('발송 완료');
-    expect(composeSource).toContain('발송 실패');
-  });
-});
-
-// ============================================================================
-// P7: 학생 메시지 화면 검증
-// ============================================================================
-
-describe('학생 메시지 화면', () => {
-  const msgPath = path.resolve(__dirname, '../../app/(student)/messages.tsx');
-  let source: string;
-
-  beforeAll(() => {
-    source = fs.readFileSync(msgPath, 'utf8');
-  });
-
-  it('getMyMessages를 호출한다', () => {
-    expect(source).toContain('getMyMessages');
-  });
-
-  it('markMessageRead를 호출한다', () => {
-    expect(source).toContain('markMessageRead');
-  });
-
-  it('미읽음 메시지를 시각적으로 구분한다', () => {
-    expect(source).toContain('isUnread');
-    expect(source).toContain('unreadDot');
-  });
-
-  it('읽음 처리 후 로컬 상태를 업데이트한다', () => {
-    expect(source).toContain('read_at: new Date().toISOString()');
-  });
-
-  it('message-changed 이벤트를 발행한다', () => {
-    expect(source).toContain("emit('message-changed')");
-  });
-
-  it('message-changed 이벤트를 구독한다', () => {
-    expect(source).toContain("on('message-changed'");
-  });
-
-  it('발신자 이름과 반 이름을 표시한다', () => {
-    expect(source).toContain('sender_name');
-    expect(source).toContain('class_name');
-  });
-
-  it('빈 상태 메시지가 있다', () => {
-    expect(source).toContain('받은 메시지가 없습니다');
+  it('새 메시지 알림 타입이 정의되어 있다', () => {
+    expect(NOTIFICATION_TYPES.NEW_MESSAGE).toBe('new_message');
   });
 });

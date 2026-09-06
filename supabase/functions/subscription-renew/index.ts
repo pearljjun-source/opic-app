@@ -15,6 +15,7 @@ import { logger } from '../_shared/logger.ts';
 import { decryptValue, isEncrypted } from '../_shared/crypto.ts';
 import { sendEmail, emailTemplates } from '../_shared/email.ts';
 import { TOSS_API_BASE } from '../_shared/constants.ts';
+import { addBillingPeriod, type BillingCycle } from '../_shared/billing-math.ts';
 
 serve(async (req) => {
   const preFlightResponse = handleCorsPreFlight(req);
@@ -88,14 +89,9 @@ serve(async (req) => {
               });
 
               const plan = incSub.subscription_plans as any;
-              const cycle = incSub.billing_cycle || 'monthly';
+              const cycle = (incSub.billing_cycle || 'monthly') as BillingCycle;
               const now = new Date();
-              const periodEnd = new Date(now);
-              if (cycle === 'yearly') {
-                periodEnd.setFullYear(periodEnd.getFullYear() + 1);
-              } else {
-                periodEnd.setMonth(periodEnd.getMonth() + 1);
-              }
+              const periodEnd = addBillingPeriod(now, cycle);
 
               // 기존 free/trialing 구독 삭제
               if (incSub.organization_id) {
@@ -370,12 +366,7 @@ serve(async (req) => {
 
           // 구독 기간 연장 (billing_cycle에 따라 1개월/12개월)
           const newStart = new Date(sub.current_period_end);
-          const newEnd = new Date(newStart);
-          if (sub.billing_cycle === 'yearly') {
-            newEnd.setFullYear(newEnd.getFullYear() + 1);
-          } else {
-            newEnd.setMonth(newEnd.getMonth() + 1);
-          }
+          const newEnd = addBillingPeriod(newStart, (sub.billing_cycle || 'monthly') as BillingCycle);
 
           const updateData: Record<string, unknown> = {
             status: 'active',

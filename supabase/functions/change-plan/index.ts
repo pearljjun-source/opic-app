@@ -14,6 +14,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, handleCorsPreFlight } from '../_shared/cors.ts';
 import { logger } from '../_shared/logger.ts';
+import { calculateProration, priceForCycle, type BillingCycle } from '../_shared/billing-math.ts';
 import { decryptValue, isEncrypted } from '../_shared/crypto.ts';
 import { TOSS_API_BASE } from '../_shared/constants.ts';
 
@@ -133,25 +134,17 @@ serve(async (req) => {
         );
       }
 
-      // 일할 계산
-      const now = new Date();
-      const periodStart = new Date(subscription.current_period_start);
-      const periodEnd = new Date(subscription.current_period_end);
-      const totalDays = Math.max(
-        1,
-        Math.ceil((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24))
-      );
-      const daysRemaining = Math.max(
-        0,
-        Math.ceil((periodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-      );
-
-      // 연간/월간에 따라 올바른 가격 기준 사용
+      // 일할 계산 — 수식은 _shared/billing-math.ts 한 곳에만 둔다 (테스트가 같은 것을 본다)
       const isYearly = subscription.billing_cycle === 'yearly';
-      const currentPrice = isYearly ? currentPlan.price_yearly : currentPlan.price_monthly;
-      const newPrice = isYearly ? newPlan.price_yearly : newPlan.price_monthly;
-      const priceDiff = newPrice - currentPrice;
-      const proratedAmount = Math.round(priceDiff * (daysRemaining / totalDays));
+      const cycle: BillingCycle = isYearly ? 'yearly' : 'monthly';
+      const currentPrice = priceForCycle(currentPlan, cycle);
+      const newPrice = priceForCycle(newPlan, cycle);
+      const proratedAmount = calculateProration({
+        currentPrice,
+        newPrice,
+        periodStart: subscription.current_period_start,
+        periodEnd: subscription.current_period_end,
+      });
 
       const authHeader = 'Basic ' + btoa(`${tossSecretKey}:`);
       const dateKey = new Date().toISOString().slice(0, 10).replace(/-/g, '');

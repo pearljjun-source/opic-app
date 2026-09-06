@@ -61,8 +61,8 @@ export default function PrivacyScreen() {
 
 서비스 제공을 위해 다음 외부 서비스를 이용하며, 해당 서비스의 개인정보처리방침이 적용됩니다:
   • Supabase (데이터베이스, 인증): 암호화된 데이터 저장
-  • OpenAI (Whisper STT, TTS): 음성 데이터 처리 (저장하지 않음)
-  • Anthropic (Claude AI): 피드백 생성 (저장하지 않음)
+  • OpenAI (Whisper STT, TTS): 음성 데이터 처리. 모델 학습에 사용되지 않으며, 남용 방지 목적으로 최대 30일간 보관된 후 삭제됩니다
+  • Anthropic (Claude AI): 피드백 생성. 모델 학습에 사용되지 않습니다
   • 토스페이먼츠: 결제 처리
   • Expo (푸시 알림): 알림 전달`}
       </Section>
