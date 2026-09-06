@@ -98,6 +98,52 @@ export async function createPractice(params: CreatePracticeParams): Promise<{
 }
 
 /**
+ * 연습 기록 삭제 (학생 본인)
+ *
+ * 개인정보처리방침 제6조가 고지한 "삭제 요구" 권리를 앱에서 행사하는 경로다.
+ *
+ * ⚠️ 기록만 숨기고 끝내면 음성 파일이 Storage 에 남는다. 그건 "지웠다"가 아니다.
+ *    RPC 가 돌려준 경로로 Storage 객체까지 지우고, 실패하면 그 사실을 알린다.
+ *
+ * 순서: DB 소프트 삭제 → Storage 삭제.
+ *   반대로 하면 파일만 사라지고 기록이 남아 재생이 깨진 항목이 목록에 보인다.
+ */
+export async function deletePractice(practiceId: string): Promise<{
+  error: Error | null;
+  /** DB 기록은 지워졌지만 음성 파일 삭제에 실패한 경우 */
+  fileRemainsWarning?: boolean;
+}> {
+  const { data, error } = await (supabase.rpc as CallableFunction)(
+    'soft_delete_practice',
+    { p_practice_id: practiceId },
+  );
+
+  if (error) {
+    return { error: classifyError(error, { resource: 'practice' }) };
+  }
+
+  const result = data as { success: boolean; error?: string; audio_path?: string } | null;
+  if (!result?.success) {
+    return { error: classifyRpcError(result?.error || 'NOT_FOUND', { resource: 'practice' }) };
+  }
+
+  // 음성 파일 삭제 (Storage 정책: 본인 폴더만 삭제 가능)
+  if (result.audio_path) {
+    const { error: storageError } = await supabase.storage
+      .from('practice-recordings')
+      .remove([result.audio_path]);
+
+    if (storageError) {
+      if (__DEV__) console.warn('[AppError] 녹음 파일 삭제 실패:', storageError.message);
+      // 기록은 이미 지워졌으므로 실패로 만들지 않는다. 다만 알린다
+      return { error: null, fileRemainsWarning: true };
+    }
+  }
+
+  return { error: null };
+}
+
+/**
  * 연습 결과 업데이트 (STT + AI 피드백 완료 시)
  */
 export async function updatePracticeWithFeedback(

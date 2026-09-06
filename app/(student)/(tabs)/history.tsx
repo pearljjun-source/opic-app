@@ -13,9 +13,11 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useThemeColors } from '@/hooks/useTheme';
 import { SkeletonList } from '@/components/ui/Loading';
-import { getMyPractices } from '@/services/practices';
+import { getMyPractices, deletePractice } from '@/services/practices';
 import { getUserMessage } from '@/lib/errors';
 import { useOfflineGuard } from '@/hooks/useOfflineGuard';
+import { confirm as xConfirm, alert as xAlert } from '@/lib/alert';
+import { showToast } from '@/lib/toast';
 
 interface PracticeItem {
   id: string;
@@ -33,6 +35,7 @@ export default function HistoryScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const loadPractices = useCallback(async () => {
     const { data, error: fetchError } = await getMyPractices();
@@ -59,6 +62,44 @@ export default function HistoryScreen() {
     setIsRefreshing(true);
     await loadPractices();
     setIsRefreshing(false);
+  };
+
+  /**
+   * 연습 기록 삭제.
+   *
+   * 개인정보처리방침 제6조가 고지한 "삭제 요구" 를 앱에서 행사하는 경로다.
+   * 녹음 파일까지 함께 지운다.
+   */
+  const handleDelete = (item: PracticeItem) => {
+    if (deletingId) return;
+
+    xConfirm(
+      '연습 기록 삭제',
+      `'${item.topic_name_ko}' 연습 기록과 녹음 파일이 삭제됩니다.\n되돌릴 수 없습니다.`,
+      async () => {
+        setDeletingId(item.id);
+        const { error: deleteError, fileRemainsWarning } = await deletePractice(item.id);
+        setDeletingId(null);
+
+        if (deleteError) {
+          xAlert('삭제 실패', getUserMessage(deleteError));
+          return;
+        }
+
+        // 목록에서 즉시 제거 (재조회 대기 없이)
+        setPractices((prev) => prev.filter((p) => p.id !== item.id));
+
+        if (fileRemainsWarning) {
+          xAlert(
+            '기록은 삭제되었습니다',
+            '녹음 파일 삭제에 실패했습니다. 네트워크 상태를 확인한 뒤 고객센터로 문의해 주세요.',
+          );
+        } else {
+          showToast('삭제되었습니다.');
+        }
+      },
+      { confirmText: '삭제' },
+    );
   };
 
   const formatDate = (dateStr: string) => {
@@ -146,6 +187,23 @@ export default function HistoryScreen() {
                   <Text style={[styles.statLabel, { color: colors.textDisabled }]}>녹음</Text>
                   <Text style={[styles.statValue, { color: colors.textPrimary }]}>{formatDuration(item.duration)}</Text>
                 </View>
+                {/* 삭제 — 길게 누르기 같은 숨은 제스처 대신 보이는 버튼으로 둔다.
+                    방침이 고지한 권리이고, 스크린리더로도 닿아야 한다 */}
+                <Pressable
+                  onPress={() => handleDelete(item)}
+                  disabled={deletingId === item.id}
+                  hitSlop={12}
+                  style={styles.deleteButton}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${item.topic_name_ko} 연습 기록 삭제`}
+                  accessibilityHint="녹음 파일과 함께 삭제됩니다"
+                >
+                  <Ionicons
+                    name={deletingId === item.id ? 'hourglass-outline' : 'trash-outline'}
+                    size={18}
+                    color={colors.textDisabled}
+                  />
+                </Pressable>
                 <Ionicons name="chevron-forward" size={20} color={colors.textDisabled} />
               </View>
             </Pressable>
@@ -235,5 +293,10 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 16,
     fontFamily: 'Pretendard-Bold',
+  },
+  deleteButton: {
+    // hitSlop 12 과 합쳐 WCAG 2.5.8 최소 24px 을 넘긴다
+    padding: 4,
+    marginRight: 4,
   },
 });

@@ -38,6 +38,7 @@ import {
   generateFeedback,
   getDailyProgress,
   setDailyGoal,
+  deletePractice,
 } from '@/services/practices';
 import { ERROR_CODES } from '@/lib/errors';
 
@@ -54,10 +55,16 @@ function mockPlatformOS(os: string) {
 
 /** storage.from()이 매 호출마다 새 객체를 주므로, 인자 확인이 가능하도록 고정한다 */
 let uploadMock: jest.Mock;
-function stubStorage(uploadResult: { error: unknown } = { error: null }) {
+let removeMock: jest.Mock;
+function stubStorage(
+  uploadResult: { error: unknown } = { error: null },
+  removeResult: { error: unknown } = { error: null },
+) {
   uploadMock = jest.fn().mockResolvedValue(uploadResult);
+  removeMock = jest.fn().mockResolvedValue(removeResult);
   mockSupabase.storage.from.mockReturnValue({
     upload: uploadMock,
+    remove: removeMock,
     createSignedUrl: jest.fn().mockResolvedValue({ data: null, error: null }),
   } as any);
 }
@@ -455,7 +462,92 @@ describe('setDailyGoal', () => {
 });
 
 // ============================================================================
-// 6. 플로우 — 업로드 경로가 STT로 그대로 이어진다
+// 6. 연습 기록 삭제 — 개인정보처리방침이 고지한 "삭제 요구" 권리
+//
+//    기록만 숨기고 음성 파일이 Storage에 남으면 "지웠다"가 아니다.
+// ============================================================================
+
+describe('deletePractice', () => {
+  it('RPC에 연습 id를 넘긴다', async () => {
+    mockSupabase.rpc.mockResolvedValueOnce({
+      data: { success: true, audio_path: 'student-1/p1.webm' },
+      error: null,
+    });
+
+    await deletePractice('practice-1');
+
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('soft_delete_practice', {
+      p_practice_id: 'practice-1',
+    });
+  });
+
+  it('RPC가 돌려준 경로의 녹음 파일까지 지운다', async () => {
+    mockSupabase.rpc.mockResolvedValueOnce({
+      data: { success: true, audio_path: 'student-1/p1.webm' },
+      error: null,
+    });
+
+    const { error, fileRemainsWarning } = await deletePractice('practice-1');
+
+    expect(error).toBeNull();
+    expect(fileRemainsWarning).toBeUndefined();
+    expect(mockSupabase.storage.from).toHaveBeenCalledWith('practice-recordings');
+    expect(removeMock).toHaveBeenCalledWith(['student-1/p1.webm']);
+  });
+
+  it('파일 삭제에 실패하면 조용히 넘어가지 않고 알린다', async () => {
+    stubStorage({ error: null }, { error: new Error('permission denied') });
+    mockSupabase.rpc.mockResolvedValueOnce({
+      data: { success: true, audio_path: 'student-1/p1.webm' },
+      error: null,
+    });
+
+    const { error, fileRemainsWarning } = await deletePractice('practice-1');
+
+    // 기록은 이미 지워졌으므로 실패로 만들지 않는다
+    expect(error).toBeNull();
+    expect(fileRemainsWarning).toBe(true);
+  });
+
+  it('남의 기록이면 Storage를 건드리지 않는다', async () => {
+    mockSupabase.rpc.mockResolvedValueOnce({
+      data: { success: false, error: 'NOT_FOUND' },
+      error: null,
+    });
+
+    const { error } = await deletePractice('someone-elses-practice');
+
+    expect(error).not.toBeNull();
+    expect(removeMock).not.toHaveBeenCalled();
+  });
+
+  it('RPC 자체가 실패하면 Storage를 건드리지 않는다', async () => {
+    mockSupabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'function does not exist', code: '42883' },
+    });
+
+    const { error } = await deletePractice('practice-1');
+
+    expect(error).not.toBeNull();
+    expect(removeMock).not.toHaveBeenCalled();
+  });
+
+  it('음성 경로가 없으면 Storage 호출을 건너뛴다', async () => {
+    mockSupabase.rpc.mockResolvedValueOnce({
+      data: { success: true, audio_path: null },
+      error: null,
+    });
+
+    const { error } = await deletePractice('practice-1');
+
+    expect(error).toBeNull();
+    expect(removeMock).not.toHaveBeenCalled();
+  });
+});
+
+// ============================================================================
+// 7. 플로우 — 업로드 경로가 STT로 그대로 이어진다
 // ============================================================================
 
 describe('시나리오: 녹음 → 업로드 → 연습 생성 → STT → 피드백 저장', () => {
