@@ -476,6 +476,8 @@ export const EXAM_CONFIG = {
   QUESTION_WARNING_THRESHOLD_SEC: 10,
   /** 문항 간 자동 전환 대기 시간 (밀리초) */
   QUESTION_TRANSITION_DELAY_MS: 1500,
+  /** 자동 모드에서 문항 진입 후 질문 음성을 재생하기까지의 여유 (ms) */
+  AUTO_PLAY_DELAY_MS: 500,
 } as const;
 
 // ============================================================================
