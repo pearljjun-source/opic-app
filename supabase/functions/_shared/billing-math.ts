@@ -61,6 +61,52 @@ export function addBillingPeriod(from: Date | string, cycle: BillingCycle): Date
   return end;
 }
 
+/**
+ * 다음 청구 기간을 정한다. **밀린 기간은 건너뛴다.**
+ *
+ * 갱신은 원래 이렇게만 했다.
+ *
+ *   const newStart = new Date(sub.current_period_end);
+ *   const newEnd = addBillingPeriod(newStart, cycle);
+ *
+ * 한 주기만 전진하므로, 종료일이 오래 지난 구독은 전진 후에도 여전히 과거다.
+ * 그러면 다음 실행에서 또 걸리고, 매시간 도는 cron 이라면 **밀린 개월 수만큼
+ * 몇 시간 안에 연속으로 청구된다.**
+ *
+ * 실제로 이 프로젝트는 예약 작업이 설치되지 않아 구독 하나가 5개월 밀려 있었다
+ * (2026-09-08 확인). 그 상태로 cron 을 켰다면 5회가 연달아 청구됐을 것이다.
+ *
+ * 밀린 기간을 청구하지 않는 것이 맞는 이유는, 결제가 정상적으로 실패한 경우는
+ * dunning 이 past_due 로 옮기고 14일 뒤 취소하기 때문이다. `active` 인 채로 여러
+ * 달이 밀리는 것은 **우리 쪽 실행이 멈춘 경우뿐**이고, 그 대가를 고객이 낼 이유는
+ * 없다. 서비스도 그동안 계속 쓸 수 있었다.
+ *
+ * 밀리지 않은 정상 갱신에서는 한 주기만 전진하므로 기존 동작과 같다.
+ *
+ * @param previousEnd 지금 기간의 종료일
+ * @param now         기준 시각 (테스트에서 주입한다)
+ * @returns `skipped` 는 건너뛴 주기 수 — 0 이면 정상 갱신이다
+ */
+export function nextBillingPeriod(
+  previousEnd: Date | string,
+  cycle: BillingCycle,
+  now: Date = new Date(),
+): { start: Date; end: Date; skipped: number } {
+  let start = new Date(previousEnd);
+  let end = addBillingPeriod(start, cycle);
+  let skipped = 0;
+
+  // 데이터가 망가져 있어도 멈추도록 상한을 둔다. 월간 120회면 10년이다.
+  const MAX_SKIP = 120;
+  while (end.getTime() <= now.getTime() && skipped < MAX_SKIP) {
+    start = end;
+    end = addBillingPeriod(start, cycle);
+    skipped++;
+  }
+
+  return { start, end, skipped };
+}
+
 /** 주기에 맞는 가격을 고른다 */
 export function priceForCycle(
   plan: { price_monthly: number; price_yearly: number },

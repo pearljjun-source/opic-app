@@ -13,6 +13,7 @@
 import {
   calculateProration,
   addBillingPeriod,
+  nextBillingPeriod,
   priceForCycle,
 } from '../../supabase/functions/_shared/billing-math';
 
@@ -178,5 +179,99 @@ describe('priceForCycle', () => {
   it('연간이면 연 가격 — 월 가격 × 12 가 아니다 (할인이 들어 있다)', () => {
     expect(priceForCycle(plan, 'yearly')).toBe(449100);
     expect(priceForCycle(plan, 'yearly')).toBeLessThan(plan.price_monthly * 12);
+  });
+});
+
+// ============================================================================
+// 밀린 청구 기간 건너뛰기
+//
+// 이 함수가 없던 시절, 갱신은 종료일에서 한 주기만 전진했다. 종료일이 오래
+// 지난 구독은 전진해도 여전히 과거라 다음 실행에서 또 걸리고, 매시간 도는
+// cron 이라면 밀린 개월 수만큼 연속으로 청구됐다.
+//
+// 실제로 예약 작업이 설치되지 않아 구독 하나가 5개월 밀려 있었다 (2026-09-08).
+// 그 상태로 켰다면 5회가 연달아 나갔을 것이다.
+// ============================================================================
+
+describe('nextBillingPeriod — 정상 갱신', () => {
+  it('밀리지 않았으면 한 주기만 전진한다 (기존 동작과 같다)', () => {
+    // cron 은 종료일 하루 전부터 잡으므로 종료일이 미래인 것이 정상이다
+    const now = new Date('2026-09-08T00:00:00Z');
+    const r = nextBillingPeriod('2026-09-09T00:00:00Z', 'monthly', now);
+
+    expect(r.skipped).toBe(0);
+    expect(r.start.toISOString()).toBe('2026-09-09T00:00:00.000Z');
+    expect(r.end.toISOString()).toBe('2026-10-09T00:00:00.000Z');
+  });
+
+  it('연간도 한 주기만 전진한다', () => {
+    const now = new Date('2026-09-08T00:00:00Z');
+    const r = nextBillingPeriod('2026-09-09T00:00:00Z', 'yearly', now);
+
+    expect(r.skipped).toBe(0);
+    expect(r.end.toISOString()).toBe('2027-09-09T00:00:00.000Z');
+  });
+
+  it('종료일이 방금 지났으면 건너뛰지 않는다', () => {
+    // 한 시간 전에 만료 → 이번 청구가 바로 그 기간을 잇는다
+    const now = new Date('2026-09-08T10:00:00Z');
+    const r = nextBillingPeriod('2026-09-08T09:00:00Z', 'monthly', now);
+
+    expect(r.skipped).toBe(0);
+    expect(r.end.toISOString()).toBe('2026-10-08T09:00:00.000Z');
+  });
+});
+
+describe('nextBillingPeriod — 밀린 구독', () => {
+  it('5개월 밀렸어도 한 번에 현재 기간으로 당긴다', () => {
+    // 실제로 있었던 상황: 온더고 스튜디오, 2026-04-18 에서 멈춤
+    const now = new Date('2026-09-08T00:00:00Z');
+    const r = nextBillingPeriod('2026-04-18T00:00:00Z', 'monthly', now);
+
+    expect(r.skipped).toBe(4);
+    // 청구 대상 기간은 "지금이 속한" 기간 하나뿐이다
+    expect(r.start.toISOString()).toBe('2026-08-18T00:00:00.000Z');
+    expect(r.end.toISOString()).toBe('2026-09-18T00:00:00.000Z');
+  });
+
+  it('결과 종료일은 반드시 미래다 — 다음 실행에서 또 걸리면 안 된다', () => {
+    const now = new Date('2026-09-08T00:00:00Z');
+    for (const previousEnd of [
+      '2026-04-18T00:00:00Z',
+      '2025-01-01T00:00:00Z',
+      '2026-09-07T23:00:00Z',
+    ]) {
+      const r = nextBillingPeriod(previousEnd, 'monthly', now);
+      expect(r.end.getTime()).toBeGreaterThan(now.getTime());
+    }
+  });
+
+  it('밀린 기간만큼 청구가 늘지 않는다 — 호출은 언제나 한 기간분', () => {
+    const now = new Date('2026-09-08T00:00:00Z');
+    const r = nextBillingPeriod('2025-01-01T00:00:00Z', 'monthly', now);
+
+    // 20개월이 밀렸어도 청구되는 기간은 한 달치다
+    const days = (r.end.getTime() - r.start.getTime()) / (1000 * 60 * 60 * 24);
+    expect(days).toBeGreaterThan(27);
+    expect(days).toBeLessThan(32);
+  });
+
+  it('연간 구독도 같은 방식으로 당긴다', () => {
+    const now = new Date('2026-09-08T00:00:00Z');
+    const r = nextBillingPeriod('2023-01-01T00:00:00Z', 'yearly', now);
+
+    // 2024·2025·2026 세 번을 건너뛰고 지금이 속한 기간만 남는다
+    expect(r.skipped).toBe(3);
+    expect(r.start.toISOString()).toBe('2026-01-01T00:00:00.000Z');
+    expect(r.end.toISOString()).toBe('2027-01-01T00:00:00.000Z');
+  });
+
+  it('데이터가 망가져 있어도 무한 루프에 빠지지 않는다', () => {
+    // 상한(120주기)에 걸려도 반환은 한다. 멈추지 않는 것이 목적이다.
+    const now = new Date('2226-01-01T00:00:00Z');
+    const r = nextBillingPeriod('2026-01-01T00:00:00Z', 'monthly', now);
+
+    expect(r.skipped).toBeLessThanOrEqual(120);
+    expect(r.end).toBeInstanceOf(Date);
   });
 });

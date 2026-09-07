@@ -15,7 +15,7 @@ import { logger } from '../_shared/logger.ts';
 import { decryptValue, isEncrypted } from '../_shared/crypto.ts';
 import { sendEmail, emailTemplates } from '../_shared/email.ts';
 import { TOSS_API_BASE } from '../_shared/constants.ts';
-import { addBillingPeriod, type BillingCycle } from '../_shared/billing-math.ts';
+import { addBillingPeriod, nextBillingPeriod, type BillingCycle } from '../_shared/billing-math.ts';
 import { checkCronAuth } from '../_shared/cron-auth.ts';
 
 serve(async (req) => {
@@ -363,9 +363,19 @@ serve(async (req) => {
         if (payRes.ok) {
           const payData = payResBody;
 
-          // 구독 기간 연장 (billing_cycle에 따라 1개월/12개월)
-          const newStart = new Date(sub.current_period_end);
-          const newEnd = addBillingPeriod(newStart, (sub.billing_cycle || 'monthly') as BillingCycle);
+          // 구독 기간 연장. 밀린 기간은 건너뛴다 — 자세한 이유는 nextBillingPeriod 참고.
+          const { start: newStart, end: newEnd, skipped } = nextBillingPeriod(
+            sub.current_period_end,
+            (sub.billing_cycle || 'monthly') as BillingCycle,
+          );
+          if (skipped > 0) {
+            // 우리 쪽 실행이 멈춰 있었다는 신호다. 조용히 넘기면 다음에도 모른다.
+            logger.warn('Skipped overdue billing periods', {
+              subscriptionId: sub.id,
+              skipped,
+              previousEnd: sub.current_period_end,
+            });
+          }
 
           const updateData: Record<string, unknown> = {
             status: 'active',
