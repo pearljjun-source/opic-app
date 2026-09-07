@@ -14,7 +14,9 @@ function HeaderLogo() {
   const colors = useThemeColors();
   return (
     <Pressable
-      onPress={() => router.replace('/(student)/' as any)}
+      // navigate 는 이미 떠 있는 홈 탭으로 옮겨갈 뿐 새로 만들지 않는다.
+      // replace 는 화면을 다시 마운트해서, 로고를 누를 때마다 조회가 처음부터 돌았다.
+      onPress={() => router.navigate('/(student)/' as any)}
       style={{ flexDirection: 'row', alignItems: 'center', paddingLeft: 16 }}
     >
       <Image

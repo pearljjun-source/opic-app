@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, ScrollView, RefreshControl } from 'react-native';
-import { useState, useEffect, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -14,83 +14,73 @@ import { WeakAreasCard } from '@/components/student/WeakAreasCard';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SkeletonDashboard } from '@/components/ui/Loading';
 import { getUserMessage } from '@/lib/errors';
-import { useOfflineGuard } from '@/hooks/useOfflineGuard';
+import { queryKeys, unwrap } from '@/lib/query';
 import type { StudentTopicWithProgress, StudentPracticeStats } from '@/lib/types';
 
 export default function StudentDashboard() {
   const colors = useThemeColors();
-  const [teacher, setTeacher] = useState<ConnectedTeacher | null>(null);
-  const [topics, setTopics] = useState<StudentTopicWithProgress[]>([]);
-  const [practiceStats, setPracticeStats] = useState<StudentPracticeStats | null>(null);
-  const [currentStreak, setCurrentStreak] = useState(0);
-  const [dailyProgress, setDailyProgress] = useState<DailyProgress | null>(null);
-  const [weakAreas, setWeakAreas] = useState<WeakAreas | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const fetchData = useCallback(async () => {
-    // 강사 연결 확인
-    const { data: teacherData, error: teacherError } = await getMyTeacher();
+  // 강사 연결 여부가 나머지 전부를 좌우한다. 이것만 실패하면 화면을 못 그린다.
+  const teacherQuery = useQuery({
+    queryKey: queryKeys.connection.myTeacher(),
+    queryFn: () => unwrap(getMyTeacher()),
+  });
+  const teacher: ConnectedTeacher | null = teacherQuery.data ?? null;
 
-    if (teacherError) {
-      setError(getUserMessage(teacherError));
-      return;
-    }
+  // 강사가 붙어야 의미가 있는 조회들. enabled 로 묶어두면 미연결 학생에게
+  // 쓸데없는 요청이 나가지 않는다.
+  const enabled = !!teacher;
 
-    setTeacher(teacherData);
+  const topicsQuery = useQuery({
+    queryKey: queryKeys.topics.mine(),
+    queryFn: async () => (await unwrap(getMyTopicsWithProgress())) ?? [],
+    enabled,
+  });
+  const statsQuery = useQuery({
+    queryKey: queryKeys.practices.stats(),
+    queryFn: () => unwrap(getMyPracticeStats()),
+    enabled,
+  });
+  const streakQuery = useQuery({
+    queryKey: queryKeys.practices.streak(),
+    queryFn: () => unwrap(getMyStreak()),
+    enabled,
+  });
+  const dailyQuery = useQuery({
+    queryKey: queryKeys.practices.dailyProgress(),
+    queryFn: () => unwrap(getDailyProgress()),
+    enabled,
+  });
+  const weakQuery = useQuery({
+    queryKey: queryKeys.practices.weakAreas(),
+    queryFn: () => unwrap(getWeakAreas()),
+    enabled,
+  });
 
-    // 연결된 경우 병렬 데이터 조회
-    if (teacherData) {
-      const [topicsResult, statsResult, streakResult, dailyResult, weakResult] = await Promise.all([
-        getMyTopicsWithProgress(),
-        getMyPracticeStats(),
-        getMyStreak(),
-        getDailyProgress(),
-        getWeakAreas(),
-      ]);
+  const topics: StudentTopicWithProgress[] = topicsQuery.data ?? [];
+  const practiceStats: StudentPracticeStats | null = statsQuery.data ?? null;
+  const currentStreak = streakQuery.data?.current_streak ?? 0;
+  const dailyProgress: DailyProgress | null = dailyQuery.data ?? null;
+  const weakAreas: WeakAreas | null = weakQuery.data ?? null;
 
-      if (!topicsResult.error && topicsResult.data) {
-        setTopics(topicsResult.data);
-      }
+  // 부수 조회가 실패해도 화면은 그린다 — 예전 코드도 에러를 무시했다.
+  // 강사 조회만은 실패하면 보여줄 게 없으므로 에러 화면으로 간다.
+  const error = teacherQuery.error;
+  const isPending = teacherQuery.isPending;
+  const isRefreshing =
+    teacherQuery.isRefetching ||
+    topicsQuery.isRefetching ||
+    statsQuery.isRefetching ||
+    streakQuery.isRefetching ||
+    dailyQuery.isRefetching ||
+    weakQuery.isRefetching;
 
-      if (!statsResult.error && statsResult.data) {
-        setPracticeStats(statsResult.data);
-      }
-
-      if (!streakResult.error && streakResult.data) {
-        setCurrentStreak(streakResult.data.current_streak);
-      }
-
-      if (!dailyResult.error && dailyResult.data) {
-        setDailyProgress(dailyResult.data);
-      }
-
-      if (!weakResult.error && weakResult.data) {
-        setWeakAreas(weakResult.data);
-      }
-    }
-
-    setError(null);
-  }, []);
-
-  // 오프라인 → 온라인 복구 시 자동 새로고침
-  useOfflineGuard(fetchData);
-
-  useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      await fetchData();
-      setIsLoading(false);
-    };
-    loadData();
-  }, [fetchData]);
-
-  const handleRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    await fetchData();
-    setIsRefreshing(false);
-  }, [fetchData]);
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.connection.all });
+    queryClient.invalidateQueries({ queryKey: queryKeys.topics.all });
+    queryClient.invalidateQueries({ queryKey: queryKeys.practices.all });
+  };
 
   const handleTopicPress = (topic: StudentTopicWithProgress) => {
     router.push({
@@ -99,8 +89,8 @@ export default function StudentDashboard() {
     });
   };
 
-  // 로딩 중
-  if (isLoading) {
+  // 캐시가 있으면 여기 오지 않는다. 처음 열 때만 스켈레톤이다.
+  if (isPending) {
     return (
       <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
         <SkeletonDashboard />
@@ -113,7 +103,7 @@ export default function StudentDashboard() {
     return (
       <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
         <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
-        <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+        <Text style={[styles.errorText, { color: colors.error }]}>{getUserMessage(error)}</Text>
         <Pressable style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={handleRefresh}>
           <Text style={styles.retryButtonText}>다시 시도</Text>
         </Pressable>
@@ -169,7 +159,14 @@ export default function StudentDashboard() {
             onChangeGoal={async (newTarget) => {
               const { error: goalError } = await setDailyGoal(newTarget);
               if (!goalError) {
-                setDailyProgress(prev => prev ? { ...prev, daily_target: newTarget, completed: prev.today_count >= newTarget } : prev);
+                // 서버 재조회를 기다리지 않고 캐시를 바로 고친다.
+                queryClient.setQueryData<DailyProgress | null>(
+                  queryKeys.practices.dailyProgress(),
+                  (prev) =>
+                    prev
+                      ? { ...prev, daily_target: newTarget, completed: prev.today_count >= newTarget }
+                      : prev,
+                );
               }
             }}
           />

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { useThemeColors } from '@/hooks/useTheme';
 import type { TopicQuestionWithScript } from '@/lib/types';
 import { getMyTopicQuestionsWithScripts } from '@/services/topics';
 import { getUserMessage } from '@/lib/errors';
+import { queryKeys, unwrap } from '@/lib/query';
 import { showToast } from '@/lib/toast';
 import { TEST_IDS } from '@/lib/testIds';
 
@@ -26,38 +27,21 @@ export default function StudentTopicQuestionsScreen() {
   }>();
   const router = useRouter();
 
-  const [questions, setQuestions] = useState<TopicQuestionWithScript[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data: questions = [],
+    isPending,
+    error,
+    isRefetching,
+    refetch,
+  } = useQuery({
+    queryKey: queryKeys.topics.questions(topicId ?? ''),
+    queryFn: async () => (await unwrap(getMyTopicQuestionsWithScripts(topicId!))) ?? [],
+    // 라우트 파라미터가 아직 안 붙은 첫 렌더에서는 조회하지 않는다.
+    enabled: !!topicId,
+  });
 
-  const fetchQuestions = useCallback(async () => {
-    if (!topicId) return;
-
-    const { data, error: fetchError } = await getMyTopicQuestionsWithScripts(topicId);
-
-    if (fetchError) {
-      setError(getUserMessage(fetchError));
-      return;
-    }
-
-    setQuestions(data || []);
-    setError(null);
-  }, [topicId]);
-
-  useEffect(() => {
-    const load = async () => {
-      setIsLoading(true);
-      await fetchQuestions();
-      setIsLoading(false);
-    };
-    load();
-  }, [fetchQuestions]);
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await fetchQuestions();
-    setIsRefreshing(false);
+  const handleRefresh = () => {
+    refetch();
   };
 
   const handleQuestionPress = (question: TopicQuestionWithScript) => {
@@ -128,7 +112,8 @@ export default function StudentTopicQuestionsScreen() {
     );
   };
 
-  if (isLoading) {
+  // 캐시가 있으면 여기 오지 않는다 — 연습을 마치고 돌아올 때 깜빡이지 않는 이유다.
+  if (isPending) {
     return (
       <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -140,7 +125,7 @@ export default function StudentTopicQuestionsScreen() {
     return (
       <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
         <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
-        <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+        <Text style={[styles.errorText, { color: colors.error }]}>{getUserMessage(error)}</Text>
         <Pressable style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={handleRefresh}>
           <Text style={styles.retryButtonText}>다시 시도</Text>
         </Pressable>
@@ -190,7 +175,7 @@ export default function StudentTopicQuestionsScreen() {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
+            <RefreshControl refreshing={isRefetching} onRefresh={handleRefresh} />
           }
         />
       </View>

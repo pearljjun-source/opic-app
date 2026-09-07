@@ -2,6 +2,7 @@ import { View, Text, ActivityIndicator, Animated, StyleSheet, type ViewStyle, ty
 import { useEffect, useRef } from 'react';
 
 import { useThemeColors } from '@/hooks/useTheme';
+import { TEST_IDS } from '@/lib/testIds';
 import { STRINGS } from '@/lib/strings';
 
 export type LoadingSize = 'small' | 'large';
@@ -138,7 +139,7 @@ export function SkeletonCard({ style }: { style?: StyleProp<ViewStyle> }) {
 // Skeleton group: List (multiple cards)
 export function SkeletonList({ count = 3, style }: { count?: number; style?: StyleProp<ViewStyle> }) {
   return (
-    <View style={style}>
+    <View testID={TEST_IDS.SKELETON} style={style}>
       {Array.from({ length: count }).map((_, index) => (
         <SkeletonCard key={index} style={{ marginBottom: 12 }} />
       ))}
@@ -164,7 +165,7 @@ export function SkeletonStatRow({ style }: { style?: StyleProp<ViewStyle> }) {
 // Skeleton group: Dashboard (stat row + card list)
 export function SkeletonDashboard({ style }: { style?: StyleProp<ViewStyle> }) {
   return (
-    <View style={[skStyles.dashPad, style]}>
+    <View testID={TEST_IDS.SKELETON} style={[skStyles.dashPad, style]}>
       <SkeletonStatRow style={{ marginBottom: 16 }} />
       <SkeletonList count={4} />
     </View>

@@ -1,51 +1,37 @@
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, TextInput, Platform, KeyboardAvoidingView } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 
 import { alert as xAlert } from '@/lib/alert';
 import { useThemeColors } from '@/hooks/useTheme';
 import { getStudentScript, updateScriptAsStudent, StudentScriptDetail } from '@/services/scripts';
 import { getUserMessage } from '@/lib/errors';
+import { queryKeys, unwrap } from '@/lib/query';
 import { TEST_IDS } from '@/lib/testIds';
 
 export default function ScriptViewScreen() {
   const colors = useThemeColors();
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  const [script, setScript] = useState<StudentScriptDetail | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  const {
+    data: script = null,
+    isPending,
+    error,
+  } = useQuery({
+    queryKey: queryKeys.scripts.detail(id ?? ''),
+    queryFn: () => unwrap(getStudentScript(id!)),
+    enabled: !!id,
+  });
 
   // 수정 모드
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const textInputRef = useRef<TextInput>(null);
-
-  useEffect(() => {
-    const loadScript = async () => {
-      if (!id) return;
-
-      setIsLoading(true);
-      try {
-        const { data, error: fetchError } = await getStudentScript(id);
-
-        if (fetchError) {
-          setError(getUserMessage(fetchError));
-        } else {
-          setScript(data);
-          setError(null);
-        }
-      } catch (err) {
-        setError(getUserMessage(err));
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadScript();
-  }, [id]);
 
   const handleShadowing = () => {
     router.push(`/(student)/script/${id}/shadowing`);
@@ -95,7 +81,11 @@ export default function ScriptViewScreen() {
       if (saveError) {
         xAlert('오류', getUserMessage(saveError));
       } else {
-        setScript({ ...script, content: trimmed, content_ko: null });
+        // 서버는 content 가 바뀌면 트리거로 content_ko 를 지운다. 캐시도 같게 맞춘다.
+        queryClient.setQueryData<StudentScriptDetail | null>(
+          queryKeys.scripts.detail(id),
+          (prev) => (prev ? { ...prev, content: trimmed, content_ko: null } : prev),
+        );
         setIsEditing(false);
       }
     } catch (err) {
@@ -105,7 +95,8 @@ export default function ScriptViewScreen() {
     }
   };
 
-  if (isLoading) {
+  // 캐시가 있으면 여기 오지 않는다. 연습에서 돌아올 때 다시 불러오지 않는다.
+  if (isPending) {
     return (
       <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -118,7 +109,7 @@ export default function ScriptViewScreen() {
     return (
       <View style={[styles.centerContainer, { backgroundColor: colors.surfaceSecondary }]}>
         <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
-        <Text style={[styles.errorText, { color: colors.error }]}>{error || '스크립트를 찾을 수 없습니다'}</Text>
+        <Text style={[styles.errorText, { color: colors.error }]}>{error ? getUserMessage(error) : '스크립트를 찾을 수 없습니다'}</Text>
         <Pressable style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={() => router.back()}>
           <Text style={styles.retryButtonText}>뒤로 가기</Text>
         </Pressable>

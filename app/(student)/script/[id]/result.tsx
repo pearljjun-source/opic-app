@@ -163,14 +163,18 @@ export default function ResultScreen() {
 
         <Pressable
           style={[styles.secondaryButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          onPress={() => router.replace(`/(student)/script/${id}` as any)}
+          // dismissTo 는 히스토리에 있는 그 화면까지 되돌아간다. replace 로 새 화면을
+          // 쌓으면 이미 살아있는 스크립트 화면을 버리고 다시 조회하게 된다.
+          onPress={() => router.dismissTo(`/(student)/script/${id}` as any)}
         >
           <Text style={[styles.secondaryButtonText, { color: colors.textPrimary }]}>스크립트 보기</Text>
         </Pressable>
 
         <Pressable
           style={styles.tertiaryButton}
-          onPress={() => router.replace('/(student)/' as any)}
+          // 탭 홈은 스택의 첫 화면이라 dismissAll 로 그대로 돌아간다. 마운트가
+          // 유지되고, 새 연습 기록은 practice.tsx 의 무효화가 이미 반영해뒀다.
+          onPress={() => router.dismissAll()}
         >
           <Text style={[styles.tertiaryButtonText, { color: colors.textSecondary }]}>홈으로</Text>
         </Pressable>

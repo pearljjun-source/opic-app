@@ -8,14 +8,14 @@ import {
   RefreshControl,
 } from 'react-native';
 import { router } from 'expo-router';
-import { useState, useEffect, useCallback } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useThemeColors } from '@/hooks/useTheme';
 import { SkeletonList } from '@/components/ui/Loading';
 import { getMyPractices, deletePractice } from '@/services/practices';
 import { getUserMessage } from '@/lib/errors';
-import { useOfflineGuard } from '@/hooks/useOfflineGuard';
+import { queryKeys, unwrap } from '@/lib/query';
 import { confirm as xConfirm, alert as xAlert } from '@/lib/alert';
 import { showToast } from '@/lib/toast';
 import { TEST_IDS } from '@/lib/testIds';
@@ -32,38 +32,37 @@ interface PracticeItem {
 
 export default function HistoryScreen() {
   const colors = useThemeColors();
-  const [practices, setPractices] = useState<PracticeItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const loadPractices = useCallback(async () => {
-    const { data, error: fetchError } = await getMyPractices();
+  const {
+    data: practices = [],
+    // isPending 는 "아직 보여줄 데이터가 없다" 는 뜻이라 갱신 중(isFetching)과
+    // 구분된다. 캐시가 남아있는 재방문에서는 스켈레톤이 뜨지 않는다.
+    isPending,
+    error,
+    isRefetching,
+    refetch,
+  } = useQuery({
+    queryKey: queryKeys.practices.mine(),
+    // 기록이 없는 것과 조회에 실패한 것은 다르다. 서비스가 null 을 주는 쪽은
+    // "없음" 이므로 빈 배열로 바꾸고, 실패는 unwrap 이 던져 error 로 간다.
+    queryFn: async () => (await unwrap(getMyPractices())) ?? [],
+  });
 
-    if (fetchError) {
-      setError(getUserMessage(fetchError));
-    } else {
-      setPractices(data || []);
-      setError(null);
-    }
-  }, []);
-
-  useOfflineGuard(loadPractices);
-
-  useEffect(() => {
-    const init = async () => {
-      await loadPractices();
-      setIsLoading(false);
-    };
-    init();
-  }, [loadPractices]);
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await loadPractices();
-    setIsRefreshing(false);
+  const handleRefresh = () => {
+    refetch();
   };
+
+  const deleteMutation = useMutation({
+    mutationFn: async (practiceId: string) => {
+      const { error: deleteError, fileRemainsWarning } = await deletePractice(practiceId);
+      if (deleteError) throw deleteError;
+      return { fileRemainsWarning: fileRemainsWarning ?? false };
+    },
+  });
+
+  const isDeleting = (practiceId: string) =>
+    deleteMutation.isPending && deleteMutation.variables === practiceId;
 
   /**
    * 연습 기록 삭제.
@@ -72,23 +71,26 @@ export default function HistoryScreen() {
    * 녹음 파일까지 함께 지운다.
    */
   const handleDelete = (item: PracticeItem) => {
-    if (deletingId) return;
+    if (deleteMutation.isPending) return;
 
     xConfirm(
       '연습 기록 삭제',
       `'${item.topic_name_ko}' 연습 기록과 녹음 파일이 삭제됩니다.\n되돌릴 수 없습니다.`,
       async () => {
-        setDeletingId(item.id);
-        const { error: deleteError, fileRemainsWarning } = await deletePractice(item.id);
-        setDeletingId(null);
-
-        if (deleteError) {
+        let fileRemainsWarning = false;
+        try {
+          ({ fileRemainsWarning } = await deleteMutation.mutateAsync(item.id));
+        } catch (deleteError) {
           xAlert('삭제 실패', getUserMessage(deleteError));
           return;
         }
 
-        // 목록에서 즉시 제거 (재조회 대기 없이)
-        setPractices((prev) => prev.filter((p) => p.id !== item.id));
+        // 재조회를 기다리지 않고 캐시에서 바로 뺀다 — 목록이 즉시 반응한다.
+        queryClient.setQueryData<PracticeItem[]>(queryKeys.practices.mine(), (prev) =>
+          (prev ?? []).filter((p) => p.id !== item.id),
+        );
+        // 통계·스트릭·주간 진도도 이 기록에 딸려 있다. 앞부분만 주면 전부 걸린다.
+        queryClient.invalidateQueries({ queryKey: queryKeys.practices.all });
 
         if (fileRemainsWarning) {
           xAlert(
@@ -119,7 +121,8 @@ export default function HistoryScreen() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  if (isLoading) {
+  // 캐시가 있으면 여기 오지 않는다. 처음 열 때만 스켈레톤이다.
+  if (isPending) {
     return (
       <View style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}>
         <SkeletonList count={5} style={{ padding: 16 }} />
@@ -132,7 +135,7 @@ export default function HistoryScreen() {
       {error ? (
         <View style={styles.centerContainer}>
           <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
-          <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+          <Text style={[styles.errorText, { color: colors.error }]}>{getUserMessage(error)}</Text>
           <Pressable style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={handleRefresh}>
             <Text style={styles.retryButtonText}>다시 시도</Text>
           </Pressable>
@@ -148,7 +151,7 @@ export default function HistoryScreen() {
           data={practices}
           keyExtractor={(item) => item.id}
           refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
+            <RefreshControl refreshing={isRefetching} onRefresh={handleRefresh} />
           }
           renderItem={({ item }) => (
             <Pressable
@@ -194,7 +197,7 @@ export default function HistoryScreen() {
                 <Pressable
                   testID={TEST_IDS.HISTORY_DELETE_BUTTON}
                   onPress={() => handleDelete(item)}
-                  disabled={deletingId === item.id}
+                  disabled={isDeleting(item.id)}
                   hitSlop={12}
                   style={styles.deleteButton}
                   accessibilityRole="button"
@@ -202,7 +205,7 @@ export default function HistoryScreen() {
                   accessibilityHint="녹음 파일과 함께 삭제됩니다"
                 >
                   <Ionicons
-                    name={deletingId === item.id ? 'hourglass-outline' : 'trash-outline'}
+                    name={isDeleting(item.id) ? 'hourglass-outline' : 'trash-outline'}
                     size={18}
                     color={colors.textDisabled}
                   />

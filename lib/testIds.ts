@@ -36,4 +36,8 @@ export const TEST_IDS = {
   // 연습 기록 (정리용)
   HISTORY_CARD: 'history-card',
   HISTORY_DELETE_BUTTON: 'history-delete-button',
+
+  // 로딩 스켈레톤 — "보여줄 데이터가 없다" 는 상태를 테스트가 확인할 수 있어야
+  // 한다. 캐시가 있는 재방문에서 이게 뜨면 회귀다.
+  SKELETON: 'skeleton',
 } as const;

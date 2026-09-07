@@ -8,6 +8,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect, useRef } from 'react';
 import {
   useAudioPlayer,
@@ -35,6 +36,7 @@ import {
 } from '@/services/practices';
 import { notifyAction, deliverNotification } from '@/services/notifications';
 import { getUserMessage } from '@/lib/errors';
+import { queryKeys } from '@/lib/query';
 import { TEST_IDS } from '@/lib/testIds';
 import { alert as xAlert } from '@/lib/alert';
 import { VoiceConsentModal } from '@/components/ui/VoiceConsentModal';
@@ -63,6 +65,7 @@ const STEP_LABELS = PRACTICE_STEP_LABELS;
 
 export default function PracticeScreen() {
   const colors = useThemeColors();
+  const queryClient = useQueryClient();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { requireConsent, showConsentModal, handleAgree, handleDecline } = useVoiceConsent();
 
@@ -396,7 +399,13 @@ export default function PracticeScreen() {
         }
       });
 
-      // 결과 화면으로 이동
+      // 방금 만든 기록이 홈·이력·통계에 반영되도록 캐시를 무효화한다.
+      // 예전에는 이 목적으로 홈을 router.replace 해서 통째로 새로 마운트시켰고,
+      // 그 바람에 돌아갈 때마다 스켈레톤이 떴다.
+      queryClient.invalidateQueries({ queryKey: queryKeys.practices.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.topics.all });
+
+      // 결과 화면으로 이동 — 녹음 화면으로 되돌아오면 안 되므로 replace 가 맞다.
       router.replace({
         pathname: '/(student)/script/[id]/result',
         params: { id, practiceId: practiceData.id },

@@ -160,13 +160,76 @@ services/            # 14개 서비스 (admin, billing, classes, connection, exa
                      #   scripts, students, topics)
 hooks/               # 7개 훅 (useAuth, useSubscription, useTheme,
                      #   usePushNotifications, useAppState, useNetworkStatus)
-lib/                 # errors.ts, types.ts, constants.ts, validations.ts, supabase.ts
+lib/                 # errors.ts, types.ts, constants.ts, validations.ts, supabase.ts, query.ts
 supabase/
 ├── functions/       # 8개 Edge Functions + _shared
 └── migrations/      # 32개 마이그레이션 (001~032)
 ```
 
 ---
+
+
+## 서버 데이터 캐시 (lib/query.ts)
+
+> **화면에서 서버 데이터를 조회할 때는 `useQuery` 를 쓴다. `useState` + `useEffect` 로
+> 직접 조회하지 않는다.**
+
+### 왜 넣었나
+
+조회 결과가 화면 컴포넌트의 `useState` 안에만 살았다. 컴포넌트가 언마운트되면
+데이터도 같이 죽으니, 뒤로 돌아오거나 탭을 옮길 때마다 보여줄 게 없어
+**스켈레톤부터 다시 떴다.** 41개 화면이 같은 패턴을 각자 복사해 갖고 있었다.
+
+증상은 더 있었다. 같은 데이터를 화면마다 다시 조회했고, 한 곳에서 바꾼 게 다른
+곳에 반영되지 않아 **`router.replace` 로 화면을 통째로 다시 만드는 꼼수**가 생겼다.
+그 꼼수가 다시 스켈레톤을 부르는 순환이었다.
+
+캐시를 컴포넌트 바깥에 두면 이 문제는 고쳐지는 게 아니라 **사라진다** — 다시
+마운트돼도 직전 데이터가 그대로 있으니 띄울 스켈레톤이 없다.
+
+### 규약
+
+| 항목 | 규칙 |
+|------|------|
+| 쿼리 키 | `lib/query.ts` 의 `queryKeys` 만 쓴다. 문자열을 화면에 직접 적지 않는다 (오타가 조용히 다른 캐시를 만든다) |
+| 서비스 연결 | `queryFn: () => unwrap(getXxx())` — `{ data, error }` 를 던지는 규약으로 바꾼다 |
+| "없음" vs 실패 | 서비스가 `data: null, error: null` 을 주면 정상적인 "없음" 이다. 목록이면 `?? []` 로 받는다 |
+| 스켈레톤 조건 | **`isPending`** (보여줄 데이터가 없음). `isFetching` 을 쓰면 갱신 때마다 깜빡인다 |
+| 당겨서 새로고침 | `isRefetching` + `refetch()` |
+| 쓰기 후 | `invalidateQueries({ queryKey: queryKeys.practices.all })` — 앞부분만 주면 하위가 전부 걸린다 |
+| 즉시 반영 | 재조회를 기다리지 않아야 하면 `setQueryData` 로 캐시를 직접 고친다 |
+
+### 기본 설정과 그 이유
+
+| 옵션 | 값 | 이유 |
+|------|-----|------|
+| `staleTime` | 30초 | 화면을 빠르게 오갈 때 같은 요청이 연달아 나가는 것을 막는다 |
+| `gcTime` | 30분 | **스켈레톤 깜빡임을 없애는 값이 이것이다.** 기본 5분은 앱을 잠깐 두고 온 사이 비어버린다 |
+| `retry` | 1 | 인가 실패처럼 다시 해도 같은 답이 오는 에러를 반복하지 않는다 |
+
+`initQueryClientBindings()` 가 NetInfo 와 AppState 를 `onlineManager` / `focusManager`
+에 연결한다. 이것이 **`useOfflineGuard` 를 대체한다** — 화면마다 하던 일을 한 곳에서 한다.
+
+### ⚠️ 네비게이션과 함께 봐야 한다
+
+`router.replace` 로 탭 홈에 가면 스택이 무너지고 화면이 **새로 마운트된다.**
+뒤로 가는 것처럼 보이지만 실제로는 새 화면을 세우는 것이다.
+
+| 하려는 것 | 쓸 것 |
+|-----------|-------|
+| 히스토리에 있는 화면으로 되돌아가기 | `router.dismissTo(href)` |
+| 스택을 접고 탭 홈으로 | `router.dismissAll()` |
+| 이미 떠 있는 탭으로 옮기기 | `router.navigate(href)` |
+| 되돌아오면 안 되는 화면 떠나기 (녹음 → 결과) | `router.replace` — 여기서는 맞다 |
+
+### 이전 상태
+
+| 화면 | 상태 |
+|------|------|
+| 학생 홈 · 이력 · 토픽 상세 · 스크립트 상세 | ✅ 이전 완료 |
+| 나머지 | `useState` + `useEffect`. 손댈 일이 있을 때 함께 옮긴다 |
+| 신규 화면 | 무조건 `useQuery` |
+
 
 ## 상수 정의 (lib/constants.ts)
 
