@@ -303,8 +303,23 @@ export default function PracticeScreen() {
         return;
       }
 
+      // ⏱ 단계별 소요 시간 — 개발 빌드에서만. AI 분석이 느릴 때 어느 구간인지 본다.
+      //    LogBox 배너를 띄우지 않도록 warn 이 아니라 log 를 쓴다.
+      const t0 = Date.now();
+      let tPrev = t0;
+      const lap = (label: string) => {
+        if (!__DEV__) return;
+        const now = Date.now();
+        console.log(
+          `[practice ⏱] ${label} ${((now - tPrev) / 1000).toFixed(2)}s  (누적 ${((now - t0) / 1000).toFixed(2)}s)`,
+        );
+        tPrev = now;
+      };
+
       // 1. 파일 업로드 (확장자는 uploadRecording이 콘텐츠 타입에서 자동 결정)
       const { data: uploadData, error: uploadError } = await uploadRecording(uri, `practice_${Date.now()}`);
+
+      lap('업로드');
 
       if (uploadError || !uploadData) {
         xAlert('업로드 실패', getUserMessage(uploadError));
@@ -322,6 +337,8 @@ export default function PracticeScreen() {
         }),
         transcribeAudio(uploadData.path),
       ]);
+
+      lap('기록 생성 + STT(Whisper)');
 
       if (practiceResult.error || !practiceResult.data) {
         xAlert('저장 실패', getUserMessage(practiceResult.error));
@@ -348,6 +365,8 @@ export default function PracticeScreen() {
         script.question?.question_type,
       );
 
+      lap('AI 피드백(Claude)');
+
       if (feedbackError || !feedbackData) {
         xAlert('AI 분석 실패', getUserMessage(feedbackError));
         setPracticeState('ready');
@@ -363,6 +382,8 @@ export default function PracticeScreen() {
         reproductionRate: feedbackData.reproductionRate,
         feedback: feedbackData.feedback,
       });
+
+      lap('결과 저장');
 
       if (updateError) {
         if (__DEV__) console.warn('[AppError] Failed to update practice:', updateError);
