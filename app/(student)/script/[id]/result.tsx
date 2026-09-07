@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '@/hooks/useTheme';
 import { getPracticeResult, PracticeResult } from '@/services/practices';
 import { getUserMessage } from '@/lib/errors';
+import { TEST_IDS } from '@/lib/testIds';
 import { formatDuration } from '@/lib/helpers';
 import { diffScript } from '@/lib/diff';
 import FeedbackSection from '@/components/student/FeedbackSection';
@@ -85,7 +86,7 @@ export default function ResultScreen() {
       <View style={styles.scoreSection}>
         <View style={[styles.scoreBox, { backgroundColor: colors.primary + '15' }]}>
           <Text style={[styles.scoreLabel, { color: colors.textSecondary }]}>점수</Text>
-          <Text style={[styles.scoreValue, { color: colors.primary }]}>{result.score ?? '-'}</Text>
+          <Text testID={TEST_IDS.PRACTICE_RESULT_SCORE} style={[styles.scoreValue, { color: colors.primary }]}>{result.score ?? '-'}</Text>
         </View>
         <View style={[styles.scoreBox, { backgroundColor: colors.primary + '15' }]}>
           <Text style={[styles.scoreLabel, { color: colors.textSecondary }]}>재현율</Text>
