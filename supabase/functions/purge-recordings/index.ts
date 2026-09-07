@@ -19,6 +19,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders, handleCorsPreFlight } from '../_shared/cors.ts';
 import { logger } from '../_shared/logger.ts';
+import { checkCronAuth } from '../_shared/cron-auth.ts';
 
 /** 녹음 보관 기간(일). lib/constants.ts 의 RECORDING_RETENTION_DAYS 와 같아야 한다 */
 const RETENTION_DAYS = 180;
@@ -31,16 +32,14 @@ serve(async (req) => {
   if (preFlightResponse) return preFlightResponse;
 
   try {
-    // Cron 시크릿 검증 (서버 간 호출만 허용)
-    const cronSecret = Deno.env.get('CRON_SECRET');
-    if (cronSecret) {
-      const reqSecret = req.headers.get('x-cron-secret') || '';
-      if (reqSecret !== cronSecret) {
-        return new Response(
-          JSON.stringify({ error: 'Unauthorized' }),
-          { status: 401, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
-        );
-      }
+    // Cron 시크릿 검증 — 시크릿이 설정되어 있지 않으면 거부한다 (fail-closed)
+    const cronAuth = checkCronAuth(req.headers.get('x-cron-secret'), Deno.env.get('CRON_SECRET'));
+    if (!cronAuth.ok) {
+      logger.error(cronAuth.log);
+      return new Response(
+        JSON.stringify({ error: cronAuth.error }),
+        { status: cronAuth.status, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+      );
     }
 
     const supabaseAdmin = createClient(

@@ -16,6 +16,7 @@ import { decryptValue, isEncrypted } from '../_shared/crypto.ts';
 import { sendEmail, emailTemplates } from '../_shared/email.ts';
 import { TOSS_API_BASE } from '../_shared/constants.ts';
 import { addBillingPeriod, type BillingCycle } from '../_shared/billing-math.ts';
+import { checkCronAuth } from '../_shared/cron-auth.ts';
 
 serve(async (req) => {
   const preFlightResponse = handleCorsPreFlight(req);
@@ -27,16 +28,14 @@ serve(async (req) => {
       throw new Error('TOSS_SECRET_KEY is not configured');
     }
 
-    // Cron 시크릿 검증 (서버 간 호출만 허용)
-    const cronSecret = Deno.env.get('CRON_SECRET');
-    if (cronSecret) {
-      const reqSecret = req.headers.get('x-cron-secret') || '';
-      if (reqSecret !== cronSecret) {
-        return new Response(
-          JSON.stringify({ error: 'Unauthorized' }),
-          { status: 401, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
-        );
-      }
+    // Cron 시크릿 검증 — 시크릿이 설정되어 있지 않으면 거부한다 (fail-closed)
+    const cronAuth = checkCronAuth(req.headers.get('x-cron-secret'), Deno.env.get('CRON_SECRET'));
+    if (!cronAuth.ok) {
+      logger.error(cronAuth.log);
+      return new Response(
+        JSON.stringify({ error: cronAuth.error }),
+        { status: cronAuth.status, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+      );
     }
 
     // Service Role
