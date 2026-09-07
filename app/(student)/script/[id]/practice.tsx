@@ -129,7 +129,12 @@ export default function PracticeScreen() {
   // 클린업
   useEffect(() => {
     return () => {
-      player.pause();
+      // ⚠️ 오디오는 여기서 정리하지 않는다.
+      //    useAudioPlayer/useAudioRecorder 는 내부적으로 useReleasingSharedObject 를 쓰고,
+      //    그 훅이 언마운트 시 네이티브 객체를 release() 한다. React 는 effect 를 선언
+      //    순서대로 정리하므로 expo-audio 의 정리가 먼저 돌고, 그 뒤에 우리가 pause() 를
+      //    부르면 이미 사라진 객체를 건드려 예외가 난다.
+      //    release() 가 재생·녹음을 끝내므로 중복 호출 자체가 불필요하다.
       recTimer.cleanup();
       if (Platform.OS === 'web' && webRecorderRef.current) {
         if (webRecorderRef.current.state !== 'inactive') {
@@ -137,8 +142,6 @@ export default function PracticeScreen() {
         }
         webRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
         webRecorderRef.current = null;
-      } else if (Platform.OS !== 'web' && recorder.isRecording) {
-        recorder.stop();
       }
     };
   }, []);

@@ -39,6 +39,11 @@ function splitSentences(text: string): string[] {
   return parts.length > 0 ? parts : [text];
 }
 
+// ⚠️ 재생 속도는 반드시 setPlaybackRate() 로 바꾼다.
+//    expo-audio 의 타입 정의는 `player.playbackRate = x` 를 허용하는 것처럼 보이지만
+//    (문서 예제도 그렇게 쓴다), 안드로이드 New Architecture 런타임에서는 getter 전용이라
+//    대입하면 TypeError 가 나고 그 자리에서 재생이 통째로 실패한다.
+//    타입 검사로는 안 잡히므로 주의.
 export default function ShadowingScreen() {
   const colors = useThemeColors();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -118,7 +123,12 @@ export default function ShadowingScreen() {
   // 클린업
   useEffect(() => {
     return () => {
-      player.pause();
+      // ⚠️ 오디오는 여기서 정리하지 않는다.
+      //    useAudioPlayer/useAudioRecorder 는 내부적으로 useReleasingSharedObject 를 쓰고,
+      //    그 훅이 언마운트 시 네이티브 객체를 release() 한다. React 는 effect 를 선언
+      //    순서대로 정리하므로 expo-audio 의 정리가 먼저 돌고, 그 뒤에 우리가 pause() 를
+      //    부르면 이미 사라진 객체를 건드려 예외가 난다.
+      //    release() 가 재생·녹음을 끝내므로 중복 호출 자체가 불필요하다.
       recTimer.cleanup();
       if (Platform.OS === 'web' && webRecorderRef.current) {
         if (webRecorderRef.current.state !== 'inactive') {
@@ -126,8 +136,6 @@ export default function ShadowingScreen() {
         }
         webRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
         webRecorderRef.current = null;
-      } else if (Platform.OS !== 'web' && recorder.isRecording) {
-        recorder.stop();
       }
     };
   }, []);
@@ -183,7 +191,7 @@ export default function ShadowingScreen() {
       setActiveSentence(-1);
       setState('ready');
     } else if (state === 'playing_recording') {
-      player.playbackRate = speed;
+      player.setPlaybackRate(speed);
     }
   }, [speed]);
 
@@ -213,7 +221,7 @@ export default function ShadowingScreen() {
 
       playbackTypeRef.current = 'tts';
       player.replace({ uri: audioUrl });
-      player.playbackRate = 1.0; // 속도는 API에서 이미 적용됨
+      player.setPlaybackRate(1.0); // TTS 는 서버에서 이미 속도를 적용해 만든다
       player.play();
     } catch (err) {
       if (__DEV__) console.warn('[AppError] Error playing TTS:', err);
@@ -351,7 +359,7 @@ export default function ShadowingScreen() {
       setState('playing_recording');
       playbackTypeRef.current = 'recording';
       player.replace({ uri: recordingUriRef.current });
-      player.playbackRate = speed;
+      player.setPlaybackRate(speed);
       player.play();
     } catch (err) {
       if (__DEV__) console.warn('[AppError] Error playing recording:', err);

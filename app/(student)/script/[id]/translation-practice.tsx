@@ -111,9 +111,11 @@ export default function TranslationPracticeScreen() {
         }
         webRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
         webRecorderRef.current = null;
-      } else if (Platform.OS !== 'web' && recorder.isRecording) {
-        recorder.stop();
       }
+      // ⚠️ 네이티브 레코더는 여기서 건드리지 않는다.
+      //    useAudioRecorder 는 useReleasingSharedObject 로 언마운트 시 객체를 release()
+      //    하고, React 는 effect 를 선언 순서대로 정리한다. 위에서 선언된 expo-audio 의
+      //    정리가 먼저 돌아서, 여기서 recorder.isRecording 을 읽기만 해도 예외가 난다.
     };
   }, []);
 
