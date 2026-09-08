@@ -203,6 +203,30 @@ HTML 에 글자가 한 자도 없었다.
 ⚠️ **빌드가 종료 코드 0 을 내도 성공이 아니다.** 프리렌더가 전부 실패해도 0 이 나온다.
 `find dist -name '*.html' | wc -l` 로 장수를 확인한다 (정상: 160장 이상).
 
+### vercel.json — 두 가지를 같이 봐야 한다
+
+```json
+{ "cleanUrls": true,
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }] }
+```
+
+| 항목 | 왜 |
+|------|-----|
+| `cleanUrls` | `terms.html` 을 `/terms` 로 서빙한다. **없으면 확장자 없는 경로가 파일과 매칭되지 않아 아래 포괄 rewrite 로 떨어지고, 경로별 HTML 을 165장 만들어놓고도 전부 index.html 이 나간다.** 실제로 배포 후 `/terms` 가 랜딩을 돌려줬다 |
+| 포괄 rewrite | 지운다. `/join/CODE` 처럼 미리 만들 수 없는 동적 경로는 클라이언트 라우터가 받아야 한다 |
+
+⚠️ **`vercel.json` 에 주석을 넣지 않는다.** JSON 에 주석이 없다고 `"//"` 키를
+쓰면 Vercel 이 스키마 검증에서 설정 파일 전체를 거부하고 **배포가 조용히
+실패한다.** 사이트는 이전 버전 그대로 떠 있어서 성공한 것처럼 보인다.
+설명이 필요하면 여기(CLAUDE.md)에 적는다.
+
+⚠️ **배포 후 실제 URL 을 확인한다.** `dist` 에 파일이 만들어진 것과 그 파일이
+서빙되는 것은 다르다. 로컬 빌드만 보고 넘어가면 위 두 문제를 못 잡는다.
+
+```bash
+curl -sL https://www.speaky.co.kr/terms | grep -c '제1조'   # 0 이면 실패
+```
+
 ### 링크는 `<Link>` 로
 
 `Pressable` + `router.push()` 는 웹에서 `<a href>` 가 아니라 그냥 `<div>` 다.
