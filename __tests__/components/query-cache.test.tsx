@@ -68,6 +68,11 @@ beforeEach(() => {
   mockDeletePractice.mockResolvedValue({ error: null, fileRemainsWarning: false });
 });
 
+// 화면을 실제로 그리고 비동기 조회를 기다리는 테스트들이라 기본 5초로는 빠듯하다.
+// 단독 실행은 1초면 끝나지만, 24개 스위트가 병렬로 돌 때는 넘긴다. 실제로 전체
+// 실행에서만 간헐적으로 실패했고 단독으로는 통과했다 — 제품이 아니라 부하 문제다.
+const SLOW = 20_000;
+
 describe('연습 기록 화면 — 캐시', () => {
   it('처음 열면 스켈레톤을 보여주고, 데이터가 오면 목록으로 바뀐다', async () => {
     renderScreen();
@@ -76,7 +81,7 @@ describe('연습 기록 화면 — 캐시', () => {
 
     await waitFor(() => expect(screen.getByTestId(TEST_IDS.HISTORY_CARD)).toBeTruthy());
     expect(screen.queryByTestId(TEST_IDS.SKELETON)).toBeNull();
-  });
+  }, SLOW);
 
   it('떠난 지 10분이 지나도 캐시가 남아있다', async () => {
     // gcTime 검증. 관찰자가 사라진 뒤 캐시를 언제 버리는지는 타이머가 정한다.
@@ -97,7 +102,7 @@ describe('연습 기록 화면 — 캐시', () => {
     } finally {
       jest.useRealTimers();
     }
-  });
+  }, SLOW);
 
   it('데이터가 오래돼 다시 불러오는 중에도 스켈레톤 대신 이전 목록을 보여준다', async () => {
     // isPending 과 isFetching 을 가르는 지점. 재조회가 실제로 일어나는 상황을
@@ -140,7 +145,7 @@ describe('연습 기록 화면 — 캐시', () => {
         release({ data: [PRACTICE], error: null });
       });
     }
-  }, 15_000);
+  }, SLOW);
 
   it('조회에 실패하면 에러를 보여준다 — 빈 목록으로 위장하지 않는다', async () => {
     queryClient.clear();
@@ -154,7 +159,7 @@ describe('연습 기록 화면 — 캐시', () => {
     );
     expect(screen.getByText('다시 시도')).toBeTruthy();
     expect(screen.queryByTestId(TEST_IDS.HISTORY_CARD)).toBeNull();
-  }, 15_000);
+  }, SLOW);
 });
 
 describe('unwrap — 서비스 규약을 쿼리 규약으로', () => {
