@@ -1,0 +1,27 @@
+# speaky.co.kr
+#
+# 공개 페이지만 색인 대상이다. 로그인이 필요한 화면은 크롤러가 들어가도 빈
+# 화면만 보게 되므로 막아둔다 — 색인에 남으면 검색 결과가 지저분해진다.
+
+User-agent: *
+Allow: /$
+Allow: /terms
+Allow: /privacy
+Allow: /refund
+
+Disallow: /join/
+Disallow: /confirm
+Disallow: /verify-email
+Disallow: /forgot-password
+Disallow: /connect
+Disallow: /exam
+Disallow: /history
+Disallow: /topics
+Disallow: /classes
+Disallow: /billing
+Disallow: /academies
+Disallow: /users
+Disallow: /settings
+Disallow: /_expo/
+
+Sitemap: https://www.speaky.co.kr/sitemap.xml

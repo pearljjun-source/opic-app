@@ -1,6 +1,7 @@
 import { ScrollView, View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { BusinessInfo } from '@/components/BusinessInfo';
 import { CONTACT } from '@/lib/constants';
 
 /**
@@ -140,6 +141,7 @@ export default function PrivacyScreen() {
       <View style={styles.footer}>
         <Text style={styles.footerText}>© 2026 Speaky. All rights reserved.</Text>
         <Text style={styles.footerText}>문의: {CONTACT.SUPPORT_EMAIL}</Text>
+        <BusinessInfo />
       </View>
     </ScrollView>
   );

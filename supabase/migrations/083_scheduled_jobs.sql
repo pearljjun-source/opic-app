@@ -18,6 +18,7 @@
 --
 --        select vault.create_secret('<CRON_SECRET 과 같은 값>', 'cron_secret');
 --        select vault.create_secret('https://<ref>.supabase.co', 'project_url');
+--        select vault.create_secret('<anon key>', 'anon_key');
 --
 --      Vault 를 쓰는 이유는 cron.job.command 에 시크릿이 평문으로 남지 않게
 --      하기 위해서다. 저장소에도, 작업 정의에도 값이 들어가지 않는다.
@@ -32,6 +33,16 @@ CREATE EXTENSION IF NOT EXISTS pg_net;
 -- 헬퍼: Edge Function 을 cron 인증 헤더와 함께 호출한다
 --
 -- 시크릿을 Vault 에서 그때그때 읽으므로 작업 정의에는 이름만 남는다.
+--
+-- 인증이 두 겹인 이유:
+--   Authorization  Supabase 게이트웨이(verify_jwt)를 통과하기 위한 프로젝트 키.
+--                  anon key 는 클라이언트 앱에 들어가는 공개 값이라 이것만으로는
+--                  아무 권한도 없다. 인터넷의 아무 요청이나 함수까지 닿지 못하게
+--                  하는 1차 문일 뿐이다.
+--   x-cron-secret  실제 인가. 이 값을 아는 쪽만 함수를 실행할 수 있다.
+--
+--   ⚠️ 이 함수들은 verify_jwt 를 끄지 않는다. 다른 Edge Function 들은 꺼져 있지만
+--      (자체 인증을 하므로), 결제를 일으키고 파일을 지우는 쪽은 문을 하나 더 둔다.
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION public._invoke_cron_function(p_function_name text)
@@ -43,6 +54,7 @@ AS $$
 DECLARE
   v_url text;
   v_secret text;
+  v_anon_key text;
 BEGIN
   SELECT decrypted_secret INTO v_url
   FROM vault.decrypted_secrets WHERE name = 'project_url';
@@ -50,14 +62,18 @@ BEGIN
   SELECT decrypted_secret INTO v_secret
   FROM vault.decrypted_secrets WHERE name = 'cron_secret';
 
-  IF v_url IS NULL OR v_secret IS NULL THEN
-    RAISE EXCEPTION 'Vault secrets (project_url, cron_secret) are not configured';
+  SELECT decrypted_secret INTO v_anon_key
+  FROM vault.decrypted_secrets WHERE name = 'anon_key';
+
+  IF v_url IS NULL OR v_secret IS NULL OR v_anon_key IS NULL THEN
+    RAISE EXCEPTION 'Vault secrets (project_url, cron_secret, anon_key) are not configured';
   END IF;
 
   RETURN net.http_post(
     url := v_url || '/functions/v1/' || p_function_name,
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || v_anon_key,
       'x-cron-secret', v_secret
     ),
     body := '{}'::jsonb,

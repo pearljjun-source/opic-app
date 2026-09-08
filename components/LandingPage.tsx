@@ -11,7 +11,8 @@ import {
   Animated,
   Linking,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, Link } from 'expo-router';
+import { BusinessInfo } from '@/components/BusinessInfo';
 import { supabase } from '@/lib/supabase';
 import { getLandingData } from '@/services/landing';
 import type { LandingSection, LandingItem } from '@/lib/types';
@@ -928,13 +929,24 @@ export default function LandingPage() {
             <Image source={require('@/assets/images/speaky-text-logo.png')} style={s.footerText} resizeMode="contain" />
           </View>
           <Text style={s.footerTag}>OPIc 강사·학원을 위한 AI 학습 관리 플랫폼</Text>
+          {/* ⚠️ Pressable + router.push 로 두지 말 것.
+              웹에서 그건 <a href> 가 아니라 그냥 <div> 라서, 크롤러가 따라갈 링크
+              자체가 없다. 결제대행 심사가 약관·환불 정책을 "확인할 수 없다" 고
+              반려한 이유 중 하나다. Link 는 웹에서 진짜 <a href> 로 렌더된다. */}
           <View style={s.footerLinks}>
-            <Pressable onPress={() => router.push('/privacy')}><Text style={s.footerLink}>개인정보처리방침</Text></Pressable>
+            <Link href="/privacy" style={s.footerLink}>개인정보처리방침</Link>
             <Text style={s.footerDiv}>|</Text>
-            <Pressable onPress={() => router.push('/terms')}><Text style={s.footerLink}>이용약관</Text></Pressable>
+            <Link href="/terms" style={s.footerLink}>이용약관</Link>
+            <Text style={s.footerDiv}>|</Text>
+            <Link href="/refund" style={s.footerLink}>환불정책</Link>
             <Text style={s.footerDiv}>|</Text>
             <Pressable onPress={() => Linking.openURL(CONTACT_URL)}><Text style={s.footerLink}>문의하기</Text></Pressable>
           </View>
+
+          {/* 전자상거래법 제10조 표시 의무. 랜딩에도 둔다 — 이용자가 약관 페이지까지
+              들어가지 않아도 보여야 하고, 크롤러도 첫 페이지에서 찾을 수 있어야 한다. */}
+          <BusinessInfo />
+
           <Text style={s.footerCopy}>© 2026 Speaky. All rights reserved.</Text>
         </View>
       </View>
